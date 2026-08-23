@@ -25,6 +25,29 @@ export async function confirmSession(sessionId: string) {
   return { error: null }
 }
 
+/** Confirms every pending session in one go — same effect as confirmSession, just batched so the teacher isn't clicking Confirm one row at a time. */
+export async function confirmAllSessions(sessionIds: string[]) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'You must be signed in.' }
+  if (sessionIds.length === 0) return { error: null }
+
+  const { error } = await supabase
+    .from('session_plans')
+    .update({ status: 'accepted', responded_at: new Date().toISOString() })
+    .in('id', sessionIds)
+    .eq('teacher_id', user.id)
+    .eq('status', 'pending')
+
+  if (error) return { error: 'Could not confirm sessions.' }
+
+  revalidatePath('/teacher')
+  return { error: null }
+}
+
 /**
  * Marks a session delivered. Only one-off sessions are completable — a
  * weekly-recurring row is a standing commitment with no single occurrence to

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmSession, completeSession } from './actions'
+import { confirmSession, completeSession, confirmAllSessions } from './actions'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
 
 const WEEKDAYS = [1, 2, 3, 4, 5]
@@ -31,6 +31,7 @@ export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isBulkPending, startBulkTransition] = useTransition()
   const router = useRouter()
 
   function handleConfirm(sessionId: string) {
@@ -62,18 +63,34 @@ export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }
     })
   }
 
+  function handleConfirmAll(sessionIds: string[]) {
+    if (!confirm(`Confirm all ${sessionIds.length} pending session${sessionIds.length === 1 ? '' : 's'} this week?`)) return
+    setError(null)
+    startBulkTransition(async () => {
+      const result = await confirmAllSessions(sessionIds)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
+
   if (sessions.length === 0) {
     return <p className="text-sm text-gray-500">No sessions assigned yet.</p>
   }
 
+  const visibleSessions = sessions.filter((s) => s.recurrenceType !== 'one_off' || s.date === dateForDayOfWeek(weekStart, s.dayOfWeek))
+
   const byCell = new Map<string, TeacherSessionRow[]>()
-  for (const s of sessions) {
-    if (s.recurrenceType === 'one_off' && s.date !== dateForDayOfWeek(weekStart, s.dayOfWeek)) continue
+  for (const s of visibleSessions) {
     const key = cellKey(s.dayOfWeek, Number(s.startTime.slice(0, 2)))
     const arr = byCell.get(key) ?? []
     arr.push(s)
     byCell.set(key, arr)
   }
+
+  const pendingIdsThisWeek = visibleSessions.filter((s) => s.status === 'pending').map((s) => s.id)
 
   const isCurrentWeek = weekStart === getWeekStart(new Date())
 
@@ -101,6 +118,16 @@ export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }
           Next →
         </button>
       </div>
+
+      {pendingIdsThisWeek.length > 0 && (
+        <button
+          onClick={() => handleConfirmAll(pendingIdsThisWeek)}
+          disabled={isPending || isBulkPending}
+          className="self-start rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {isBulkPending ? 'Confirming…' : `Confirm all (${pendingIdsThisWeek.length})`}
+        </button>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -145,7 +172,7 @@ export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }
                             {s.status === 'pending' && (
                               <button
                                 onClick={() => handleConfirm(s.id)}
-                                disabled={isPending && pendingId === s.id}
+                                disabled={isBulkPending || (isPending && pendingId === s.id)}
                                 className="mt-0.5 text-[10px] text-blue-700 hover:underline disabled:opacity-50"
                               >
                                 Confirm
