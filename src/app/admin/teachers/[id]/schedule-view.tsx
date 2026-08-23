@@ -1,12 +1,15 @@
-import { conflictWindow, windowsOverlap, type ConflictWindow } from '@/lib/matching/suggest'
+import { conflictWindow } from '@/lib/matching/suggest'
 import type { TeacherAvailability } from '@/lib/supabase/types'
 import { dateForDayOfWeek } from '@/lib/week'
-import { BUSINESS_TIMEZONE, formatTimeInBusinessTz } from '@/lib/timezone'
+import { BUSINESS_TIMEZONE, dateStringInBusinessTz } from '@/lib/timezone'
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-// weekStartDate is always a Monday — walk the week in calendar order, not JS's Sunday-first day_of_week numbering.
+// Column order follows the Monday-start week (weekStartDate is always a
+// Monday), not JS's default Sunday-first day_of_week numbering — same
+// convention as the teacher's own availability grid.
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
-const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
+const HOURS = Array.from({ length: 9 }, (_, i) => 8 + i) // 8:00 through 16:00 (last block ends 17:00)
+const dayLabelFormatter = new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
 
 export interface SessionForSchedule {
   id: string
@@ -16,8 +19,13 @@ export interface SessionForSchedule {
   day_of_week: number | null
   time_of_day_start: string | null
   time_of_day_end: string | null
+  status: string
   studentName: string
   protocolName: string
+}
+
+function cellKey(day: number, hour: number) {
+  return `${day}-${hour}`
 }
 
 export function ScheduleView({
@@ -29,82 +37,89 @@ export function ScheduleView({
   availability: TeacherAvailability[]
   sessions: SessionForSchedule[]
 }) {
-  const sessionWindows = sessions
-    .map((s) => ({ session: s, window: conflictWindow(s) }))
-    .filter((sw): sw is { session: SessionForSchedule; window: ConflictWindow } => sw.window !== null)
+  const availableCells = new Set<string>()
+  for (const a of availability) {
+    const startHour = Number(a.start_time.slice(0, 2))
+    const endHour = Number(a.end_time.slice(0, 2))
+    for (let h = startHour; h < endHour; h++) availableCells.add(cellKey(a.day_of_week, h))
+  }
 
-  const matchedSessionIds = new Set<string>()
-
-  const byDay = DAY_ORDER.map((day) => ({
-    day,
-    windows: availability.filter((a) => a.day_of_week === day).sort((a, b) => a.start_time.localeCompare(b.start_time)),
-  })).filter((d) => d.windows.length > 0)
+  const byCell = new Map<string, SessionForSchedule[]>()
+  for (const s of sessions) {
+    const window = conflictWindow(s)
+    if (!window) continue
+    // A weekly-recurring session has no date of its own — it shows every
+    // week it recurs through. A one-off only belongs on the specific week
+    // its actual date falls in, not every week that happens to share its
+    // day-of-week/time (conflictWindow only carries day-of-week + time).
+    if (s.recurrence_type === 'one_off') {
+      if (!s.start_time) continue
+      const actualDate = dateStringInBusinessTz(new Date(s.start_time))
+      if (actualDate !== dateForDayOfWeek(weekStartDate, window.dayOfWeek)) continue
+    }
+    const hour = Number(window.startTime.slice(0, 2))
+    const key = cellKey(window.dayOfWeek, hour)
+    const arr = byCell.get(key) ?? []
+    arr.push(s)
+    byCell.set(key, arr)
+  }
 
   return (
-    <div className="flex flex-col gap-4">
-      {byDay.length === 0 ? (
-        <p className="text-sm text-gray-500">No availability set yet.</p>
-      ) : (
-        byDay.map(({ day, windows }) => (
-          <div key={day}>
-            <p className="text-sm font-medium text-gray-700">
-              {DAYS[day]} <span className="font-normal text-gray-400">{dateFormatter.format(new Date(`${dateForDayOfWeek(weekStartDate, day)}T00:00:00Z`))}</span>
-            </p>
-            <ul className="mt-1 flex flex-col gap-1">
-              {windows.map((w) => {
-                const availWindow: ConflictWindow = {
-                  dayOfWeek: w.day_of_week,
-                  startTime: w.start_time,
-                  endTime: w.end_time,
-                }
-                const booked = sessionWindows.filter((sw) => windowsOverlap(sw.window, availWindow))
-                booked.forEach((b) => matchedSessionIds.add(b.session.id))
-
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr>
+            <th className="p-1"></th>
+            {DAY_ORDER.map((day) => (
+              <th key={day} className="p-1 text-center font-medium text-gray-600">
+                {DAY_NAMES[day]}
+                <div className="font-normal text-gray-400">
+                  {dayLabelFormatter.format(new Date(`${dateForDayOfWeek(weekStartDate, day)}T00:00:00Z`))}
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {HOURS.map((hour) => (
+            <tr key={hour} className="border-t border-gray-100">
+              <td className="whitespace-nowrap p-1 text-right text-gray-500">{hour}:00</td>
+              {DAY_ORDER.map((day) => {
+                const isAvailable = availableCells.has(cellKey(day, hour))
+                const here = byCell.get(cellKey(day, hour)) ?? []
                 return (
-                  <li key={w.id} className="rounded-lg border border-gray-200 p-2 text-sm">
-                    <span className="text-gray-600">
-                      {w.start_time.slice(0, 5)}–{w.end_time.slice(0, 5)}
-                    </span>
-                    {booked.length === 0 ? (
-                      <span className="ml-2 text-green-700">free</span>
+                  <td key={day} className={`p-1 align-top ${isAvailable ? '' : 'bg-gray-50'}`}>
+                    {here.length === 0 ? (
+                      isAvailable && <span className="text-xs text-green-700">free</span>
                     ) : (
-                      <ul className="mt-1 flex flex-col gap-0.5 pl-3">
-                        {booked.map(({ session, window }) => (
-                          <li key={session.id} className="text-gray-800">
-                            {window.startTime.slice(0, 5)}–{window.endTime.slice(0, 5)} · {session.studentName} —{' '}
-                            {session.protocolName}
-                          </li>
+                      <div className="flex flex-col gap-1">
+                        {here.map((s) => (
+                          <div
+                            key={s.id}
+                            className={`rounded px-1 py-0.5 text-xs ${
+                              !isAvailable
+                                ? 'border border-amber-300 bg-amber-50 text-amber-900'
+                                : s.status === 'completed'
+                                  ? 'bg-green-50 text-green-800'
+                                  : s.status === 'accepted'
+                                    ? 'bg-blue-50 text-blue-800'
+                                    : 'bg-yellow-50 text-yellow-800'
+                            }`}
+                          >
+                            <p className="font-medium leading-tight">{s.protocolName}</p>
+                            <p className="leading-tight opacity-80">{s.studentName}</p>
+                            {!isAvailable && <p className="leading-tight text-[10px] uppercase opacity-70">outside availability</p>}
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     )}
-                  </li>
+                  </td>
                 )
               })}
-            </ul>
-          </div>
-        ))
-      )}
-
-      {sessions.filter((s) => !matchedSessionIds.has(s.id)).length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-gray-700">Booked outside declared availability</p>
-          <ul className="mt-1 flex flex-col gap-1">
-            {sessions
-              .filter((s) => !matchedSessionIds.has(s.id))
-              .map((s) => {
-                const when =
-                  s.recurrence_type === 'one_off' && s.start_time && s.end_time
-                    ? `${dateFormatter.format(new Date(s.start_time))} ${formatTimeInBusinessTz(new Date(s.start_time)).slice(0, 5)}–${formatTimeInBusinessTz(new Date(s.end_time)).slice(0, 5)}`
-                    : `Every ${DAYS[s.day_of_week ?? 0]} ${s.time_of_day_start?.slice(0, 5)}–${s.time_of_day_end?.slice(0, 5)}`
-                return (
-                  <li key={s.id} className="rounded-lg border border-yellow-200 bg-yellow-50 p-2 text-sm">
-                    {when} · {s.studentName} — {s.protocolName}
-                  </li>
-                )
-              })}
-          </ul>
-        </div>
-      )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

@@ -40,7 +40,7 @@ export default async function TeacherDetailPage({
     supabase
       .from('session_plans')
       .select(
-        'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, students(name), protocols(title)'
+        'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, students(name), protocols(title)'
       )
       .eq('teacher_id', id)
       .in('status', ['pending', 'accepted', 'completed']),
@@ -67,6 +67,7 @@ export default async function TeacherDetailPage({
     day_of_week: s.day_of_week,
     time_of_day_start: s.time_of_day_start,
     time_of_day_end: s.time_of_day_end,
+    status: s.status,
     studentName: (Array.isArray(s.students) ? s.students[0]?.name : s.students?.name) ?? 'Unknown student',
     protocolName: (Array.isArray(s.protocols) ? s.protocols[0]?.title : s.protocols?.title) ?? 'Unknown protocol',
   }))
@@ -96,7 +97,8 @@ export default async function TeacherDetailPage({
           <ClearScheduleButton teacherId={id} teacherName={teacher.name} sessionCount={sessionRows.length} />
         </div>
         <p className="mb-2 text-sm text-gray-500">
-          Availability the teacher has uploaded, with any booked sessions shown inline.
+          Availability the teacher has uploaded, with any booked sessions shown inline — yellow pending, blue
+          accepted, green completed. A session in an amber box fell outside her declared availability for that hour.
         </p>
         <div className="mb-3 flex items-center gap-3 text-sm">
           <Link href={`?week=${addWeeks(weekStartDate, -1)}`} className="text-blue-600 hover:underline">
