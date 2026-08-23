@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { dateStringInBusinessTz } from '@/lib/timezone'
-import { MissingProtocols } from './missing-protocols'
+import { ProtocolStatusList, type ProtocolStatus } from './protocol-status-list'
 import { SuggestionsNav } from '../suggestions-nav'
 
 const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -12,7 +12,7 @@ interface CoverageRow {
   total: number
   doneCount: number
   coveragePercent: number
-  missing: { protocolId: string; title: string; prioritized: boolean; alreadyBooked: boolean }[]
+  protocols: ProtocolStatus[]
 }
 
 function coverageColor(percent: number) {
@@ -37,7 +37,7 @@ function CoverageTable({ title, rows }: { title: string; rows: CoverageRow[] }) 
                 <th className="p-3 font-medium text-gray-700">Student</th>
                 <th className="p-3 font-medium text-gray-700">Monthly coverage</th>
                 <th className="p-3 font-medium text-gray-700">Done this month</th>
-                <th className="p-3 font-medium text-gray-700">Missing protocols</th>
+                <th className="p-3 font-medium text-gray-700">Protocols this month</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -45,15 +45,11 @@ function CoverageTable({ title, rows }: { title: string; rows: CoverageRow[] }) 
                 <tr key={r.id}>
                   <td className="p-3">{r.name}</td>
                   <td className={`p-3 text-xl font-bold ${coverageColor(r.coveragePercent)}`}>{r.coveragePercent}%</td>
-                  <td className={`p-3 font-medium ${r.missing.length === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <td className={`p-3 font-medium ${r.doneCount === r.total ? 'text-green-600' : 'text-red-600'}`}>
                     {r.doneCount}/{r.total}
                   </td>
                   <td className="p-3">
-                    {r.missing.length === 0 ? (
-                      <span className="text-green-600">All done</span>
-                    ) : (
-                      <MissingProtocols studentId={r.id} missing={r.missing} />
-                    )}
+                    <ProtocolStatusList studentId={r.id} protocols={r.protocols} />
                   </td>
                 </tr>
               ))}
@@ -112,12 +108,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     monthlySatisfiedByStudent.set(row.student_id, set)
   }
 
-  // A "missing" (not-yet-delivered) protocol can still already have a
-  // pending/accepted one-off session booked for it this month — Prioritize
-  // would be a no-op there, since getUnmetNeeds already excludes anything
-  // with an active session this month from Generate Schedule's candidate
-  // pool regardless of the prioritized flag. Only a protocol with no session
-  // at all this month is genuinely actionable via Prioritize.
+  // A not-yet-delivered protocol can still already have a pending/accepted
+  // one-off session booked for it this month — Prioritize would be a no-op
+  // there, since getUnmetNeeds already excludes anything with an active
+  // session this month from Generate Schedule's candidate pool regardless of
+  // the prioritized flag. Only a protocol with no session at all this month
+  // is genuinely actionable via Prioritize.
   const bookedThisMonthByStudent = new Map<string, Set<string>>()
   for (const row of monthSessionRows ?? []) {
     if (row.recurrence_type !== 'one_off' || row.status === 'completed') continue
@@ -136,18 +132,18 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       const neededNames = neededProtocolNamesByStudent.get(s.id)
       if (!neededNames || neededNames.size === 0) return null
       const satisfied = monthlySatisfiedByStudent.get(s.id) ?? new Set<string>()
-      const missing = Array.from(neededNames.entries())
-        .filter(([protocolId]) => !satisfied.has(protocolId))
+      const bookedThisMonth = bookedThisMonthByStudent.get(s.id) ?? new Set<string>()
+      const protocols: ProtocolStatus[] = Array.from(neededNames.entries())
         .map(([protocolId, title]) => ({
           protocolId,
           title,
+          state: satisfied.has(protocolId) ? ('done' as const) : bookedThisMonth.has(protocolId) ? ('booked' as const) : ('unscheduled' as const),
           prioritized: prioritizedSet.has(`${s.id}:${protocolId}`),
-          alreadyBooked: bookedThisMonthByStudent.get(s.id)?.has(protocolId) ?? false,
         }))
         .sort((a, b) => a.title.localeCompare(b.title))
-      const doneCount = neededNames.size - missing.length
+      const doneCount = protocols.filter((p) => p.state === 'done').length
       const coveragePercent = Math.min(100, Math.round((doneCount / neededNames.size) * 100))
-      return { id: s.id, name: s.name, status: s.status, total: neededNames.size, doneCount, coveragePercent, missing }
+      return { id: s.id, name: s.name, status: s.status, total: neededNames.size, doneCount, coveragePercent, protocols }
     })
     .filter((r): r is NonNullable<typeof r> => r !== null)
 
@@ -179,8 +175,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <p className="mb-4 text-sm text-gray-500">
         Whether each student has had a protocol actually delivered this calendar month, not just booked — a one-off
         session only counts once the teacher marks it Complete; a weekly-recurring session counts for every month it
-        recurs through. Prioritize a missing protocol to jump it to the front of Generate Schedule&apos;s queue for
-        its next attempt.
+        recurs through. Green is delivered, grey is already booked and just awaiting completion, red is genuinely
+        unscheduled — prioritize a red one to jump it to the front of Generate Schedule&apos;s queue for its next
+        attempt.
       </p>
 
       {monthlyRows.length === 0 ? (
