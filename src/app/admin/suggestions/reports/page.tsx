@@ -12,7 +12,7 @@ interface CoverageRow {
   total: number
   doneCount: number
   coveragePercent: number
-  missing: { protocolId: string; title: string; prioritized: boolean }[]
+  missing: { protocolId: string; title: string; prioritized: boolean; alreadyBooked: boolean }[]
 }
 
 function coverageColor(percent: number) {
@@ -112,6 +112,22 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     monthlySatisfiedByStudent.set(row.student_id, set)
   }
 
+  // A "missing" (not-yet-delivered) protocol can still already have a
+  // pending/accepted one-off session booked for it this month — Prioritize
+  // would be a no-op there, since getUnmetNeeds already excludes anything
+  // with an active session this month from Generate Schedule's candidate
+  // pool regardless of the prioritized flag. Only a protocol with no session
+  // at all this month is genuinely actionable via Prioritize.
+  const bookedThisMonthByStudent = new Map<string, Set<string>>()
+  for (const row of monthSessionRows ?? []) {
+    if (row.recurrence_type !== 'one_off' || row.status === 'completed') continue
+    const inMonth = row.start_time && dateStringInBusinessTz(new Date(row.start_time)).startsWith(monthPrefix)
+    if (!inMonth) continue
+    const set = bookedThisMonthByStudent.get(row.student_id) ?? new Set<string>()
+    set.add(row.protocol_id)
+    bookedThisMonthByStudent.set(row.student_id, set)
+  }
+
   const monthlyRows = (students ?? [])
     .map((s) => {
       // Inactive students are never allocated, so they'd only ever show as
@@ -126,6 +142,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           protocolId,
           title,
           prioritized: prioritizedSet.has(`${s.id}:${protocolId}`),
+          alreadyBooked: bookedThisMonthByStudent.get(s.id)?.has(protocolId) ?? false,
         }))
         .sort((a, b) => a.title.localeCompare(b.title))
       const doneCount = neededNames.size - missing.length

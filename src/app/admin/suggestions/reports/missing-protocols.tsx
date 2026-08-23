@@ -8,6 +8,8 @@ export interface MissingProtocol {
   protocolId: string
   title: string
   prioritized: boolean
+  /** Already has a pending/accepted one-off session this month, just not yet marked Complete — Prioritize would be a no-op since Generate Schedule already treats it as active. */
+  alreadyBooked: boolean
 }
 
 export function MissingProtocols({ studentId, missing }: { studentId: string; missing: MissingProtocol[] }) {
@@ -26,21 +28,28 @@ export function MissingProtocols({ studentId, missing }: { studentId: string; mi
 
   return (
     <ul className="flex flex-col gap-1">
-      {missing.map((m) => (
-        <li key={m.protocolId} className="flex items-center gap-2">
-          <span className={m.prioritized ? 'text-blue-700' : 'text-red-600'}>
-            {m.prioritized && <span className="mr-1 text-amber-500">★</span>}
-            {m.title}
-          </span>
-          <button
-            onClick={() => handleToggle(m.protocolId, m.prioritized)}
-            disabled={isPending && pendingId === m.protocolId}
-            className="text-xs text-gray-500 hover:underline disabled:opacity-50"
-          >
-            {m.prioritized ? 'Un-prioritize' : 'Prioritize'}
-          </button>
-        </li>
-      ))}
+      {missing.map((m) =>
+        m.alreadyBooked ? (
+          <li key={m.protocolId} className="flex items-center gap-2">
+            <span className="text-gray-400">{m.title}</span>
+            <span className="text-xs text-gray-400">Already booked, awaiting completion</span>
+          </li>
+        ) : (
+          <li key={m.protocolId} className="flex items-center gap-2">
+            <span className={m.prioritized ? 'text-blue-700' : 'text-red-600'}>
+              {m.prioritized && <span className="mr-1 text-amber-500">★</span>}
+              {m.title}
+            </span>
+            <button
+              onClick={() => handleToggle(m.protocolId, m.prioritized)}
+              disabled={isPending && pendingId === m.protocolId}
+              className="text-xs text-gray-500 hover:underline disabled:opacity-50"
+            >
+              {m.prioritized ? 'Un-prioritize' : 'Prioritize'}
+            </button>
+          </li>
+        )
+      )}
     </ul>
   )
 }
