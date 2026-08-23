@@ -24,7 +24,7 @@ export function NewTeacherForm() {
   }
 
   return (
-    <form ref={formRef} action={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+    <form ref={formRef} action={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-5">
       <input
         name="name"
         placeholder="Teacher name"
@@ -46,6 +46,10 @@ export function NewTeacherForm() {
         minLength={6}
         className="rounded-lg border border-gray-300 px-3 py-2"
       />
+      <select name="status" defaultValue="teacher" className="rounded-lg border border-gray-300 px-3 py-2">
+        <option value="teacher">Teacher</option>
+        <option value="therapist">Therapist</option>
+      </select>
       <button
         type="submit"
         disabled={isPending}

@@ -3,21 +3,24 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function toggleSubject(studentId: string, subjectId: string, enabled: boolean) {
+export async function toggleProtocol(
+  studentId: string,
+  protocolId: string,
+  subProtocolId: string | null,
+  enabled: boolean
+) {
   const supabase = await createClient()
 
   if (enabled) {
     const { error } = await supabase
-      .from('student_subjects')
-      .insert({ student_id: studentId, subject_id: subjectId })
-    if (error) return { error: 'Could not add subject.' }
+      .from('student_protocols')
+      .insert({ student_id: studentId, protocol_id: protocolId, sub_protocol_id: subProtocolId })
+    if (error) return { error: 'Could not add protocol.' }
   } else {
-    const { error } = await supabase
-      .from('student_subjects')
-      .delete()
-      .eq('student_id', studentId)
-      .eq('subject_id', subjectId)
-    if (error) return { error: 'Could not remove subject.' }
+    let query = supabase.from('student_protocols').delete().eq('student_id', studentId).eq('protocol_id', protocolId)
+    query = subProtocolId ? query.eq('sub_protocol_id', subProtocolId) : query.is('sub_protocol_id', null)
+    const { error } = await query
+    if (error) return { error: 'Could not remove protocol.' }
   }
 
   revalidatePath(`/parent/students/${studentId}`)
@@ -28,11 +31,13 @@ export async function addAvailability(studentId: string, formData: FormData) {
   const supabase = await createClient()
 
   const day = formData.get('day')
+  const specificDate = String(formData.get('specificDate') || '')
   const startTime = String(formData.get('startTime') || '')
   const endTime = String(formData.get('endTime') || '')
 
-  if (day === null || day === '' || !startTime || !endTime) {
-    return { error: 'Day, start time, and end time are all required.' }
+  const hasDay = day !== null && day !== ''
+  if ((!hasDay && !specificDate) || !startTime || !endTime) {
+    return { error: 'A day (or specific date), start time, and end time are all required.' }
   }
 
   if (startTime >= endTime) {
@@ -41,7 +46,8 @@ export async function addAvailability(studentId: string, formData: FormData) {
 
   const { error } = await supabase.from('student_availability').insert({
     student_id: studentId,
-    day_of_week: Number(day),
+    day_of_week: hasDay ? Number(day) : null,
+    specific_date: hasDay ? null : specificDate,
     start_time: startTime,
     end_time: endTime,
   })

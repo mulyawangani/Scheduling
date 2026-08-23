@@ -1,31 +1,70 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { LogoutButton } from '@/components/logout-button'
+import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
+import { generateSchedule } from '@/lib/matching/generate-schedule'
+import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
 
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-})
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-function scoreColor(score: number | null) {
-  if (score === null) return 'bg-gray-100 text-gray-600'
-  if (score >= 70) return 'bg-green-50 text-green-700'
-  if (score >= 40) return 'bg-yellow-50 text-yellow-700'
-  return 'bg-red-50 text-red-700'
+function percentColor(percent: number | null) {
+  if (percent === null) return 'text-gray-400'
+  if (percent >= 70) return 'text-green-600'
+  if (percent >= 40) return 'text-yellow-600'
+  return 'text-red-600'
 }
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
 
-  const { data: sessions } = await supabase
-    .from('session_plans')
-    .select(
-      'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, source, match_score, students(name), subjects(name), profiles!session_plans_teacher_id_fkey(name)'
-    )
-    .in('status', ['pending', 'accepted'])
-    .order('created_at', { ascending: false })
+  const [{ data: allNeeds }, unmet] = await Promise.all([
+    supabase.from('student_protocols').select('student_id, protocol_id, students(status)'),
+    getUnmetNeeds(supabase, getUpcomingWeekStart()),
+  ])
+
+  // Grouped by (student, protocol) — a protocol with several needed
+  // sub-protocols (e.g. Reflex Repatterning) is one bookable session, so it
+  // counts as one need here too, matching how Suggestions groups them.
+  // Inactive students are excluded — they're never allocated, so counting
+  // their needs here would understate fulfillment for no actionable reason.
+  const total = new Set(
+    (allNeeds ?? [])
+      .filter((n) => (Array.isArray(n.students) ? n.students[0]?.status : n.students?.status) !== 'inactive')
+      .map((n) => `${n.student_id}:${n.protocol_id}`)
+  ).size
+  const scheduled = Math.max(0, total - unmet.length)
+  const percent = total > 0 ? Math.round((scheduled / total) * 100) : null
+
+  // Weeks worth breaking out individually: every week with a committed
+  // one-off session, plus every week a schedule was generated/saved as a
+  // version — no version is required, this is computed live from
+  // generateSchedule() the same way the Simulations page already does.
+  // Weekly-recurring sessions repeat indefinitely rather than belonging to
+  // one week, so they aren't attributed to a single row here.
+  const [{ data: oneOffDates }, { data: versionWeeks }] = await Promise.all([
+    supabase
+      .from('session_plans')
+      .select('start_time')
+      .eq('recurrence_type', 'one_off')
+      .in('status', ['pending', 'accepted', 'completed']),
+    supabase.from('schedule_versions').select('week_start_date'),
+  ])
+
+  const weekSet = new Set<string>()
+  for (const row of oneOffDates ?? []) {
+    if (row.start_time) weekSet.add(getWeekStart(new Date(row.start_time)))
+  }
+  for (const row of versionWeeks ?? []) {
+    weekSet.add(row.week_start_date)
+  }
+  const weeks = Array.from(weekSet).sort()
+
+  const weekBreakdown = await Promise.all(
+    weeks.map(async (weekStartDate) => {
+      const weekSchedule = await generateSchedule(supabase, weekStartDate)
+      const weekTotal = weekSchedule.existing.length + weekSchedule.unscheduled.length
+      const weekPercent = weekTotal > 0 ? Math.round((weekSchedule.existing.length / weekTotal) * 100) : null
+      return { weekStartDate, scheduled: weekSchedule.existing.length, total: weekTotal, percent: weekPercent }
+    })
+  )
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -38,49 +77,50 @@ export default async function AdminDashboard() {
           <Link href="/admin/teachers" className="text-blue-600 hover:underline">
             Teachers
           </Link>
-          <Link href="/admin/students" className="text-blue-600 hover:underline">
-            Students
+          <Link href="/admin/protocols" className="text-blue-600 hover:underline">
+            Protocols
+          </Link>
+          <Link href="/admin/children" className="text-blue-600 hover:underline">
+            Children
           </Link>
           <Link href="/admin/parents" className="text-blue-600 hover:underline">
             Parents
           </Link>
+          <Link href="/admin/calendar" className="text-blue-600 hover:underline">
+            Calendar
+          </Link>
+          <LogoutButton />
         </div>
       </div>
 
-      <div>
+      <div className="rounded-lg border border-gray-200 p-6 text-center">
         <h2 className="mb-2 text-sm font-medium text-gray-700">Active schedule</h2>
-        {!sessions || sessions.length === 0 ? (
-          <p className="text-sm text-gray-500">No sessions scheduled yet.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
-            {sessions.map((s) => {
-              const studentName = Array.isArray(s.students) ? s.students[0]?.name : s.students?.name
-              const subjectName = Array.isArray(s.subjects) ? s.subjects[0]?.name : s.subjects?.name
-              const teacherName = Array.isArray(s.profiles) ? s.profiles[0]?.name : s.profiles?.name
-              const when =
-                s.recurrence_type === 'one_off' && s.start_time && s.end_time
-                  ? `${dateFormatter.format(new Date(s.start_time))} – ${dateFormatter.format(new Date(s.end_time))}`
-                  : `Every ${DAYS[s.day_of_week ?? 0]} ${s.time_of_day_start?.slice(0, 5)}–${s.time_of_day_end?.slice(0, 5)}`
-              return (
-                <li key={s.id} className="flex items-center justify-between gap-3 p-3">
-                  <div>
-                    <p className="font-medium">
-                      {studentName} — {subjectName} with {teacherName}
-                    </p>
-                    <p className="text-sm text-gray-500">{when}</p>
-                    <span className="text-xs uppercase text-gray-400">
-                      {s.status} · {s.source}
-                    </span>
-                  </div>
-                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${scoreColor(s.match_score)}`}>
-                    {s.match_score === null ? 'unscored' : `${s.match_score}%`}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        <p className={`text-5xl font-semibold ${percentColor(percent)}`}>{percent === null ? '—' : `${percent}%`}</p>
+        <p className="mt-2 text-sm text-gray-500">
+          {total === 0 ? 'No protocol needs yet.' : `${scheduled} of ${total} protocol needs currently scheduled`}
+        </p>
       </div>
+
+      {weekBreakdown.length > 0 && (
+        <div className="rounded-lg border border-gray-200 p-4">
+          <h2 className="mb-3 text-sm font-medium text-gray-700">Active schedule by week</h2>
+          <ul className="flex flex-col divide-y divide-gray-200">
+            {weekBreakdown.map((w) => (
+              <li key={w.weekStartDate} className="flex items-center justify-between py-2 text-sm">
+                <Link href={`/admin/suggestions?week=${w.weekStartDate}`} className="text-blue-600 hover:underline">
+                  Week of {formatWeekLabel(w.weekStartDate)}
+                </Link>
+                <span className={`font-semibold ${percentColor(w.percent)}`}>
+                  {w.percent === null ? '—' : `${w.percent}%`}{' '}
+                  <span className="font-normal text-gray-400">
+                    ({w.scheduled}/{w.total})
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </main>
   )
 }

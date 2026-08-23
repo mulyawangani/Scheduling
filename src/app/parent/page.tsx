@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
+import { LogoutButton } from '@/components/logout-button'
 
 export default async function ParentDashboard() {
   const result = await getUserProfile()
@@ -8,7 +9,7 @@ export default async function ParentDashboard() {
 
   const { data: students } = await supabase
     .from('students')
-    .select('id, name, student_subjects(subjects(name))')
+    .select('id, name, student_protocols(protocols(title))')
     .eq('parent_id', result!.user.id)
     .order('created_at', { ascending: true })
 
@@ -16,12 +17,15 @@ export default async function ParentDashboard() {
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Your students</h1>
-        <Link
-          href="/parent/students/new"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Add student
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/parent/students/new"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Add student
+          </Link>
+          <LogoutButton />
+        </div>
       </div>
 
       {!students || students.length === 0 ? (
@@ -29,8 +33,8 @@ export default async function ParentDashboard() {
       ) : (
         <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
           {students.map((student) => {
-            const subjectNames = (student.student_subjects ?? [])
-              .map((ss) => (Array.isArray(ss.subjects) ? ss.subjects[0]?.name : ss.subjects?.name))
+            const protocolNames = (student.student_protocols ?? [])
+              .map((sp) => (Array.isArray(sp.protocols) ? sp.protocols[0]?.title : sp.protocols?.title))
               .filter(Boolean)
             return (
               <li key={student.id} className="p-3">
@@ -38,7 +42,7 @@ export default async function ParentDashboard() {
                   {student.name}
                 </Link>
                 <p className="text-sm text-gray-500">
-                  {subjectNames.length > 0 ? subjectNames.join(', ') : 'No subjects set yet'}
+                  {protocolNames.length > 0 ? protocolNames.join(', ') : 'No protocols set yet'}
                 </p>
               </li>
             )

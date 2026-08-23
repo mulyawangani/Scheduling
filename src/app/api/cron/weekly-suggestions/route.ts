@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
+import { getUpcomingWeekStart } from '@/lib/week'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 
 /**
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient()
 
-  const needs = await getUnmetNeeds(supabase)
+  const needs = await getUnmetNeeds(supabase, getUpcomingWeekStart())
 
   if (needs.length === 0) {
     return NextResponse.json({ notified: 0, unmetNeeds: 0 })

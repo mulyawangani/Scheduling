@@ -1,7 +1,13 @@
 export type UserRole = 'parent' | 'teacher' | 'owner'
 export type RecurrenceType = 'one_off' | 'weekly'
 export type SessionSource = 'algorithm' | 'manual'
-export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled'
+export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed'
+export type StudentStatus = 'student' | 'non_student' | 'inactive'
+export type HolidayType = 'school' | 'public'
+export type TeacherStatus = 'teacher' | 'therapist'
+export type ServesScope = 'student_only' | 'non_student_only' | 'both'
+export type RankFactor = 'priority' | 'rate' | 'protocol_needs' | 'match_quality' | 'teacher_rating'
+export type SortDirection = 'asc' | 'desc'
 
 export interface Database {
   public: {
@@ -14,6 +20,10 @@ export interface Database {
           phone: string | null
           email: string | null
           priority_tier: number
+          weekly_quota: number | null
+          daily_quota: number | null
+          status: TeacherStatus | null
+          serves_scope: ServesScope | null
           created_at: string
         }
         Insert: {
@@ -23,6 +33,10 @@ export interface Database {
           phone?: string | null
           email?: string | null
           priority_tier?: number
+          weekly_quota?: number | null
+          daily_quota?: number | null
+          status?: TeacherStatus | null
+          serves_scope?: ServesScope | null
           created_at?: string
         }
         Update: {
@@ -32,42 +46,102 @@ export interface Database {
           phone?: string | null
           email?: string | null
           priority_tier?: number
+          weekly_quota?: number | null
+          daily_quota?: number | null
+          status?: TeacherStatus | null
+          serves_scope?: ServesScope | null
           created_at?: string
         }
         Relationships: []
       }
-      subjects: {
+      protocols: {
         Row: {
           id: string
-          name: string
+          title: string
+          instructions: string | null
+          is_active: boolean
+          created_at: string
         }
         Insert: {
           id?: string
-          name: string
+          title: string
+          instructions?: string | null
+          is_active?: boolean
+          created_at?: string
         }
         Update: {
           id?: string
-          name?: string
+          title?: string
+          instructions?: string | null
+          is_active?: boolean
+          created_at?: string
         }
         Relationships: []
+      }
+      sub_protocols: {
+        Row: {
+          id: string
+          protocol_id: string
+          title: string
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          protocol_id: string
+          title: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          protocol_id?: string
+          title?: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sub_protocols_protocol_id_fkey'
+            columns: ['protocol_id']
+            isOneToOne: false
+            referencedRelation: 'protocols'
+            referencedColumns: ['id']
+          },
+        ]
       }
       students: {
         Row: {
           id: string
           parent_id: string
           name: string
+          date_of_birth: string | null
+          rate_per_session: number | null
+          priority: number | null
+          status: StudentStatus | null
+          weekly_target_sessions: number
           created_at: string
         }
         Insert: {
           id?: string
           parent_id: string
           name: string
+          date_of_birth?: string | null
+          rate_per_session?: number | null
+          priority?: number | null
+          status?: StudentStatus | null
+          weekly_target_sessions?: number
           created_at?: string
         }
         Update: {
           id?: string
           parent_id?: string
           name?: string
+          date_of_birth?: string | null
+          rate_per_session?: number | null
+          priority?: number | null
+          status?: StudentStatus | null
+          weekly_target_sessions?: number
           created_at?: string
         }
         Relationships: [
@@ -80,32 +154,45 @@ export interface Database {
           },
         ]
       }
-      student_subjects: {
+      student_protocols: {
         Row: {
+          id: string
           student_id: string
-          subject_id: string
+          protocol_id: string
+          sub_protocol_id: string | null
         }
         Insert: {
+          id?: string
           student_id: string
-          subject_id: string
+          protocol_id: string
+          sub_protocol_id?: string | null
         }
         Update: {
+          id?: string
           student_id?: string
-          subject_id?: string
+          protocol_id?: string
+          sub_protocol_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: 'student_subjects_student_id_fkey'
+            foreignKeyName: 'student_protocols_student_id_fkey'
             columns: ['student_id']
             isOneToOne: false
             referencedRelation: 'students'
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'student_subjects_subject_id_fkey'
-            columns: ['subject_id']
+            foreignKeyName: 'student_protocols_protocol_id_fkey'
+            columns: ['protocol_id']
             isOneToOne: false
-            referencedRelation: 'subjects'
+            referencedRelation: 'protocols'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'student_protocols_sub_protocol_id_fkey'
+            columns: ['sub_protocol_id']
+            isOneToOne: false
+            referencedRelation: 'sub_protocols'
             referencedColumns: ['id']
           },
         ]
@@ -114,21 +201,24 @@ export interface Database {
         Row: {
           id: string
           student_id: string
-          day_of_week: number
+          day_of_week: number | null
+          specific_date: string | null
           start_time: string
           end_time: string
         }
         Insert: {
           id?: string
           student_id: string
-          day_of_week: number
+          day_of_week?: number | null
+          specific_date?: string | null
           start_time: string
           end_time: string
         }
         Update: {
           id?: string
           student_id?: string
-          day_of_week?: number
+          day_of_week?: number | null
+          specific_date?: string | null
           start_time?: string
           end_time?: string
         }
@@ -142,49 +232,11 @@ export interface Database {
           },
         ]
       }
-      teacher_capabilities: {
-        Row: {
-          teacher_id: string
-          subject_id: string
-          rating: number
-          rated_by: string | null
-          rated_at: string
-        }
-        Insert: {
-          teacher_id: string
-          subject_id: string
-          rating: number
-          rated_by?: string | null
-          rated_at?: string
-        }
-        Update: {
-          teacher_id?: string
-          subject_id?: string
-          rating?: number
-          rated_by?: string | null
-          rated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'teacher_capabilities_teacher_id_fkey'
-            columns: ['teacher_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'teacher_capabilities_subject_id_fkey'
-            columns: ['subject_id']
-            isOneToOne: false
-            referencedRelation: 'subjects'
-            referencedColumns: ['id']
-          },
-        ]
-      }
       teacher_availability: {
         Row: {
           id: string
           teacher_id: string
+          week_start_date: string
           day_of_week: number
           start_time: string
           end_time: string
@@ -192,6 +244,7 @@ export interface Database {
         Insert: {
           id?: string
           teacher_id: string
+          week_start_date: string
           day_of_week: number
           start_time: string
           end_time: string
@@ -199,6 +252,7 @@ export interface Database {
         Update: {
           id?: string
           teacher_id?: string
+          week_start_date?: string
           day_of_week?: number
           start_time?: string
           end_time?: string
@@ -213,12 +267,317 @@ export interface Database {
           },
         ]
       }
+      teacher_protocols: {
+        Row: {
+          id: string
+          teacher_id: string
+          protocol_id: string
+          sub_protocol_id: string | null
+          rating: number
+          assigned_by: string | null
+          assigned_at: string
+        }
+        Insert: {
+          id?: string
+          teacher_id: string
+          protocol_id: string
+          sub_protocol_id?: string | null
+          rating: number
+          assigned_by?: string | null
+          assigned_at?: string
+        }
+        Update: {
+          id?: string
+          teacher_id?: string
+          protocol_id?: string
+          sub_protocol_id?: string | null
+          rating?: number
+          assigned_by?: string | null
+          assigned_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'teacher_protocols_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'teacher_protocols_protocol_id_fkey'
+            columns: ['protocol_id']
+            isOneToOne: false
+            referencedRelation: 'protocols'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'teacher_protocols_sub_protocol_id_fkey'
+            columns: ['sub_protocol_id']
+            isOneToOne: false
+            referencedRelation: 'sub_protocols'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      capacity_rules: {
+        Row: {
+          id: string
+          start_time: string
+          end_time: string
+          max_concurrent: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          start_time: string
+          end_time: string
+          max_concurrent: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          start_time?: string
+          end_time?: string
+          max_concurrent?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      teacher_concurrency_rules: {
+        Row: {
+          id: string
+          start_time: string
+          end_time: string
+          max_concurrent: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          start_time: string
+          end_time: string
+          max_concurrent: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          start_time?: string
+          end_time?: string
+          max_concurrent?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      schedule_versions: {
+        Row: {
+          id: string
+          week_start_date: string
+          label: string
+          proposals: unknown
+          unscheduled: unknown
+          scheduled_count: number
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          week_start_date: string
+          label: string
+          proposals: unknown
+          unscheduled: unknown
+          scheduled_count?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          week_start_date?: string
+          label?: string
+          proposals?: unknown
+          unscheduled?: unknown
+          scheduled_count?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'schedule_versions_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      schedule_batches: {
+        Row: {
+          id: string
+          week_start_date: string
+          label: string
+          created_by: string
+          created_at: string
+          whatsapp_pushed_at: string | null
+        }
+        Insert: {
+          id?: string
+          week_start_date: string
+          label: string
+          created_by: string
+          created_at?: string
+          whatsapp_pushed_at?: string | null
+        }
+        Update: {
+          id?: string
+          week_start_date?: string
+          label?: string
+          created_by?: string
+          created_at?: string
+          whatsapp_pushed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'schedule_batches_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      scheduling_rules: {
+        Row: {
+          id: boolean
+          rank_order: RankFactor[]
+          priority_direction: SortDirection
+          rate_direction: SortDirection
+          protocol_needs_direction: SortDirection
+          match_quality_direction: SortDirection
+          teacher_rating_direction: SortDirection
+          match_quality_threshold: number
+          priority_enabled: boolean
+          rate_enabled: boolean
+          protocol_needs_enabled: boolean
+          match_quality_enabled: boolean
+          teacher_rating_enabled: boolean
+          weekly_minimum_sessions: number
+          max_weekly_spread: number
+          monthly_checkin_teacher_id: string | null
+          prioritized_teacher_id: string | null
+          prioritized_protocol_id: string | null
+          no_back_to_back_enabled: boolean
+          no_back_to_back_teacher_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          rank_order?: RankFactor[]
+          priority_direction?: SortDirection
+          rate_direction?: SortDirection
+          protocol_needs_direction?: SortDirection
+          match_quality_direction?: SortDirection
+          teacher_rating_direction?: SortDirection
+          match_quality_threshold?: number
+          priority_enabled?: boolean
+          rate_enabled?: boolean
+          protocol_needs_enabled?: boolean
+          match_quality_enabled?: boolean
+          teacher_rating_enabled?: boolean
+          weekly_minimum_sessions?: number
+          max_weekly_spread?: number
+          monthly_checkin_teacher_id?: string | null
+          prioritized_teacher_id?: string | null
+          prioritized_protocol_id?: string | null
+          no_back_to_back_enabled?: boolean
+          no_back_to_back_teacher_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          rank_order?: RankFactor[]
+          priority_direction?: SortDirection
+          rate_direction?: SortDirection
+          protocol_needs_direction?: SortDirection
+          match_quality_direction?: SortDirection
+          teacher_rating_direction?: SortDirection
+          match_quality_threshold?: number
+          priority_enabled?: boolean
+          rate_enabled?: boolean
+          protocol_needs_enabled?: boolean
+          match_quality_enabled?: boolean
+          teacher_rating_enabled?: boolean
+          weekly_minimum_sessions?: number
+          max_weekly_spread?: number
+          monthly_checkin_teacher_id?: string | null
+          prioritized_teacher_id?: string | null
+          prioritized_protocol_id?: string | null
+          no_back_to_back_enabled?: boolean
+          no_back_to_back_teacher_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      prioritized_needs: {
+        Row: {
+          student_id: string
+          protocol_id: string
+          created_at: string
+        }
+        Insert: {
+          student_id: string
+          protocol_id: string
+          created_at?: string
+        }
+        Update: {
+          student_id?: string
+          protocol_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prioritized_needs_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'prioritized_needs_protocol_id_fkey'
+            columns: ['protocol_id']
+            isOneToOne: false
+            referencedRelation: 'protocols'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      holidays: {
+        Row: {
+          id: string
+          date: string
+          name: string
+          type: HolidayType
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          date: string
+          name: string
+          type?: HolidayType
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          date?: string
+          name?: string
+          type?: HolidayType
+          created_at?: string
+        }
+        Relationships: []
+      }
       session_plans: {
         Row: {
           id: string
           student_id: string
           teacher_id: string
-          subject_id: string
+          protocol_id: string
           owner_id: string
           recurrence_type: RecurrenceType
           start_time: string | null
@@ -233,12 +592,13 @@ export interface Database {
           token: string
           created_at: string
           responded_at: string | null
+          schedule_batch_id: string | null
         }
         Insert: {
           id?: string
           student_id: string
           teacher_id: string
-          subject_id: string
+          protocol_id: string
           owner_id: string
           recurrence_type: RecurrenceType
           start_time?: string | null
@@ -253,12 +613,13 @@ export interface Database {
           token?: string
           created_at?: string
           responded_at?: string | null
+          schedule_batch_id?: string | null
         }
         Update: {
           id?: string
           student_id?: string
           teacher_id?: string
-          subject_id?: string
+          protocol_id?: string
           owner_id?: string
           recurrence_type?: RecurrenceType
           start_time?: string | null
@@ -273,6 +634,7 @@ export interface Database {
           token?: string
           created_at?: string
           responded_at?: string | null
+          schedule_batch_id?: string | null
         }
         Relationships: [
           {
@@ -290,10 +652,10 @@ export interface Database {
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'session_plans_subject_id_fkey'
-            columns: ['subject_id']
+            foreignKeyName: 'session_plans_protocol_id_fkey'
+            columns: ['protocol_id']
             isOneToOne: false
-            referencedRelation: 'subjects'
+            referencedRelation: 'protocols'
             referencedColumns: ['id']
           },
         ]
@@ -307,9 +669,16 @@ export interface Database {
 }
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
-export type Subject = Database['public']['Tables']['subjects']['Row']
+export type Protocol = Database['public']['Tables']['protocols']['Row']
+export type SubProtocol = Database['public']['Tables']['sub_protocols']['Row']
 export type Student = Database['public']['Tables']['students']['Row']
 export type StudentAvailability = Database['public']['Tables']['student_availability']['Row']
-export type TeacherCapability = Database['public']['Tables']['teacher_capabilities']['Row']
 export type TeacherAvailability = Database['public']['Tables']['teacher_availability']['Row']
+export type TeacherProtocol = Database['public']['Tables']['teacher_protocols']['Row']
+export type CapacityRule = Database['public']['Tables']['capacity_rules']['Row']
+export type TeacherConcurrencyRule = Database['public']['Tables']['teacher_concurrency_rules']['Row']
+export type ScheduleVersion = Database['public']['Tables']['schedule_versions']['Row']
+export type ScheduleBatch = Database['public']['Tables']['schedule_batches']['Row']
+export type Holiday = Database['public']['Tables']['holidays']['Row']
+export type SchedulingRules = Database['public']['Tables']['scheduling_rules']['Row']
 export type SessionPlan = Database['public']['Tables']['session_plans']['Row']

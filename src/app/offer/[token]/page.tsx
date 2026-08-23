@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import { RespondButtons } from './respond-buttons'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -7,6 +8,7 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   hour: 'numeric',
   minute: '2-digit',
+  timeZone: BUSINESS_TIMEZONE,
 })
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -21,7 +23,7 @@ export default async function OfferPage({
   const { data: offer } = await supabase
     .from('session_plans')
     .select(
-      'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, note, status, students(name), profiles!session_plans_teacher_id_fkey(name), subjects(name)'
+      'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, note, status, students(name), profiles!session_plans_teacher_id_fkey(name), protocols(title)'
     )
     .eq('token', token)
     .single()
@@ -37,7 +39,7 @@ export default async function OfferPage({
 
   const studentName = Array.isArray(offer.students) ? offer.students[0]?.name : offer.students?.name
   const teacherName = Array.isArray(offer.profiles) ? offer.profiles[0]?.name : offer.profiles?.name
-  const subjectName = Array.isArray(offer.subjects) ? offer.subjects[0]?.name : offer.subjects?.name
+  const protocolName = Array.isArray(offer.protocols) ? offer.protocols[0]?.title : offer.protocols?.title
 
   const when =
     offer.recurrence_type === 'one_off' && offer.start_time && offer.end_time
@@ -51,7 +53,7 @@ export default async function OfferPage({
           {studentName ? `A session for ${studentName}` : 'You have a session offer'}
         </h1>
         <p className="mt-1 text-gray-600">
-          {teacherName} — {subjectName}. Let us know if this works for you.
+          {teacherName} — {protocolName}. Let us know if this works for you.
         </p>
       </div>
 

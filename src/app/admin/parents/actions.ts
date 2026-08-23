@@ -13,3 +13,19 @@ export async function setPriorityTier(parentId: string, tier: number) {
   revalidatePath('/admin/parents')
   return { error: null }
 }
+
+export async function updateParentProfile(parentId: string, name: string, phone: string) {
+  const trimmedName = name.trim()
+  if (!trimmedName) return { error: 'Name is required.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('profiles')
+    .update({ name: trimmedName, phone: phone.trim() || null })
+    .eq('id', parentId)
+
+  if (error) return { error: 'Could not update parent.' }
+
+  revalidatePath('/admin/parents')
+  return { error: null }
+}
