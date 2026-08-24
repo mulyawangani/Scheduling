@@ -4,7 +4,7 @@ import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { LogoutButton } from '@/components/logout-button'
 import { dateStringInBusinessTz, dayOfWeekInBusinessTz, formatTimeInBusinessTz } from '@/lib/timezone'
 import { getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
-import { ScheduleCalendar, type TeacherSessionRow } from './schedule-calendar'
+import { ScheduleCalendar, type TeacherSessionRow, type CompletedOccurrence } from './schedule-calendar'
 
 function hoursBetween(start: string, end: string): number {
   const [sh, sm] = start.split(':').map(Number)
@@ -45,6 +45,16 @@ export default async function TeacherDashboard() {
 
   const availableHours = (availability ?? []).reduce((sum, a) => sum + hoursBetween(a.start_time, a.end_time), 0)
 
+  const weeklySessionIds = (sessions ?? []).filter((s) => s.recurrence_type === 'weekly').map((s) => s.id)
+  const { data: occurrenceRows } =
+    weeklySessionIds.length > 0
+      ? await supabase.from('session_occurrences').select('session_plan_id, week_start_date').in('session_plan_id', weeklySessionIds)
+      : { data: [] }
+  const occurrences: CompletedOccurrence[] = (occurrenceRows ?? []).map((o) => ({
+    sessionId: o.session_plan_id,
+    weekStartDate: o.week_start_date,
+  }))
+
   const sessionRows: TeacherSessionRow[] = (sessions ?? []).map((s) => {
     const isOneOff = s.recurrence_type === 'one_off'
     const start = isOneOff ? new Date(s.start_time as string) : null
@@ -75,6 +85,9 @@ export default async function TeacherDashboard() {
           <Link href="/teacher/availability" className="text-sm text-blue-600 hover:underline">
             Manage availability
           </Link>
+          <Link href="/teacher/commissions" className="text-sm text-blue-600 hover:underline">
+            Commissions
+          </Link>
           <LogoutButton />
         </div>
       </div>
@@ -99,7 +112,7 @@ export default async function TeacherDashboard() {
           Confirm a pending session to accept it, and mark a one-off session Complete once the class has happened —
           that&apos;s what delivers her protocol for the month.
         </p>
-        <ScheduleCalendar sessions={sessionRows} />
+        <ScheduleCalendar sessions={sessionRows} occurrences={occurrences} />
       </div>
     </main>
   )

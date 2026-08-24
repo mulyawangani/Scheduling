@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { dateForDayOfWeek } from '@/lib/week'
+import { dateStringInBusinessTz } from '@/lib/timezone'
 
 /** Teacher confirms her own pending session — the same effect as a parent confirming via the WhatsApp offer link, just from her own portal. */
 export async function confirmSession(sessionId: string) {
@@ -45,6 +47,46 @@ export async function confirmAllSessions(sessionIds: string[]) {
   if (error) return { error: 'Could not confirm sessions.' }
 
   revalidatePath('/teacher')
+  return { error: null }
+}
+
+/**
+ * Marks a specific week's occurrence of a weekly-recurring session as
+ * delivered — the per-occurrence record a standing weekly session_plans row
+ * has no other way to carry (see session_occurrences). Self-declared by the
+ * teacher, same trust model as completing a one-off session. Idempotent: if
+ * already marked, this just succeeds without changing anything.
+ */
+export async function completeWeeklyOccurrence(sessionPlanId: string, weekStartDate: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { data: session } = await supabase
+    .from('session_plans')
+    .select('id, day_of_week, recurrence_type, status')
+    .eq('id', sessionPlanId)
+    .eq('teacher_id', user.id)
+    .single()
+
+  if (!session || session.recurrence_type !== 'weekly' || session.status !== 'accepted' || session.day_of_week === null) {
+    return { error: 'Session not found.' }
+  }
+
+  const occurrenceDate = dateForDayOfWeek(weekStartDate, session.day_of_week)
+  if (occurrenceDate > dateStringInBusinessTz(new Date())) {
+    return { error: "Can't mark a session complete before it happens." }
+  }
+
+  const { error } = await supabase.from('session_occurrences').insert({ session_plan_id: sessionPlanId, week_start_date: weekStartDate })
+
+  if (error && error.code !== '23505') return { error: 'Could not mark session complete.' }
+
+  revalidatePath('/teacher')
+  revalidatePath('/teacher/commissions')
   return { error: null }
 }
 

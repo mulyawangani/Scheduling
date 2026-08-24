@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmSession, completeSession, confirmAllSessions } from './actions'
+import { confirmSession, completeSession, confirmAllSessions, completeWeeklyOccurrence } from './actions'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
+import { dateStringInBusinessTz } from '@/lib/timezone'
 
 const WEEKDAYS = [1, 2, 3, 4, 5]
 const DAY_NAMES: Record<number, string> = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri' }
@@ -26,7 +27,16 @@ function cellKey(day: number, hour: number) {
   return `${day}-${hour}`
 }
 
-export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }) {
+function occurrenceKey(sessionId: string, weekStartDate: string) {
+  return `${sessionId}:${weekStartDate}`
+}
+
+export interface CompletedOccurrence {
+  sessionId: string
+  weekStartDate: string
+}
+
+export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherSessionRow[]; occurrences: CompletedOccurrence[] }) {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -76,6 +86,21 @@ export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }
     })
   }
 
+  function handleCompleteWeekly(sessionId: string, label: string) {
+    if (!confirm(`Mark "${label}" as complete for this week? This delivers her protocol for the month.`)) return
+    setError(null)
+    setPendingId(sessionId)
+    startTransition(async () => {
+      const result = await completeWeeklyOccurrence(sessionId, weekStart)
+      setPendingId(null)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
+
   if (sessions.length === 0) {
     return <p className="text-sm text-gray-500">No sessions assigned yet.</p>
   }
@@ -91,6 +116,9 @@ export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }
   }
 
   const pendingIdsThisWeek = visibleSessions.filter((s) => s.status === 'pending').map((s) => s.id)
+
+  const completedWeeklyKeys = new Set(occurrences.map((o) => occurrenceKey(o.sessionId, o.weekStartDate)))
+  const todayStr = dateStringInBusinessTz(new Date())
 
   const isCurrentWeek = weekStart === getWeekStart(new Date())
 
@@ -155,40 +183,51 @@ export function ScheduleCalendar({ sessions }: { sessions: TeacherSessionRow[] }
                   return (
                     <td key={day} className="p-1 align-top">
                       <div className="flex flex-col gap-1">
-                        {here.map((s) => (
-                          <div
-                            key={s.id}
-                            className={`rounded px-1 py-0.5 ${
-                              s.status === 'completed'
-                                ? 'bg-green-50 text-green-800'
-                                : s.status === 'accepted'
-                                  ? 'bg-blue-50 text-blue-800'
-                                  : 'bg-yellow-50 text-yellow-800'
-                            }`}
-                          >
-                            <p className="font-medium leading-tight">{s.protocolName}</p>
-                            <p className="leading-tight opacity-80">{s.studentName}</p>
-                            <p className="leading-tight text-[9px] uppercase opacity-60">{s.status}</p>
-                            {s.status === 'pending' && (
-                              <button
-                                onClick={() => handleConfirm(s.id)}
-                                disabled={isBulkPending || (isPending && pendingId === s.id)}
-                                className="mt-0.5 text-[10px] text-blue-700 hover:underline disabled:opacity-50"
-                              >
-                                Confirm
-                              </button>
-                            )}
-                            {s.status === 'accepted' && s.recurrenceType === 'one_off' && (
-                              <button
-                                onClick={() => handleComplete(s.id, `${s.protocolName} with ${s.studentName}`)}
-                                disabled={isPending && pendingId === s.id}
-                                className="mt-0.5 text-[10px] text-green-700 hover:underline disabled:opacity-50"
-                              >
-                                Complete
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                        {here.map((s) => {
+                          const isWeeklyCompletedThisWeek =
+                            s.recurrenceType === 'weekly' && completedWeeklyKeys.has(occurrenceKey(s.id, weekStart))
+                          const isDone = s.status === 'completed' || isWeeklyCompletedThisWeek
+                          const occurrenceInFuture = s.recurrenceType === 'weekly' && dateForDayOfWeek(weekStart, s.dayOfWeek) > todayStr
+                          return (
+                            <div
+                              key={s.id}
+                              className={`rounded px-1 py-0.5 ${
+                                isDone ? 'bg-green-50 text-green-800' : s.status === 'accepted' ? 'bg-blue-50 text-blue-800' : 'bg-yellow-50 text-yellow-800'
+                              }`}
+                            >
+                              <p className="font-medium leading-tight">{s.protocolName}</p>
+                              <p className="leading-tight opacity-80">{s.studentName}</p>
+                              <p className="leading-tight text-[9px] uppercase opacity-60">{isDone ? 'completed' : s.status}</p>
+                              {s.status === 'pending' && (
+                                <button
+                                  onClick={() => handleConfirm(s.id)}
+                                  disabled={isBulkPending || (isPending && pendingId === s.id)}
+                                  className="mt-0.5 text-[10px] text-blue-700 hover:underline disabled:opacity-50"
+                                >
+                                  Confirm
+                                </button>
+                              )}
+                              {s.status === 'accepted' && s.recurrenceType === 'one_off' && (
+                                <button
+                                  onClick={() => handleComplete(s.id, `${s.protocolName} with ${s.studentName}`)}
+                                  disabled={isPending && pendingId === s.id}
+                                  className="mt-0.5 text-[10px] text-green-700 hover:underline disabled:opacity-50"
+                                >
+                                  Complete
+                                </button>
+                              )}
+                              {s.status === 'accepted' && s.recurrenceType === 'weekly' && !isWeeklyCompletedThisWeek && !occurrenceInFuture && (
+                                <button
+                                  onClick={() => handleCompleteWeekly(s.id, `${s.protocolName} with ${s.studentName}`)}
+                                  disabled={isPending && pendingId === s.id}
+                                  className="mt-0.5 text-[10px] text-green-700 hover:underline disabled:opacity-50"
+                                >
+                                  Complete
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </td>
                   )

@@ -24,6 +24,7 @@ export interface Database {
           daily_quota: number | null
           status: TeacherStatus | null
           serves_scope: ServesScope | null
+          commission_per_session: number | null
           created_at: string
         }
         Insert: {
@@ -37,6 +38,7 @@ export interface Database {
           daily_quota?: number | null
           status?: TeacherStatus | null
           serves_scope?: ServesScope | null
+          commission_per_session?: number | null
           created_at?: string
         }
         Update: {
@@ -50,6 +52,7 @@ export interface Database {
           daily_quota?: number | null
           status?: TeacherStatus | null
           serves_scope?: ServesScope | null
+          commission_per_session?: number | null
           created_at?: string
         }
         Relationships: []
@@ -660,6 +663,35 @@ export interface Database {
           },
         ]
       }
+      session_occurrences: {
+        Row: {
+          id: string
+          session_plan_id: string
+          week_start_date: string
+          completed_at: string
+        }
+        Insert: {
+          id?: string
+          session_plan_id: string
+          week_start_date: string
+          completed_at?: string
+        }
+        Update: {
+          id?: string
+          session_plan_id?: string
+          week_start_date?: string
+          completed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'session_occurrences_session_plan_id_fkey'
+            columns: ['session_plan_id']
+            isOneToOne: false
+            referencedRelation: 'session_plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -682,3 +714,4 @@ export type ScheduleBatch = Database['public']['Tables']['schedule_batches']['Ro
 export type Holiday = Database['public']['Tables']['holidays']['Row']
 export type SchedulingRules = Database['public']['Tables']['scheduling_rules']['Row']
 export type SessionPlan = Database['public']['Tables']['session_plans']['Row']
+export type SessionOccurrence = Database['public']['Tables']['session_occurrences']['Row']

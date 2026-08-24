@@ -9,15 +9,18 @@ export function QuotaRow({
   name,
   weeklyQuota,
   dailyQuota,
+  commissionPerSession,
 }: {
   id: string
   name: string
   weeklyQuota: number | null
   dailyQuota: number | null
+  commissionPerSession: number | null
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [weeklyInput, setWeeklyInput] = useState(weeklyQuota?.toString() ?? '')
   const [dailyInput, setDailyInput] = useState(dailyQuota?.toString() ?? '')
+  const [commissionInput, setCommissionInput] = useState(commissionPerSession?.toString() ?? '')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -25,7 +28,7 @@ export function QuotaRow({
   function handleSave() {
     setError(null)
     startTransition(async () => {
-      const result = await updateTeacherQuota(id, weeklyInput, dailyInput)
+      const result = await updateTeacherQuota(id, weeklyInput, dailyInput, commissionInput)
       if (result.error) {
         setError(result.error)
         return
@@ -38,6 +41,7 @@ export function QuotaRow({
   function handleCancel() {
     setWeeklyInput(weeklyQuota?.toString() ?? '')
     setDailyInput(dailyQuota?.toString() ?? '')
+    setCommissionInput(commissionPerSession?.toString() ?? '')
     setError(null)
     setIsEditing(false)
   }
@@ -62,6 +66,16 @@ export function QuotaRow({
             value={dailyInput}
             onChange={(e) => setDailyInput(e.target.value)}
             className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm"
+          />
+        </td>
+        <td className="p-3">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={commissionInput}
+            onChange={(e) => setCommissionInput(e.target.value)}
+            className="w-24 rounded-lg border border-gray-300 px-2 py-1 text-sm"
           />
         </td>
         <td className="p-3">
@@ -92,6 +106,7 @@ export function QuotaRow({
       <td className="p-3">{name}</td>
       <td className="p-3">{weeklyQuota ?? '—'}</td>
       <td className="p-3">{dailyQuota ?? '—'}</td>
+      <td className="p-3">{commissionPerSession !== null ? `$${commissionPerSession.toFixed(2)}` : '—'}</td>
       <td className="p-3">
         <button onClick={() => setIsEditing(true)} className="text-sm text-blue-600 hover:underline">
           Edit

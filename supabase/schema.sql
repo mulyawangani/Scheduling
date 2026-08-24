@@ -33,6 +33,11 @@ create table profiles (
   -- lift the restriction entirely, e.g. for a therapist who also covers
   -- students (Gaby).
   serves_scope text check (serves_scope is null or serves_scope in ('student_only', 'non_student_only', 'both')),
+  -- Owner-set flat amount this teacher earns per delivered session
+  -- (completed one-off, or a marked-attended week of a weekly-recurring
+  -- session — see session_occurrences), regardless of student or protocol.
+  -- Null = not set.
+  commission_per_session numeric(10, 2) check (commission_per_session is null or commission_per_session >= 0),
   created_at timestamptz not null default now()
 );
 
@@ -350,6 +355,21 @@ create index on session_plans(student_id);
 create index on session_plans(teacher_id);
 create index on session_plans(token);
 
+-- A weekly-recurring session_plans row is a standing commitment with no
+-- date of its own, so it has no natural place to record "did the Tuesday
+-- 3pm session actually happen this week" — this table is that per-week
+-- attendance record, self-declared by the teacher the same way she marks a
+-- one-off session Complete. One-off sessions don't use this table; their
+-- own status='completed' already is the per-occurrence record.
+create table session_occurrences (
+  id uuid primary key default gen_random_uuid(),
+  session_plan_id uuid not null references session_plans(id) on delete cascade,
+  week_start_date date not null,
+  completed_at timestamptz not null default now(),
+  unique (session_plan_id, week_start_date)
+);
+create index on session_occurrences(session_plan_id);
+
 -- === RLS ===
 
 alter table profiles enable row level security;
@@ -368,6 +388,7 @@ alter table scheduling_rules enable row level security;
 alter table holidays enable row level security;
 alter table prioritized_needs enable row level security;
 alter table session_plans enable row level security;
+alter table session_occurrences enable row level security;
 
 create or replace function has_role(check_role user_role) returns boolean
 language sql security definer stable as $$
@@ -546,6 +567,15 @@ create policy "session_plans parent cancels own" on session_plans
     and exists (select 1 from students s where s.id = student_id and s.parent_id = auth.uid())
   )
   with check (status = 'cancelled');
+
+-- session_occurrences
+create policy "session_occurrences owner full access" on session_occurrences
+  for all to authenticated
+  using (has_role('owner')) with check (has_role('owner'));
+create policy "session_occurrences teacher manages own" on session_occurrences
+  for all to authenticated
+  using (exists (select 1 from session_plans sp where sp.id = session_plan_id and sp.teacher_id = auth.uid()))
+  with check (exists (select 1 from session_plans sp where sp.id = session_plan_id and sp.teacher_id = auth.uid()));
 
 -- No anon policies: /offer/[token] reads and updates via a service-role
 -- server client scoped by exact token match in application code.
