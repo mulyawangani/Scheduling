@@ -8,6 +8,7 @@ const TABS = [
   { href: '/admin/suggestions/recommendation', label: 'Recommendation' },
   { href: '/admin/suggestions/schedules', label: 'Schedules' },
   { href: '/admin/suggestions/reports', label: 'Reports' },
+  { href: '/admin/suggestions/billing', label: 'Billing' },
 ] as const
 
 export function SuggestionsNav({ active }: { active: (typeof TABS)[number]['href'] }) {

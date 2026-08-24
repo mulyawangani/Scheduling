@@ -33,11 +33,6 @@ create table profiles (
   -- lift the restriction entirely, e.g. for a therapist who also covers
   -- students (Gaby).
   serves_scope text check (serves_scope is null or serves_scope in ('student_only', 'non_student_only', 'both')),
-  -- Owner-set flat amount this teacher earns per delivered session
-  -- (completed one-off, or a marked-attended week of a weekly-recurring
-  -- session — see session_occurrences), regardless of student or protocol.
-  -- Null = not set.
-  commission_per_session numeric(10, 2) check (commission_per_session is null or commission_per_session >= 0),
   created_at timestamptz not null default now()
 );
 
@@ -370,6 +365,25 @@ create table session_occurrences (
 );
 create index on session_occurrences(session_plan_id);
 
+-- Owner-set billing (what the family is charged) and commission (what the
+-- provider earns) per session, scoped per child — replaces a single flat
+-- rate per student/teacher, since real pricing varies by which provider
+-- delivers the session for a given child. teacher_id null is that child's
+-- default rate, applied whenever the delivering teacher has no row of her
+-- own; teacher_id set is a specific teacher's own rate for that child,
+-- which wins over the default when both exist.
+create table billing_rates (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references students(id) on delete cascade,
+  teacher_id uuid references profiles(id) on delete cascade,
+  billing_rate numeric(10, 2) not null check (billing_rate >= 0),
+  commission_rate numeric(10, 2) not null check (commission_rate >= 0),
+  created_at timestamptz not null default now()
+);
+-- At most one default rate per child, and at most one rate per (child, teacher) pair.
+create unique index billing_rates_default_unique on billing_rates(student_id) where teacher_id is null;
+create unique index billing_rates_teacher_unique on billing_rates(student_id, teacher_id) where teacher_id is not null;
+
 -- === RLS ===
 
 alter table profiles enable row level security;
@@ -389,6 +403,7 @@ alter table holidays enable row level security;
 alter table prioritized_needs enable row level security;
 alter table session_plans enable row level security;
 alter table session_occurrences enable row level security;
+alter table billing_rates enable row level security;
 
 create or replace function has_role(check_role user_role) returns boolean
 language sql security definer stable as $$
@@ -576,6 +591,16 @@ create policy "session_occurrences teacher manages own" on session_occurrences
   for all to authenticated
   using (exists (select 1 from session_plans sp where sp.id = session_plan_id and sp.teacher_id = auth.uid()))
   with check (exists (select 1 from session_plans sp where sp.id = session_plan_id and sp.teacher_id = auth.uid()));
+
+-- billing_rates: owner manages everything; a teacher can read only her own
+-- rate rows plus each child's default row (teacher_id null), which is what
+-- her own Commissions tab needs to compute her totals. Cannot write.
+create policy "billing_rates owner full access" on billing_rates
+  for all to authenticated
+  using (has_role('owner')) with check (has_role('owner'));
+create policy "billing_rates teacher reads relevant" on billing_rates
+  for select to authenticated
+  using (teacher_id = auth.uid() or teacher_id is null);
 
 -- No anon policies: /offer/[token] reads and updates via a service-role
 -- server client scoped by exact token match in application code.

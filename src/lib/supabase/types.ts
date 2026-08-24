@@ -24,7 +24,6 @@ export interface Database {
           daily_quota: number | null
           status: TeacherStatus | null
           serves_scope: ServesScope | null
-          commission_per_session: number | null
           created_at: string
         }
         Insert: {
@@ -38,7 +37,6 @@ export interface Database {
           daily_quota?: number | null
           status?: TeacherStatus | null
           serves_scope?: ServesScope | null
-          commission_per_session?: number | null
           created_at?: string
         }
         Update: {
@@ -52,7 +50,6 @@ export interface Database {
           daily_quota?: number | null
           status?: TeacherStatus | null
           serves_scope?: ServesScope | null
-          commission_per_session?: number | null
           created_at?: string
         }
         Relationships: []
@@ -692,6 +689,48 @@ export interface Database {
           },
         ]
       }
+      billing_rates: {
+        Row: {
+          id: string
+          student_id: string
+          teacher_id: string | null
+          billing_rate: number
+          commission_rate: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          teacher_id?: string | null
+          billing_rate: number
+          commission_rate: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          teacher_id?: string | null
+          billing_rate?: number
+          commission_rate?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'billing_rates_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'billing_rates_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -715,3 +754,4 @@ export type Holiday = Database['public']['Tables']['holidays']['Row']
 export type SchedulingRules = Database['public']['Tables']['scheduling_rules']['Row']
 export type SessionPlan = Database['public']['Tables']['session_plans']['Row']
 export type SessionOccurrence = Database['public']['Tables']['session_occurrences']['Row']
+export type BillingRate = Database['public']['Tables']['billing_rates']['Row']

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { BackLink } from '@/components/back-link'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { lookupBillingRate } from '@/lib/billing'
 
 const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
@@ -12,10 +13,10 @@ interface Breakdown {
   amount: number
 }
 
-function addToBreakdown(map: Map<string, Breakdown>, name: string, commissionPerSession: number) {
+function addToBreakdown(map: Map<string, Breakdown>, name: string, commission: number) {
   const existing = map.get(name) ?? { name, count: 0, amount: 0 }
   existing.count += 1
-  existing.amount += commissionPerSession
+  existing.amount += commission
   map.set(name, existing)
 }
 
@@ -58,21 +59,25 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
   const supabase = await createClient()
   const { month } = await searchParams
   const monthPrefix = month || dateStringInBusinessTz(new Date()).slice(0, 7)
+  const teacherId = result!.user.id
 
-  const [{ data: profile }, { data: allSessions }] = await Promise.all([
-    supabase.from('profiles').select('commission_per_session').eq('id', result!.user.id).single(),
-    supabase
-      .from('session_plans')
-      .select('id, recurrence_type, start_time, status, students(name), protocols(title)')
-      .eq('teacher_id', result!.user.id),
-  ])
+  const { data: allSessions } = await supabase
+    .from('session_plans')
+    .select('id, student_id, recurrence_type, start_time, status, students(name), protocols(title)')
+    .eq('teacher_id', teacherId)
 
-  const commissionPerSession = profile?.commission_per_session ?? null
+  const studentIds = Array.from(new Set((allSessions ?? []).map((s) => s.student_id)))
+  const { data: rateRows } =
+    studentIds.length > 0
+      ? await supabase.from('billing_rates').select('*').in('student_id', studentIds).or(`teacher_id.eq.${teacherId},teacher_id.is.null`)
+      : { data: [] }
+  const rates = rateRows ?? []
 
   const sessionInfoById = new Map(
     (allSessions ?? []).map((s) => [
       s.id,
       {
+        studentId: s.student_id,
         studentName: (Array.isArray(s.students) ? s.students[0]?.name : s.students?.name) ?? 'Unknown student',
         protocolName: (Array.isArray(s.protocols) ? s.protocols[0]?.title : s.protocols?.title) ?? 'Unknown protocol',
       },
@@ -88,18 +93,28 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
   const byStudent = new Map<string, Breakdown>()
   const byProtocol = new Map<string, Breakdown>()
   let totalDelivered = 0
+  let unratedDelivered = 0
+  let totalCommission = 0
 
-  const rate = commissionPerSession ?? 0
+  function deliver(sessionId: string) {
+    const info = sessionInfoById.get(sessionId)
+    if (!info) return
+    const rate = lookupBillingRate(rates, info.studentId, teacherId)
+    totalDelivered += 1
+    if (!rate) {
+      unratedDelivered += 1
+      return
+    }
+    addToBreakdown(byStudent, info.studentName, rate.commissionRate)
+    addToBreakdown(byProtocol, info.protocolName, rate.commissionRate)
+    totalCommission += rate.commissionRate
+  }
 
   // One-off: her own status='completed' marking is the delivery record.
   for (const s of allSessions ?? []) {
     if (s.recurrence_type !== 'one_off' || s.status !== 'completed' || !s.start_time) continue
     if (!dateStringInBusinessTz(new Date(s.start_time)).startsWith(monthPrefix)) continue
-    const info = sessionInfoById.get(s.id)
-    if (!info) continue
-    addToBreakdown(byStudent, info.studentName, rate)
-    addToBreakdown(byProtocol, info.protocolName, rate)
-    totalDelivered += 1
+    deliver(s.id)
   }
 
   // Weekly: each self-declared week's occurrence is one delivery, attributed
@@ -107,14 +122,8 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
   // week everywhere else in this app.
   for (const o of occurrenceRows ?? []) {
     if (!o.week_start_date.startsWith(monthPrefix)) continue
-    const info = sessionInfoById.get(o.session_plan_id)
-    if (!info) continue
-    addToBreakdown(byStudent, info.studentName, rate)
-    addToBreakdown(byProtocol, info.protocolName, rate)
-    totalDelivered += 1
+    deliver(o.session_plan_id)
   }
-
-  const totalCommission = totalDelivered * rate
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
@@ -122,9 +131,8 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
         <BackLink href="/teacher" label="Your sessions" />
         <h1 className="mb-1 text-xl font-semibold">Commissions</h1>
         <p className="text-sm text-gray-500">
-          {commissionPerSession !== null
-            ? `${currencyFormatter.format(commissionPerSession)} per delivered session — a one-off session once you mark it Complete, a weekly session once you mark that week's occurrence Complete.`
-            : 'Your commission rate has not been set yet — ask the owner to set it before this can show a real total.'}
+          Your commission per delivered session, set by the owner per child — a one-off session once you mark it
+          Complete, a weekly session once you mark that week&apos;s occurrence Complete.
         </p>
       </div>
 
@@ -140,6 +148,12 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
         <p className="text-sm text-gray-500">
           {totalDelivered} session{totalDelivered === 1 ? '' : 's'} delivered — {monthFormatter.format(new Date(`${monthPrefix}-01T00:00:00Z`))}
         </p>
+        {unratedDelivered > 0 && (
+          <p className="mt-1 text-xs text-amber-600">
+            {unratedDelivered} of those {unratedDelivered === 1 ? "isn't" : "aren't"} counted above — no commission rate is set yet
+            for that child. Ask the owner to set one on the Billing page.
+          </p>
+        )}
       </div>
 
       <BreakdownTable title="By student" rows={Array.from(byStudent.values())} />
