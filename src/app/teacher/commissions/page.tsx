@@ -1,10 +1,11 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { BackLink } from '@/components/back-link'
 import { dateStringInBusinessTz } from '@/lib/timezone'
 import { lookupBillingRate } from '@/lib/billing'
+import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
 
-const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 interface Breakdown {
@@ -25,7 +26,7 @@ function BreakdownTable({ title, rows }: { title: string; rows: Breakdown[] }) {
     <section>
       <h2 className="mb-2 text-sm font-medium text-gray-700">{title}</h2>
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-500">Nothing delivered this month yet.</p>
+        <p className="text-sm text-gray-500">Nothing delivered this week yet.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table className="w-full text-sm">
@@ -54,11 +55,11 @@ function BreakdownTable({ title, rows }: { title: string; rows: Breakdown[] }) {
   )
 }
 
-export default async function TeacherCommissionsPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function TeacherCommissionsPage({ searchParams }: { searchParams: Promise<{ week?: string }> }) {
   const result = await getUserProfile()
   const supabase = await createClient()
-  const { month } = await searchParams
-  const monthPrefix = month || dateStringInBusinessTz(new Date()).slice(0, 7)
+  const { week } = await searchParams
+  const weekStartDate = week ? getWeekStart(new Date(`${week}T00:00:00Z`)) : getWeekStart(new Date())
   const teacherId = result!.user.id
 
   const { data: allSessions } = await supabase
@@ -87,7 +88,11 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
   const sessionIds = (allSessions ?? []).map((s) => s.id)
   const { data: occurrenceRows } =
     sessionIds.length > 0
-      ? await supabase.from('session_occurrences').select('session_plan_id, week_start_date').in('session_plan_id', sessionIds)
+      ? await supabase
+          .from('session_occurrences')
+          .select('session_plan_id')
+          .in('session_plan_id', sessionIds)
+          .eq('week_start_date', weekStartDate)
       : { data: [] }
 
   const byStudent = new Map<string, Breakdown>()
@@ -111,17 +116,17 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
   }
 
   // One-off: her own status='completed' marking is the delivery record.
+  const fridayDate = dateForDayOfWeek(weekStartDate, 5)
   for (const s of allSessions ?? []) {
     if (s.recurrence_type !== 'one_off' || s.status !== 'completed' || !s.start_time) continue
-    if (!dateStringInBusinessTz(new Date(s.start_time)).startsWith(monthPrefix)) continue
+    const d = dateStringInBusinessTz(new Date(s.start_time))
+    if (d < weekStartDate || d > fridayDate) continue
     deliver(s.id)
   }
 
-  // Weekly: each self-declared week's occurrence is one delivery, attributed
-  // by the month its own Monday falls in — same convention used to label a
-  // week everywhere else in this app.
+  // Weekly: this exact week's occurrence is one delivery — occurrenceRows is
+  // already scoped to weekStartDate above.
   for (const o of occurrenceRows ?? []) {
-    if (!o.week_start_date.startsWith(monthPrefix)) continue
     deliver(o.session_plan_id)
   }
 
@@ -136,17 +141,20 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
         </p>
       </div>
 
-      <form action="/teacher/commissions" method="GET" className="flex items-center gap-2">
-        <input type="month" name="month" defaultValue={monthPrefix} className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-        <button type="submit" className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          View month
-        </button>
-      </form>
+      <div className="flex items-center gap-3 text-sm">
+        <Link href={`/teacher/commissions?week=${addWeeks(weekStartDate, -1)}`} className="text-blue-600 hover:underline">
+          ← Prev week
+        </Link>
+        <span className="font-medium text-gray-700">Week of {formatWeekLabel(weekStartDate)}</span>
+        <Link href={`/teacher/commissions?week=${addWeeks(weekStartDate, 1)}`} className="text-blue-600 hover:underline">
+          Next week →
+        </Link>
+      </div>
 
       <div className="rounded-lg border border-gray-200 p-4 text-center">
         <p className="text-3xl font-bold text-green-700">{currencyFormatter.format(totalCommission)}</p>
         <p className="text-sm text-gray-500">
-          {totalDelivered} session{totalDelivered === 1 ? '' : 's'} delivered — {monthFormatter.format(new Date(`${monthPrefix}-01T00:00:00Z`))}
+          {totalDelivered} session{totalDelivered === 1 ? '' : 's'} delivered — week of {formatWeekLabel(weekStartDate)}
         </p>
         {unratedDelivered > 0 && (
           <p className="mt-1 text-xs text-amber-600">
