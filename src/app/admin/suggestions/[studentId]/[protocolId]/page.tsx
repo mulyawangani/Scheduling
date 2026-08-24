@@ -20,7 +20,7 @@ export default async function SuggestionDetailPage({
 
   return (
     <main className="mx-auto max-w-lg p-6">
-      <BackLink href="/admin/suggestions" label="Suggestions" />
+      <BackLink href="/admin/suggestions" label="Scheduling" />
       <h1 className="mb-6 text-xl font-semibold">
         {student?.name} — {protocol?.title}
       </h1>

@@ -10,7 +10,7 @@ export default async function CapacityPage() {
   return (
     <main className="mx-auto max-w-2xl p-6">
       <BackLink href="/admin" label="Dashboard" />
-      <h1 className="mb-1 text-xl font-semibold">Suggestions</h1>
+      <h1 className="mb-1 text-xl font-semibold">Scheduling</h1>
       <SuggestionsNav active="/admin/suggestions/capacity" />
 
       <p className="mb-4 text-sm text-gray-500">

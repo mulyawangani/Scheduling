@@ -28,7 +28,7 @@ export default async function RulesPage() {
   return (
     <main className="mx-auto max-w-2xl p-6">
       <BackLink href="/admin" label="Dashboard" />
-      <h1 className="mb-1 text-xl font-semibold">Suggestions</h1>
+      <h1 className="mb-1 text-xl font-semibold">Scheduling</h1>
       <SuggestionsNav active="/admin/suggestions/rules" />
 
       <PrioritizedList items={prioritizedItems} />

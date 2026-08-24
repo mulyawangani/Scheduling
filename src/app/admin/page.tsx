@@ -22,7 +22,7 @@ export default async function AdminDashboard() {
 
   // Grouped by (student, protocol) — a protocol with several needed
   // sub-protocols (e.g. Reflex Repatterning) is one bookable session, so it
-  // counts as one need here too, matching how Suggestions groups them.
+  // counts as one need here too, matching how Scheduling groups them.
   // Inactive students are excluded — they're never allocated, so counting
   // their needs here would understate fulfillment for no actionable reason.
   const total = new Set(
@@ -72,7 +72,7 @@ export default async function AdminDashboard() {
         <h1 className="text-xl font-semibold">Owner dashboard</h1>
         <div className="flex gap-4 text-sm">
           <Link href="/admin/suggestions" className="text-blue-600 hover:underline">
-            Suggestions
+            Scheduling
           </Link>
           <Link href="/admin/teachers" className="text-blue-600 hover:underline">
             Teachers

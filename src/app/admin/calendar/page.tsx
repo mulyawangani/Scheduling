@@ -33,7 +33,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
       <p className="mb-4 text-sm text-gray-500">
-        Mark school and public holidays here — Generate schedule on the Suggestions page reads them and adjusts
+        Mark school and public holidays here — Generate schedule on the Scheduling page reads them and adjusts
         availability automatically.
       </p>
 

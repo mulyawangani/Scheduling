@@ -23,7 +23,7 @@ export default async function ManualAdditionPage({
 
   return (
     <main className="mx-auto max-w-lg p-6">
-      <BackLink href="/admin/suggestions" label="Suggestions" />
+      <BackLink href="/admin/suggestions" label="Scheduling" />
       <h1 className="mb-1 text-xl font-semibold">Manual addition</h1>
       <p className="mb-6 text-sm text-gray-500">
         Pick a child and a protocol to see her real availability against qualified teachers&apos; real availability —
