@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { ScheduleBatch } from '@/lib/supabase/types'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import { formatWeekLabel } from '@/lib/week'
-import { pushWhatsAppForBatch, deleteScheduleBatch } from './actions'
+import { pushWhatsAppForBatch, deleteScheduleBatch, cancelScheduleBatch } from './actions'
 
 export interface ScheduleBatchWithSessions extends ScheduleBatch {
   sessions: {
@@ -32,6 +32,8 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
   const [results, setResults] = useState<Record<string, { sent: number; noPhone: number; failed: number } | string>>({})
   const [deleting, setDeleting] = useState<Set<string>>(new Set())
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState<Set<string>>(new Set())
+  const [cancelError, setCancelError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -68,6 +70,30 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
     })
   }
 
+  function handleCancelAll(batchId: string, count: number) {
+    if (
+      !confirm(
+        `Cancel all ${count} active session${count === 1 ? '' : 's'} in this schedule? This cancels the real sessions — parents and teachers who were already notified will need to be told separately. This cannot be undone from here.`
+      )
+    )
+      return
+    setCancelError(null)
+    setCancelling((prev) => new Set(prev).add(batchId))
+    startTransition(async () => {
+      const result = await cancelScheduleBatch(batchId)
+      setCancelling((prev) => {
+        const next = new Set(prev)
+        next.delete(batchId)
+        return next
+      })
+      if (result.error) {
+        setCancelError(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
+
   function handleDelete(batchId: string) {
     if (
       !confirm(
@@ -95,6 +121,7 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
   return (
     <div className="flex flex-col gap-3">
       {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+      {cancelError && <p className="text-sm text-red-600">{cancelError}</p>}
       <ul className="flex flex-col gap-3">
       {batches.map((batch) => {
         const isExpanded = expanded.has(batch.id)
@@ -121,10 +148,19 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
                 >
                   {pushing.has(batch.id) ? 'Pushing…' : 'WhatsApp push'}
                 </button>
+                {batch.sessions.length > 0 && (
+                  <button
+                    onClick={() => handleCancelAll(batch.id, batch.sessions.length)}
+                    disabled={isPending || cancelling.has(batch.id)}
+                    className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    {cancelling.has(batch.id) ? 'Cancelling…' : 'Cancel all'}
+                  </button>
+                )}
                 <button
                   onClick={() => handleDelete(batch.id)}
                   disabled={isPending || deleting.has(batch.id)}
-                  className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                  className="text-sm text-gray-500 hover:underline disabled:opacity-50"
                 >
                   Delete
                 </button>

@@ -191,6 +191,37 @@ export async function pushWhatsAppForBatch(batchId: string) {
 }
 
 /**
+ * Cancels every active session in one schedule batch in a single action —
+ * the bulk counterpart to cancelling sessions one at a time from the
+ * Suggestions page. Leaves the batch row itself in place (same as
+ * deleteScheduleBatch's grouping-only removal, this is the opposite: the
+ * grouping stays, only the sessions underneath it change) — a cancelled
+ * session just stops counting toward this batch's "N sessions" per the
+ * pending/accepted filter on the Schedules page.
+ */
+export async function cancelScheduleBatch(batchId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { data: cancelled, error } = await supabase
+    .from('session_plans')
+    .update({ status: 'cancelled', responded_at: new Date().toISOString() })
+    .eq('schedule_batch_id', batchId)
+    .in('status', ['pending', 'accepted'])
+    .select('id')
+
+  if (error) return { error: 'Could not cancel this schedule.' }
+
+  if (user) logAudit(supabase, user.id, 'cancel_schedule_batch', 'schedule_batch', batchId, { sessionsCancelled: cancelled?.length ?? 0 })
+
+  revalidatePath('/admin/suggestions')
+  revalidatePath('/admin/suggestions/schedules')
+  return { error: null, cancelled: cancelled?.length ?? 0 }
+}
+
+/**
  * Removes a schedule batch grouping — never touches the underlying
  * session_plans rows. Their schedule_batch_id just goes back to null
  * (on delete set null), so the sessions themselves stay exactly as booked;

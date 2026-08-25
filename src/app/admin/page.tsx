@@ -89,6 +89,9 @@ export default async function AdminDashboard() {
           <Link href="/admin/calendar" className="text-blue-600 hover:underline">
             Calendar
           </Link>
+          <Link href="/admin/audit-log" className="text-blue-600 hover:underline">
+            Audit log
+          </Link>
           <LogoutButton />
         </div>
       </div>
