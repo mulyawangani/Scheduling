@@ -2,10 +2,17 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { BackLink } from '@/components/back-link'
-import { BUSINESS_TIMEZONE, dateStringInBusinessTz } from '@/lib/timezone'
+import { BUSINESS_TIMEZONE, dateStringInBusinessTz, businessLocalToISOString } from '@/lib/timezone'
 import { getWeekStart, dateForDayOfWeek } from '@/lib/week'
 
-const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BUSINESS_TIMEZONE })
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: BUSINESS_TIMEZONE,
+})
 
 export default async function TherapyNotesPage() {
   const result = await getUserProfile()
@@ -16,7 +23,7 @@ export default async function TherapyNotesPage() {
 
   const { data: sessions } = await supabase
     .from('session_plans')
-    .select('id, recurrence_type, start_time, day_of_week, status, students(name), protocols(title)')
+    .select('id, recurrence_type, start_time, day_of_week, time_of_day_start, status, students(name), protocols(title)')
     .eq('teacher_id', teacherId)
     .eq('status', 'accepted')
 
@@ -46,10 +53,10 @@ export default async function TherapyNotesPage() {
         weekStartDate: null,
         studentName: student?.name ?? 'Unknown student',
         protocolName: protocol?.title ?? 'Unknown protocol',
-        whenLabel: dateFormatter.format(new Date(s.start_time)),
+        whenLabel: dateTimeFormatter.format(new Date(s.start_time)),
       })
     } else {
-      if (s.day_of_week === null || completedWeeklyIds.has(s.id)) continue
+      if (s.day_of_week === null || !s.time_of_day_start || completedWeeklyIds.has(s.id)) continue
       const occurrenceDate = dateForDayOfWeek(weekStart, s.day_of_week)
       if (occurrenceDate > todayStr) continue
       awaiting.push({
@@ -57,7 +64,7 @@ export default async function TherapyNotesPage() {
         weekStartDate: weekStart,
         studentName: student?.name ?? 'Unknown student',
         protocolName: protocol?.title ?? 'Unknown protocol',
-        whenLabel: dateFormatter.format(new Date(`${occurrenceDate}T00:00:00Z`)),
+        whenLabel: dateTimeFormatter.format(new Date(businessLocalToISOString(`${occurrenceDate}T${s.time_of_day_start.slice(0, 5)}`))),
       })
     }
   }
@@ -65,7 +72,9 @@ export default async function TherapyNotesPage() {
 
   const { data: recentNotes } = await supabase
     .from('therapy_notes')
-    .select('id, session_date, review_label, session_plans(students(name), protocols(title))')
+    .select(
+      'id, session_date, week_start_date, review_label, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
+    )
     .eq('teacher_id', teacherId)
     .order('session_date', { ascending: false })
     .order('created_at', { ascending: false })
@@ -118,11 +127,19 @@ export default async function TherapyNotesPage() {
               const sp = Array.isArray(n.session_plans) ? n.session_plans[0] : n.session_plans
               const student = Array.isArray(sp?.students) ? sp?.students[0] : sp?.students
               const protocol = Array.isArray(sp?.protocols) ? sp?.protocols[0] : sp?.protocols
+              const whenLabel =
+                sp?.recurrence_type === 'one_off' && sp.start_time
+                  ? dateTimeFormatter.format(new Date(sp.start_time))
+                  : sp?.day_of_week !== undefined && sp?.day_of_week !== null && sp.time_of_day_start && n.week_start_date
+                    ? dateTimeFormatter.format(
+                        new Date(businessLocalToISOString(`${dateForDayOfWeek(n.week_start_date, sp.day_of_week)}T${sp.time_of_day_start.slice(0, 5)}`))
+                      )
+                    : dateTimeFormatter.format(new Date(`${n.session_date}T00:00:00Z`))
               return (
                 <li key={n.id} className="flex items-center justify-between p-3 text-sm">
                   <span>
                     {student?.name ?? 'Unknown student'} — {protocol?.title ?? 'Unknown protocol'}
-                    <span className="text-gray-400"> · {dateFormatter.format(new Date(`${n.session_date}T00:00:00Z`))}</span>
+                    <span className="text-gray-400"> · {whenLabel}</span>
                   </span>
                   {n.review_label && <span className="shrink-0 text-xs text-gray-400">{n.review_label}</span>}
                 </li>
