@@ -41,7 +41,19 @@ export function ActualSessionsGrid({ weekStartDate, sessions }: { weekStartDate:
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div>
+      <div className="mb-2 flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+        <span className="flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-sm bg-yellow-200" /> Pending
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-sm bg-blue-200" /> Accepted
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-sm bg-green-200" /> Completed
+        </span>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
       <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr className="bg-gray-50">
@@ -91,6 +103,7 @@ export function ActualSessionsGrid({ weekStartDate, sessions }: { weekStartDate:
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
