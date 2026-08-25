@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createSessionPlan } from '../actions'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import { BUSINESS_TIMEZONE, businessLocalToISOString } from '@/lib/timezone'
+import { logAudit } from '@/lib/audit'
 import type { ProposedSession } from '@/lib/matching/generate-schedule'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -67,6 +68,14 @@ export async function createSchedule(weekStartDate: string, proposals: ProposedS
     if (result.error) errors.push(`${p.studentName} — ${p.protocolName}: ${result.error}`)
     else created++
   }
+
+  logAudit(supabase, user.id, 'create_schedule', 'schedule_batch', batch.id, {
+    weekStartDate,
+    label,
+    proposed: proposals.length,
+    created,
+    failed: errors.length,
+  })
 
   revalidatePath('/admin/suggestions')
   revalidatePath('/admin/suggestions/schedules')
@@ -134,6 +143,9 @@ export async function addExistingSessionsToSchedule(weekStartDate: string, sessi
  */
 export async function pushWhatsAppForBatch(batchId: string) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   const { data: rows, error } = await supabase
     .from('session_plans')
@@ -172,6 +184,8 @@ export async function pushWhatsAppForBatch(batchId: string) {
 
   await supabase.from('schedule_batches').update({ whatsapp_pushed_at: new Date().toISOString() }).eq('id', batchId)
 
+  if (user) logAudit(supabase, user.id, 'push_whatsapp_batch', 'schedule_batch', batchId, { sent, noPhone, failed })
+
   revalidatePath('/admin/suggestions/schedules')
   return { error: null, sent, noPhone, failed }
 }
@@ -185,9 +199,15 @@ export async function pushWhatsAppForBatch(batchId: string) {
  */
 export async function deleteScheduleBatch(batchId: string) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   const { error } = await supabase.from('schedule_batches').delete().eq('id', batchId)
 
   if (error) return { error: 'Could not delete this schedule.' }
+
+  if (user) logAudit(supabase, user.id, 'delete_schedule_batch', 'schedule_batch', batchId)
 
   revalidatePath('/admin/suggestions/schedules')
   return { error: null }

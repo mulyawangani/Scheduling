@@ -171,7 +171,8 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
           date: p.date,
           startTime: p.startTime,
           endTime: p.endTime,
-        }))
+        })),
+        schedule.weekStartDate
       )
       const newErrors: Record<number, string> = {}
       for (const e of result.errors) newErrors[e.index] = e.error

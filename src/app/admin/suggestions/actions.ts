@@ -8,6 +8,7 @@ import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import { computeMatchScore, conflictWindow, findTeachersAtSlot, type TimeSlotCandidate } from '@/lib/matching/suggest'
 import { checkCapacity, type CapacityCheck } from '@/lib/matching/capacity'
 import { BUSINESS_TIMEZONE, businessLocalToISOString, dateStringInBusinessTz } from '@/lib/timezone'
+import { logAudit } from '@/lib/audit'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -88,6 +89,15 @@ export async function createSessionPlan(params: AssignParams) {
     .select('token')
     .single()
 
+  // A duplicate booking of the exact same student/teacher/protocol/time
+  // (e.g. retrying "Book all" after a refresh interrupted it) hits the
+  // session_plans_*_dedupe_uidx partial unique index — treat that as a
+  // harmless no-op rather than a real failure, since the session is already
+  // booked either way.
+  if (error?.code === '23505') {
+    revalidatePath('/admin/suggestions')
+    return { error: null, whatsappError: null, duplicate: true }
+  }
   if (error || !plan) return { error: `Could not create session: ${error?.message}` }
 
   // Create Schedule books everything with notify:false and pushes WhatsApp
@@ -247,17 +257,23 @@ export async function deleteNeeds(needIds: string[]) {
  */
 export async function resetAllSchedules() {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const { error: sessionsError } = await supabase
+  const { data: cancelled, error: sessionsError } = await supabase
     .from('session_plans')
     .update({ status: 'cancelled', responded_at: new Date().toISOString() })
     .in('status', ['pending', 'accepted'])
+    .select('id')
 
   if (sessionsError) return { error: 'Could not clear sessions.' }
 
   const { error: prioritizedError } = await supabase.from('prioritized_needs').delete().not('student_id', 'is', null)
 
   if (prioritizedError) return { error: 'Sessions cleared, but could not clear prioritized needs.' }
+
+  if (user) logAudit(supabase, user.id, 'reset_all_schedules', undefined, undefined, { sessionsCancelled: cancelled?.length ?? 0 })
 
   revalidatePath('/', 'layout')
   return { error: null }
@@ -303,10 +319,17 @@ export async function commitSimulatedSession(
  * Book/Book all always have — unlike Create Schedule, which defers it.
  */
 export async function commitAllSimulatedSessions(
-  proposals: { studentId: string; protocolId: string; teacherId: string; date: string; startTime: string; endTime: string }[]
+  proposals: { studentId: string; protocolId: string; teacherId: string; date: string; startTime: string; endTime: string }[],
+  weekStartDate?: string
 ) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   const errors: { index: number; error: string }[] = []
   let succeeded = 0
+  let duplicates = 0
   for (let i = 0; i < proposals.length; i++) {
     const result = await commitSimulatedSession(
       proposals[i].studentId,
@@ -317,7 +340,20 @@ export async function commitAllSimulatedSessions(
       proposals[i].endTime
     )
     if (result.error) errors.push({ index: i, error: result.error })
-    else succeeded++
+    else {
+      succeeded++
+      if ('duplicate' in result && result.duplicate) duplicates++
+    }
   }
+
+  if (user) {
+    logAudit(supabase, user.id, 'book_all', 'week', weekStartDate, {
+      proposed: proposals.length,
+      succeeded,
+      duplicates,
+      failed: errors.length,
+    })
+  }
+
   return { succeeded, errors }
 }

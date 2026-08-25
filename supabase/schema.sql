@@ -349,6 +349,16 @@ create table session_plans (
 create index on session_plans(student_id);
 create index on session_plans(teacher_id);
 create index on session_plans(token);
+-- Idempotency guard: booking the exact same proposal twice (e.g. retrying
+-- "Book all" after a refresh interrupted it) should be a safe no-op, not a
+-- duplicate session. Scoped to active statuses so a cancelled session never
+-- blocks re-booking the same slot.
+create unique index session_plans_one_off_dedupe_uidx
+  on session_plans(student_id, teacher_id, protocol_id, start_time)
+  where recurrence_type = 'one_off' and status in ('pending', 'accepted', 'completed');
+create unique index session_plans_weekly_dedupe_uidx
+  on session_plans(student_id, teacher_id, protocol_id, day_of_week, time_of_day_start)
+  where recurrence_type = 'weekly' and status in ('pending', 'accepted', 'completed');
 
 -- A weekly-recurring session_plans row is a standing commitment with no
 -- date of its own, so it has no natural place to record "did the Tuesday
@@ -384,6 +394,21 @@ create table billing_rates (
 create unique index billing_rates_default_unique on billing_rates(student_id) where teacher_id is null;
 create unique index billing_rates_teacher_unique on billing_rates(student_id, teacher_id) where teacher_id is not null;
 
+-- Append-only record of owner bulk actions (book-all, create-schedule,
+-- WhatsApp batch push, reset-all, delete-schedule) — who did what, when, and
+-- a rough outcome count, for tracing back a bulk mutation after the fact.
+create table audit_log (
+  id uuid primary key default gen_random_uuid(),
+  actor_id uuid references profiles(id) on delete set null,
+  action text not null,
+  target_type text,
+  target_id text,
+  metadata jsonb,
+  created_at timestamptz not null default now()
+);
+create index on audit_log(created_at desc);
+create index on audit_log(actor_id);
+
 -- === RLS ===
 
 alter table profiles enable row level security;
@@ -404,6 +429,7 @@ alter table prioritized_needs enable row level security;
 alter table session_plans enable row level security;
 alter table session_occurrences enable row level security;
 alter table billing_rates enable row level security;
+alter table audit_log enable row level security;
 
 create or replace function has_role(check_role user_role) returns boolean
 language sql security definer stable as $$
@@ -601,6 +627,9 @@ create policy "billing_rates owner full access" on billing_rates
 create policy "billing_rates teacher reads relevant" on billing_rates
   for select to authenticated
   using (teacher_id = auth.uid() or teacher_id is null);
+
+create policy "audit_log owner only" on audit_log
+  for all to authenticated using (has_role('owner')) with check (has_role('owner'));
 
 -- No anon policies: /offer/[token] reads and updates via a service-role
 -- server client scoped by exact token match in application code.
