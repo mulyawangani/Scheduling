@@ -263,7 +263,15 @@ export async function resetAllSchedules() {
   return { error: null }
 }
 
-/** Commits one row from a generated schedule preview — nothing is booked until this is called. */
+/**
+ * Commits one row from a generated schedule preview — nothing is booked until
+ * this is called. Notification is deferred rather than sent here: the owner
+ * pushes WhatsApp confirmations as one deliberate batch from the Schedules
+ * tab (see "Add to Schedules"), so booking a proposal shouldn't also fire an
+ * immediate per-session message — that would double-notify parents once the
+ * batch push runs, and the 3 extra lookups notify:true does per session
+ * (parent/teacher/protocol) only slow down "Book all" for no reason here.
+ */
 export async function commitSimulatedSession(
   studentId: string,
   protocolId: string,
@@ -280,6 +288,7 @@ export async function commitSimulatedSession(
     startTime: businessLocalToISOString(`${date}T${startTime}`),
     endTime: businessLocalToISOString(`${date}T${endTime}`),
     source: 'algorithm',
+    notify: false,
   })
 }
 

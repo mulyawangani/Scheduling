@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { dateForDayOfWeek } from '@/lib/week'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
@@ -31,8 +31,33 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
   const [addingExisting, setAddingExisting] = useState(false)
   const [addExistingError, setAddExistingError] = useState<string | null>(null)
   const [clearingProposals, setClearingProposals] = useState<Set<number>>(new Set())
+  const [bookingAllTotal, setBookingAllTotal] = useState<number | null>(null)
+  const [bookingAllElapsed, setBookingAllElapsed] = useState(0)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
+  // Ticks while "Book all" is in flight so the button can show real elapsed
+  // time — not a fake progress bar, just proof the request hasn't stalled.
+  useEffect(() => {
+    if (bookingAllTotal === null) return
+    setBookingAllElapsed(0)
+    const interval = setInterval(() => setBookingAllElapsed((s) => s + 1), 1000)
+    return () => clearInterval(interval)
+  }, [bookingAllTotal])
+
+  // Booking runs as one long sequential server request with no way to report
+  // partial progress back mid-flight — a refresh while it's running aborts
+  // that request, leaving whatever had already been committed in place and
+  // silently dropping the rest. Warn before the tab can be closed/reloaded
+  // out from under an in-progress booking.
+  useEffect(() => {
+    if (committing.size === 0) return
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [committing.size])
 
   function handleSaveVersion() {
     setSaveVersionError(null)
@@ -136,6 +161,7 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
   function handleCommitAll() {
     setErrors({})
     setCommitting(new Set(schedule.proposals.map((_, i) => i)))
+    setBookingAllTotal(schedule.proposals.length)
     startTransition(async () => {
       const result = await commitAllSimulatedSessions(
         schedule.proposals.map((p) => ({
@@ -151,6 +177,7 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
       for (const e of result.errors) newErrors[e.index] = e.error
       setErrors(newErrors)
       setCommitting(new Set())
+      setBookingAllTotal(null)
       router.refresh()
     })
   }
@@ -538,12 +565,21 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
             <button
               onClick={handleCommitAll}
               disabled={isPending}
-              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Book all
+              {bookingAllTotal !== null && (
+                <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              )}
+              {bookingAllTotal !== null ? `Booking ${bookingAllTotal} sessions… (${bookingAllElapsed}s)` : 'Book all'}
             </button>
           }
         >
+          {bookingAllTotal !== null && (
+            <p className="mb-2 text-xs text-gray-500">
+              Each session is checked against capacity and booked one at a time — this can take a few seconds per
+              session. It&apos;s safe to leave this tab open; don&apos;t close or refresh it until this finishes.
+            </p>
+          )}
           <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
             {schedule.proposals.map((p, i) => (
               <li key={i} className={`flex items-center justify-between p-3 text-sm ${p.prioritized ? 'bg-blue-50' : ''}`}>
@@ -566,7 +602,7 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
                     disabled={isPending || committing.has(i)}
                     className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                   >
-                    Book
+                    {committing.has(i) ? 'Booking…' : 'Book'}
                   </button>
                   <button
                     onClick={() => handleClearProposal(i)}
