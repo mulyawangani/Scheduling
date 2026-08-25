@@ -668,6 +668,15 @@ create policy "therapy_notes teacher manages own" on therapy_notes
 create policy "therapy_notes owner reads all" on therapy_notes
   for select to authenticated
   using (has_role('owner'));
+create policy "therapy_notes parent reads own students" on therapy_notes
+  for select to authenticated
+  using (
+    exists (
+      select 1 from session_plans sp
+      join students s on s.id = sp.student_id
+      where sp.id = therapy_notes.session_plan_id and s.parent_id = auth.uid()
+    )
+  );
 
 -- No anon policies: /offer/[token] reads and updates via a service-role
 -- server client scoped by exact token match in application code.
