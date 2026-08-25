@@ -198,7 +198,7 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
                 )}
 
                 <p className="mb-1 text-xs font-medium text-gray-500">
-                  Actual scheduled sessions — week of {formatWeekLabel(batch.week_start_date)}
+                  Actual scheduled sessions ({batch.actualSessions.length}) — week of {formatWeekLabel(batch.week_start_date)}
                 </p>
                 <ActualSessionsGrid weekStartDate={batch.week_start_date} sessions={batch.actualSessions} />
               </div>
