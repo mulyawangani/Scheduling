@@ -2,11 +2,19 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { BackLink } from '@/components/back-link'
-import { dateStringInBusinessTz } from '@/lib/timezone'
+import { BUSINESS_TIMEZONE, dateStringInBusinessTz, businessLocalToISOString } from '@/lib/timezone'
 import { lookupBillingRate } from '@/lib/billing'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: BUSINESS_TIMEZONE,
+})
 
 interface Breakdown {
   name: string
@@ -64,7 +72,7 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
 
   const { data: allSessions } = await supabase
     .from('session_plans')
-    .select('id, student_id, recurrence_type, start_time, status, students(name), protocols(title)')
+    .select('id, student_id, recurrence_type, start_time, day_of_week, time_of_day_start, status, students(name), protocols(title)')
     .eq('teacher_id', teacherId)
 
   const studentIds = Array.from(new Set((allSessions ?? []).map((s) => s.student_id)))
@@ -81,6 +89,16 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
         studentId: s.student_id,
         studentName: (Array.isArray(s.students) ? s.students[0]?.name : s.students?.name) ?? 'Unknown student',
         protocolName: (Array.isArray(s.protocols) ? s.protocols[0]?.title : s.protocols?.title) ?? 'Unknown protocol',
+        // For a one-off, start_time is the real delivery instant. For a
+        // weekly session there's no date of its own — its instant for THIS
+        // week's delivery is this occurrence's date (weekStartDate + day of
+        // week) combined with its recurring start time.
+        whenISO:
+          s.recurrence_type === 'one_off' && s.start_time
+            ? s.start_time
+            : s.day_of_week !== null && s.time_of_day_start
+              ? businessLocalToISOString(`${dateForDayOfWeek(weekStartDate, s.day_of_week)}T${s.time_of_day_start.slice(0, 5)}`)
+              : null,
       },
     ])
   )
@@ -97,6 +115,7 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
 
   const byStudent = new Map<string, Breakdown>()
   const byProtocol = new Map<string, Breakdown>()
+  const deliveredSessions: { whenISO: string | null; when: string; studentName: string; protocolName: string; commission: number | null }[] = []
   let totalDelivered = 0
   let unratedDelivered = 0
   let totalCommission = 0
@@ -105,14 +124,17 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
     const info = sessionInfoById.get(sessionId)
     if (!info) return
     const rate = lookupBillingRate(rates, info.studentId, teacherId)
+    const when = info.whenISO ? dateTimeFormatter.format(new Date(info.whenISO)) : 'Unknown time'
     totalDelivered += 1
     if (!rate) {
       unratedDelivered += 1
+      deliveredSessions.push({ whenISO: info.whenISO, when, studentName: info.studentName, protocolName: info.protocolName, commission: null })
       return
     }
     addToBreakdown(byStudent, info.studentName, rate.commissionRate)
     addToBreakdown(byProtocol, info.protocolName, rate.commissionRate)
     totalCommission += rate.commissionRate
+    deliveredSessions.push({ whenISO: info.whenISO, when, studentName: info.studentName, protocolName: info.protocolName, commission: rate.commissionRate })
   }
 
   // One-off: her own status='completed' marking is the delivery record.
@@ -163,6 +185,41 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
           </p>
         )}
       </div>
+
+      <section>
+        <h2 className="mb-2 text-sm font-medium text-gray-700">Delivered sessions</h2>
+        {deliveredSessions.length === 0 ? (
+          <p className="text-sm text-gray-500">Nothing delivered this week yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50 text-left">
+                  <th className="p-2 font-medium text-gray-700">When</th>
+                  <th className="p-2 font-medium text-gray-700">Student</th>
+                  <th className="p-2 font-medium text-gray-700">Protocol</th>
+                  <th className="p-2 font-medium text-gray-700">Commission</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {deliveredSessions
+                  .slice()
+                  .sort((a, b) => (a.whenISO ?? '').localeCompare(b.whenISO ?? ''))
+                  .map((s, i) => (
+                    <tr key={i}>
+                      <td className="p-2 whitespace-nowrap">{s.when}</td>
+                      <td className="p-2">{s.studentName}</td>
+                      <td className="p-2">{s.protocolName}</td>
+                      <td className={`p-2 font-medium ${s.commission === null ? 'text-amber-600' : ''}`}>
+                        {s.commission === null ? 'no rate set' : currencyFormatter.format(s.commission)}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <BreakdownTable title="By student" rows={Array.from(byStudent.values())} />
       <BreakdownTable title="By protocol" rows={Array.from(byProtocol.values())} />
