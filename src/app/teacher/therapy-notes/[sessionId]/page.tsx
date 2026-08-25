@@ -94,6 +94,18 @@ export default async function TherapyNotePage({
       : { data: [] }
   const priorNote = priorNotes?.[0] ?? null
 
+  // A protocol like Reflex Repatterning breaks down into many sub-protocols
+  // (the rest don't) — when it does, "today's protocol" should be picked
+  // from that real list rather than typed freehand, since it's meant to
+  // record which specific one this session actually covered.
+  const { data: subProtocols } = await supabase
+    .from('sub_protocols')
+    .select('id, title')
+    .eq('protocol_id', session.protocol_id)
+    .eq('is_active', true)
+    .order('title')
+  const subProtocolTitles = (subProtocols ?? []).map((sp) => sp.title)
+
   const prefill = {
     startDate: priorNote?.start_date ?? earliestDate ?? sessionDate,
     duration: priorNote?.duration ?? '',
@@ -101,7 +113,8 @@ export default async function TherapyNotePage({
     lastSessionSummary: priorNote
       ? `${dateFormatter.format(new Date(`${priorNote.session_date}T00:00:00Z`))}${priorNote.review_label ? ` - ${priorNote.review_label}` : ''}`
       : '',
-    todaysProtocol: protocolName,
+    todaysProtocol:
+      subProtocolTitles.length > 0 ? (priorNote?.todays_protocol && subProtocolTitles.includes(priorNote.todays_protocol) ? priorNote.todays_protocol : '') : protocolName,
     repatterningNotes: priorNote?.repatterning_notes ?? '',
     activeNotes: priorNote?.active_notes ?? '',
     parentInstructions: priorNote?.parent_instructions ?? '',
@@ -124,6 +137,8 @@ export default async function TherapyNotePage({
         weekStartDate={session.recurrence_type === 'weekly' ? (week as string) : null}
         sessionDate={sessionDate}
         studentName={studentName}
+        protocolName={protocolName}
+        subProtocolTitles={subProtocolTitles}
         prefill={prefill}
       />
     </main>

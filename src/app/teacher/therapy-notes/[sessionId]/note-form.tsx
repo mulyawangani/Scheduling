@@ -25,12 +25,16 @@ export function NoteForm({
   weekStartDate,
   sessionDate,
   studentName,
+  protocolName,
+  subProtocolTitles,
   prefill,
 }: {
   sessionId: string
   weekStartDate: string | null
   sessionDate: string
   studentName: string
+  protocolName: string
+  subProtocolTitles: string[]
   prefill: NotePrefill
 }) {
   const [startDate, setStartDate] = useState(prefill.startDate)
@@ -139,7 +143,18 @@ export function NoteForm({
           </div>
           <div>
             <label className={labelClass}>Today&apos;s protocol</label>
-            <input type="text" value={todaysProtocol} onChange={(e) => setTodaysProtocol(e.target.value)} className={inputClass} />
+            {subProtocolTitles.length > 0 ? (
+              <select value={todaysProtocol} onChange={(e) => setTodaysProtocol(e.target.value)} className={inputClass}>
+                <option value="">— Select sub-protocol —</option>
+                {subProtocolTitles.map((title) => (
+                  <option key={title} value={title}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="px-3 py-2 text-sm text-gray-900">{protocolName}</p>
+            )}
           </div>
           <div>
             <label className={labelClass}>Repatterning</label>
