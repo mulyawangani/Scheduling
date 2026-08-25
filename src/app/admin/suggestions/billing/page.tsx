@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { generateSchedule } from '@/lib/matching/generate-schedule'
 import { lookupBillingRate } from '@/lib/billing'
 import { getWeekStart, addWeeks, formatWeekLabel, getUpcomingWeekStart, dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
@@ -25,7 +24,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const weekStartDate = week ? getWeekStart(new Date(`${week}T00:00:00Z`)) : getUpcomingWeekStart()
   const supabase = await createClient()
 
-  const [{ data: studentRows }, { data: teacherRows }, { data: rateRows }, { data: allSessions }, { data: occurrenceRows }, schedule] =
+  const [{ data: studentRows }, { data: teacherRows }, { data: rateRows }, { data: allSessions }, { data: occurrenceRows }] =
     await Promise.all([
       supabase.from('students').select('id, name, status').order('name'),
       supabase.from('profiles').select('id, name').eq('role', 'teacher').order('name'),
@@ -36,7 +35,6 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           'id, teacher_id, student_id, recurrence_type, start_time, status, students(name), protocols(title), profiles!session_plans_teacher_id_fkey(name)'
         ),
       supabase.from('session_occurrences').select('session_plan_id').eq('week_start_date', weekStartDate),
-      generateSchedule(supabase, weekStartDate),
     ])
 
   const students = (studentRows ?? []).filter((s) => s.status !== 'inactive')
@@ -55,25 +53,6 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     commissionRate: r.commission_rate,
   }))
 
-  // Estimated: what the currently-proposed (not yet booked) schedule for
-  // this week would bill and pay out, if approved as-is.
-  let estimatedBilling = 0
-  let estimatedCommission = 0
-  let estimatedUnrated = 0
-  for (const p of schedule.proposals) {
-    const rate = lookupBillingRate(rates, p.studentId, p.teacherId)
-    if (!rate) {
-      estimatedUnrated += 1
-      continue
-    }
-    estimatedBilling += rate.billingRate
-    estimatedCommission += rate.commissionRate
-  }
-
-  // Actual: sessions genuinely delivered this week — a one-off marked
-  // Complete whose date falls in this week, or a weekly session with an
-  // occurrence record for this exact week. Same "delivered" definition used
-  // by Reports and the teacher's own Commissions tab.
   const sessionInfoById = new Map(
     (allSessions ?? []).map((s) => [
       s.id,
@@ -88,6 +67,44 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   )
 
   const fridayDate = dateForDayOfWeek(weekStartDate, 5)
+
+  // Estimated: sessions genuinely booked for this week (pending or accepted
+  // — real rows, just not delivered yet) — a one-off whose date falls in
+  // this week, or any active weekly-recurring session (which applies every
+  // week regardless of a specific date). Unlike Actual below, this doesn't
+  // require completion — it's "what this week bills if everything currently
+  // scheduled happens as planned."
+  const scheduledIds: string[] = []
+  for (const s of allSessions ?? []) {
+    if (s.status !== 'pending' && s.status !== 'accepted') continue
+    if (s.recurrence_type === 'weekly') {
+      scheduledIds.push(s.id)
+      continue
+    }
+    if (!s.start_time) continue
+    const d = dateStringInBusinessTz(new Date(s.start_time))
+    if (d >= weekStartDate && d <= fridayDate) scheduledIds.push(s.id)
+  }
+
+  let estimatedBilling = 0
+  let estimatedCommission = 0
+  let estimatedUnrated = 0
+  for (const id of scheduledIds) {
+    const info = sessionInfoById.get(id)
+    if (!info) continue
+    const rate = lookupBillingRate(rates, info.studentId, info.teacherId)
+    if (!rate) {
+      estimatedUnrated += 1
+      continue
+    }
+    estimatedBilling += rate.billingRate
+    estimatedCommission += rate.commissionRate
+  }
+
+  // Actual: sessions genuinely delivered this week — a one-off marked
+  // Complete whose date falls in this week, or a weekly session with an
+  // occurrence record for this exact week. Same "delivered" definition used
+  // by Reports and the teacher's own Commissions tab.
   const deliveredIds: string[] = []
   for (const s of allSessions ?? []) {
     if (s.recurrence_type !== 'one_off' || s.status !== 'completed' || !s.start_time) continue
@@ -157,11 +174,11 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-1 text-sm font-medium text-gray-700">Estimated — this week&apos;s proposed schedule</h2>
+        <h2 className="mb-1 text-sm font-medium text-gray-700">Estimated — this week&apos;s scheduled sessions</h2>
         <p className="mb-3 text-sm text-gray-500">
-          What this week would bill and pay out if the {schedule.proposals.length} currently-proposed session
-          {schedule.proposals.length === 1 ? '' : 's'} on Simulations {schedule.proposals.length === 1 ? 'is' : 'are'} approved as-is.
-          Nothing here is booked yet.
+          What this week bills and pays out based on the {scheduledIds.length} session{scheduledIds.length === 1 ? '' : 's'} currently
+          booked (pending or accepted) for this week, if {scheduledIds.length === 1 ? 'it happens' : 'they happen'} as planned. Not yet
+          marked delivered — see Actual below for real, completed sessions.
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-lg border border-gray-200 p-4 text-center">
@@ -175,7 +192,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         </div>
         {estimatedUnrated > 0 && (
           <p className="mt-2 text-xs text-amber-600">
-            {estimatedUnrated} proposed session{estimatedUnrated === 1 ? '' : 's'} excluded — no rate set for that
+            {estimatedUnrated} scheduled session{estimatedUnrated === 1 ? '' : 's'} excluded — no rate set for that
             child yet.
           </p>
         )}
