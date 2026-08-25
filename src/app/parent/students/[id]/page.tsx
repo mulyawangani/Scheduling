@@ -29,7 +29,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, protocols(title), profiles!session_plans_teacher_id_fkey(name)'
       )
       .eq('student_id', id)
-      .in('status', ['pending', 'accepted'])
+      .in('status', ['pending', 'accepted', 'completed'])
       .order('created_at', { ascending: false }),
   ])
 

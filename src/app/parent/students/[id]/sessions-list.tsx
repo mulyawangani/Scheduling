@@ -109,20 +109,33 @@ export function SessionsList({ studentId, sessions }: { studentId: string; sessi
                   return (
                     <td key={day} className="p-1 align-top">
                       <div className="flex flex-col gap-1">
-                        {here.map((s) => (
-                          <div key={s.id} className="rounded bg-blue-50 px-1 py-0.5 text-blue-800">
-                            <p className="font-medium leading-tight">{s.protocolName}</p>
-                            <p className="leading-tight text-blue-600">{s.teacherName}</p>
-                            <p className="leading-tight text-[9px] uppercase text-blue-400">{s.status}</p>
-                            <button
-                              onClick={() => handleCancel(s.id, `${s.protocolName} with ${s.teacherName}`)}
-                              disabled={isPending && cancelingId === s.id}
-                              className="mt-0.5 text-[10px] text-red-600 hover:underline disabled:opacity-50"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ))}
+                        {here.map((s) => {
+                          // Same status coloring as the teacher's and owner's
+                          // calendar views: yellow = proposed/pending
+                          // confirmation, blue = confirmed, green = completed.
+                          const colors =
+                            s.status === 'completed'
+                              ? { box: 'bg-green-50 text-green-800', sub: 'text-green-600', badge: 'text-green-400' }
+                              : s.status === 'accepted'
+                                ? { box: 'bg-blue-50 text-blue-800', sub: 'text-blue-600', badge: 'text-blue-400' }
+                                : { box: 'bg-yellow-50 text-yellow-800', sub: 'text-yellow-700', badge: 'text-yellow-500' }
+                          return (
+                            <div key={s.id} className={`rounded px-1 py-0.5 ${colors.box}`}>
+                              <p className="font-medium leading-tight">{s.protocolName}</p>
+                              <p className={`leading-tight ${colors.sub}`}>{s.teacherName}</p>
+                              <p className={`leading-tight text-[9px] uppercase ${colors.badge}`}>{s.status}</p>
+                              {s.status !== 'completed' && (
+                                <button
+                                  onClick={() => handleCancel(s.id, `${s.protocolName} with ${s.teacherName}`)}
+                                  disabled={isPending && cancelingId === s.id}
+                                  className="mt-0.5 text-[10px] text-red-600 hover:underline disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </td>
                   )
