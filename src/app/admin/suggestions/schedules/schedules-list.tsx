@@ -6,6 +6,7 @@ import type { ScheduleBatch } from '@/lib/supabase/types'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import { formatWeekLabel } from '@/lib/week'
 import { pushWhatsAppForBatch, deleteScheduleBatch, cancelScheduleBatch } from './actions'
+import { ActualSessionsGrid, type GridSession } from './actual-sessions-grid'
 
 export interface ScheduleBatchWithSessions extends ScheduleBatch {
   sessions: {
@@ -16,6 +17,8 @@ export interface ScheduleBatchWithSessions extends ScheduleBatch {
     when: string
     hasPhone: boolean
   }[]
+  /** Every real booked session for this batch's week, tagged into this batch or not — see ActualSessionsGrid. */
+  actualSessions: GridSession[]
 }
 
 const createdAtFormatter = new Intl.DateTimeFormat('en-US', {
@@ -176,17 +179,29 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
             )}
 
             {isExpanded && (
-              <ul className="mt-3 flex flex-col divide-y divide-gray-200 border-t border-gray-200 pt-2">
-                {batch.sessions.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
-                    <span>
-                      {s.studentName} — {s.protocolName} with {s.teacherName}
-                      <span className="text-gray-400"> · {s.when}</span>
-                    </span>
-                    {!s.hasPhone && <span className="shrink-0 text-xs text-amber-600">No phone on file</span>}
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-3 border-t border-gray-200 pt-2">
+                <p className="mb-1 text-xs font-medium text-gray-500">Sessions tagged into this schedule</p>
+                {batch.sessions.length === 0 ? (
+                  <p className="mb-3 text-xs text-gray-400">None — see the actual grid below for what&apos;s really booked this week.</p>
+                ) : (
+                  <ul className="mb-3 flex flex-col divide-y divide-gray-200">
+                    {batch.sessions.map((s) => (
+                      <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
+                        <span>
+                          {s.studentName} — {s.protocolName} with {s.teacherName}
+                          <span className="text-gray-400"> · {s.when}</span>
+                        </span>
+                        {!s.hasPhone && <span className="shrink-0 text-xs text-amber-600">No phone on file</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <p className="mb-1 text-xs font-medium text-gray-500">
+                  Actual scheduled sessions — week of {formatWeekLabel(batch.week_start_date)}
+                </p>
+                <ActualSessionsGrid weekStartDate={batch.week_start_date} sessions={batch.actualSessions} />
+              </div>
             )}
           </li>
         )
