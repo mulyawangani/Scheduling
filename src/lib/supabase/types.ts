@@ -727,6 +727,78 @@ export interface Database {
           },
         ]
       }
+      therapy_notes: {
+        Row: {
+          id: string
+          session_plan_id: string
+          week_start_date: string | null
+          teacher_id: string
+          session_date: string
+          start_date: string | null
+          duration: string | null
+          review_label: string | null
+          last_session_summary: string | null
+          todays_protocol: string | null
+          repatterning_notes: string | null
+          active_notes: string | null
+          parent_instructions: string | null
+          objectives: { objective: string; outcome: string }[]
+          observations: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_plan_id: string
+          week_start_date?: string | null
+          teacher_id: string
+          session_date: string
+          start_date?: string | null
+          duration?: string | null
+          review_label?: string | null
+          last_session_summary?: string | null
+          todays_protocol?: string | null
+          repatterning_notes?: string | null
+          active_notes?: string | null
+          parent_instructions?: string | null
+          objectives?: { objective: string; outcome: string }[]
+          observations?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_plan_id?: string
+          week_start_date?: string | null
+          teacher_id?: string
+          session_date?: string
+          start_date?: string | null
+          duration?: string | null
+          review_label?: string | null
+          last_session_summary?: string | null
+          todays_protocol?: string | null
+          repatterning_notes?: string | null
+          active_notes?: string | null
+          parent_instructions?: string | null
+          objectives?: { objective: string; outcome: string }[]
+          observations?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'therapy_notes_session_plan_id_fkey'
+            columns: ['session_plan_id']
+            isOneToOne: false
+            referencedRelation: 'session_plans'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'therapy_notes_teacher_id_fkey'
+            columns: ['teacher_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       billing_rates: {
         Row: {
           id: string

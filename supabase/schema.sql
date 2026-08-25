@@ -375,6 +375,35 @@ create table session_occurrences (
 );
 create index on session_occurrences(session_plan_id);
 
+-- Structured session note a teacher fills before a session can be marked
+-- complete — modeled on the owner's "Protocol and Therapy Review Worksheet".
+-- One row per delivered occurrence: for a one-off session, session_plan_id
+-- alone identifies it (week_start_date null); for a weekly-recurring
+-- session, (session_plan_id, week_start_date) identifies which week's
+-- occurrence this note is for — same key shape as session_occurrences.
+create table therapy_notes (
+  id uuid primary key default gen_random_uuid(),
+  session_plan_id uuid not null references session_plans(id) on delete cascade,
+  week_start_date date,
+  teacher_id uuid not null references profiles(id) on delete cascade,
+  session_date date not null,
+  start_date date,
+  duration text,
+  review_label text,
+  last_session_summary text,
+  todays_protocol text,
+  repatterning_notes text,
+  active_notes text,
+  parent_instructions text,
+  objectives jsonb not null default '[]',
+  observations text,
+  created_at timestamptz not null default now()
+);
+create unique index therapy_notes_one_off_uidx on therapy_notes(session_plan_id) where week_start_date is null;
+create unique index therapy_notes_weekly_uidx on therapy_notes(session_plan_id, week_start_date) where week_start_date is not null;
+create index on therapy_notes(teacher_id);
+create index on therapy_notes(session_plan_id);
+
 -- Owner-set billing (what the family is charged) and commission (what the
 -- provider earns) per session, scoped per child — replaces a single flat
 -- rate per student/teacher, since real pricing varies by which provider
@@ -430,6 +459,7 @@ alter table session_plans enable row level security;
 alter table session_occurrences enable row level security;
 alter table billing_rates enable row level security;
 alter table audit_log enable row level security;
+alter table therapy_notes enable row level security;
 
 create or replace function has_role(check_role user_role) returns boolean
 language sql security definer stable as $$
@@ -630,6 +660,14 @@ create policy "billing_rates teacher reads relevant" on billing_rates
 
 create policy "audit_log owner only" on audit_log
   for all to authenticated using (has_role('owner')) with check (has_role('owner'));
+
+create policy "therapy_notes teacher manages own" on therapy_notes
+  for all to authenticated
+  using (teacher_id = auth.uid())
+  with check (teacher_id = auth.uid());
+create policy "therapy_notes owner reads all" on therapy_notes
+  for select to authenticated
+  using (has_role('owner'));
 
 -- No anon policies: /offer/[token] reads and updates via a service-role
 -- server client scoped by exact token match in application code.

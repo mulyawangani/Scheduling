@@ -85,6 +85,9 @@ export default async function TeacherDashboard() {
           <Link href="/teacher/availability" className="text-sm text-blue-600 hover:underline">
             Manage availability
           </Link>
+          <Link href="/teacher/therapy-notes" className="text-sm text-blue-600 hover:underline">
+            Therapy notes
+          </Link>
           <Link href="/teacher/commissions" className="text-sm text-blue-600 hover:underline">
             Commissions
           </Link>
@@ -109,8 +112,8 @@ export default async function TeacherDashboard() {
 
       <div>
         <p className="mb-2 text-sm text-gray-500">
-          Confirm a pending session to accept it, and mark a one-off session Complete once the class has happened —
-          that&apos;s what delivers her protocol for the month.
+          Confirm a pending session to accept it. Once the class has happened, write its therapy note — that&apos;s
+          what actually marks the session complete and delivers her protocol for the month.
         </p>
         <ScheduleCalendar sessions={sessionRows} occurrences={occurrences} />
       </div>

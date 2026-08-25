@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmSession, completeSession, confirmAllSessions, completeWeeklyOccurrence } from './actions'
+import Link from 'next/link'
+import { confirmSession, confirmAllSessions } from './actions'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
 
@@ -58,41 +59,11 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
     })
   }
 
-  function handleComplete(sessionId: string, label: string) {
-    if (!confirm(`Mark "${label}" as complete? This delivers her protocol for the month.`)) return
-    setError(null)
-    setPendingId(sessionId)
-    startTransition(async () => {
-      const result = await completeSession(sessionId)
-      setPendingId(null)
-      if (result.error) {
-        setError(result.error)
-        return
-      }
-      router.refresh()
-    })
-  }
-
   function handleConfirmAll(sessionIds: string[]) {
     if (!confirm(`Confirm all ${sessionIds.length} pending session${sessionIds.length === 1 ? '' : 's'} this week?`)) return
     setError(null)
     startBulkTransition(async () => {
       const result = await confirmAllSessions(sessionIds)
-      if (result.error) {
-        setError(result.error)
-        return
-      }
-      router.refresh()
-    })
-  }
-
-  function handleCompleteWeekly(sessionId: string, label: string) {
-    if (!confirm(`Mark "${label}" as complete for this week? This delivers her protocol for the month.`)) return
-    setError(null)
-    setPendingId(sessionId)
-    startTransition(async () => {
-      const result = await completeWeeklyOccurrence(sessionId, weekStart)
-      setPendingId(null)
       if (result.error) {
         setError(result.error)
         return
@@ -208,22 +179,20 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
                                 </button>
                               )}
                               {s.status === 'accepted' && s.recurrenceType === 'one_off' && (
-                                <button
-                                  onClick={() => handleComplete(s.id, `${s.protocolName} with ${s.studentName}`)}
-                                  disabled={isPending && pendingId === s.id}
-                                  className="mt-0.5 text-[10px] text-green-700 hover:underline disabled:opacity-50"
+                                <Link
+                                  href={`/teacher/therapy-notes/${s.id}`}
+                                  className="mt-0.5 block text-[10px] text-green-700 hover:underline"
                                 >
-                                  Complete
-                                </button>
+                                  Write note
+                                </Link>
                               )}
                               {s.status === 'accepted' && s.recurrenceType === 'weekly' && !isWeeklyCompletedThisWeek && !occurrenceInFuture && (
-                                <button
-                                  onClick={() => handleCompleteWeekly(s.id, `${s.protocolName} with ${s.studentName}`)}
-                                  disabled={isPending && pendingId === s.id}
-                                  className="mt-0.5 text-[10px] text-green-700 hover:underline disabled:opacity-50"
+                                <Link
+                                  href={`/teacher/therapy-notes/${s.id}?week=${weekStart}`}
+                                  className="mt-0.5 block text-[10px] text-green-700 hover:underline"
                                 >
-                                  Complete
-                                </button>
+                                  Write note
+                                </Link>
                               )}
                             </div>
                           )
