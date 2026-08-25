@@ -34,20 +34,21 @@ export function RecommendationList({ items, showRank = true }: { items: RankedNe
   const router = useRouter()
   const [protocolFilter, setProtocolFilter] = useState('')
   const [teacherFilter, setTeacherFilter] = useState('')
-  const [studentSearch, setStudentSearch] = useState('')
+  const [studentFilter, setStudentFilter] = useState('')
 
   const protocolNames = Array.from(new Set(items.map((item) => item.need.protocolName))).sort()
   const teacherNames = Array.from(
     new Set(items.map((item) => item.bestCandidate?.teacherName).filter((n): n is string => !!n))
   ).sort()
+  const studentNames = Array.from(new Set(items.map((item) => item.need.studentName))).sort()
 
   const filteredItems = items.filter((item) => {
     if (protocolFilter && item.need.protocolName !== protocolFilter) return false
     if (teacherFilter && item.bestCandidate?.teacherName !== teacherFilter) return false
-    if (studentSearch && !item.need.studentName.toLowerCase().includes(studentSearch.trim().toLowerCase())) return false
+    if (studentFilter && item.need.studentName !== studentFilter) return false
     return true
   })
-  const isFiltered = protocolFilter !== '' || teacherFilter !== '' || studentSearch.trim() !== ''
+  const isFiltered = protocolFilter !== '' || teacherFilter !== '' || studentFilter !== ''
 
   function handleClear(item: RankedNeed) {
     const need = item.need
@@ -104,19 +105,24 @@ export function RecommendationList({ items, showRank = true }: { items: RankedNe
               </option>
             ))}
           </select>
-          <input
-            type="text"
-            value={studentSearch}
-            onChange={(e) => setStudentSearch(e.target.value)}
-            placeholder="Search child…"
+          <select
+            value={studentFilter}
+            onChange={(e) => setStudentFilter(e.target.value)}
             className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
-          />
+          >
+            <option value="">All children</option>
+            {studentNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
           {isFiltered && (
             <button
               onClick={() => {
                 setProtocolFilter('')
                 setTeacherFilter('')
-                setStudentSearch('')
+                setStudentFilter('')
               }}
               className="text-sm text-blue-600 hover:underline"
             >
