@@ -4,20 +4,40 @@ import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
 import { getRankingContext, rankNeeds, needKey, coverageRatioForRanking, type BestMatchInfo } from '@/lib/matching/rank-needs'
 import { groupTeacherProtocolRows, coverageQualificationsFromGroup } from '@/lib/matching/suggest'
 import { getUpcomingWeekStart } from '@/lib/week'
+import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import { RecommendationList, type RankedNeed } from './recommendation-list'
 import { SuggestionsNav } from '../suggestions-nav'
+
+const cancelledDateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
 
 export default async function RecommendationPage() {
   const supabase = await createClient()
 
-  const [rawNeeds, { rules, studentInfoById }, { data: sessionHistoryRows }] = await Promise.all([
+  const [rawNeeds, { rules, studentInfoById }, { data: sessionHistoryRows }, { data: allHistoryRows }] = await Promise.all([
     getUnmetNeeds(supabase, getUpcomingWeekStart()),
     getRankingContext(supabase),
     supabase
       .from('session_plans')
       .select('student_id, protocol_id, recurrence_type, start_time')
       .in('status', ['pending', 'accepted', 'completed']),
+    // Every status, to find the most recent session_plans row per (student,
+    // protocol) regardless of outcome — used below to detect "this need is
+    // unmet because it was just cancelled," as opposed to never having been
+    // scheduled or simply rolling over into a new month.
+    supabase
+      .from('session_plans')
+      .select('student_id, protocol_id, teacher_id, status, responded_at, created_at')
+      .order('created_at', { ascending: false }),
   ])
+
+  // First row seen per key wins, since allHistoryRows is already newest-first.
+  const mostRecentByNeed = new Map<string, { teacherId: string; status: string; respondedAt: string | null }>()
+  for (const row of allHistoryRows ?? []) {
+    const key = `${row.student_id}:${row.protocol_id}`
+    if (!mostRecentByNeed.has(key)) {
+      mostRecentByNeed.set(key, { teacherId: row.teacher_id, status: row.status, respondedAt: row.responded_at })
+    }
+  }
 
   // Most recent one-off session date per (student, protocol), for the same
   // "hasn't had this protocol in a while" rotation tiebreak generateSchedule
@@ -75,10 +95,26 @@ export default async function RecommendationPage() {
     const neededSubProtocolIds = need.subProtocols.map((sp) => sp.id)
     const totalNeeded = neededSubProtocolIds.length || 1
     const best = candidatesByNeed.get(needKey(need))?.[0] ?? null
+
+    // Only surface a "same teacher" nudge when the LAST thing that happened
+    // to this (student, protocol) pair was a cancellation — not when it's
+    // simply never been scheduled, or rolled over from a completed month.
+    // Also requires she still qualifies for the protocol today (teacherRowsByProtocol
+    // reflects current teacher_protocols, not history), so a since-removed
+    // teacher never gets recommended back.
+    const lastOutcome = mostRecentByNeed.get(needKey(need))
+    const previousTeacherName =
+      lastOutcome?.status === 'cancelled' ? teacherRowsByProtocol.get(need.protocolId)?.get(lastOutcome.teacherId)?.teacherName : undefined
+    const previousTeacher =
+      lastOutcome?.status === 'cancelled' && previousTeacherName
+        ? { teacherName: previousTeacherName, cancelledAt: lastOutcome.respondedAt ? cancelledDateFormatter.format(new Date(lastOutcome.respondedAt)) : null }
+        : null
+
     return {
       need,
       priority: studentInfoById.get(need.studentId)?.priority ?? 0,
       rate: studentInfoById.get(need.studentId)?.rate ?? 0,
+      previousTeacher,
       bestCandidate: best
         ? { teacherName: best.teacherName, coverageCount: best.coverageCount, totalNeeded, rating: best.rating }
         : null,
