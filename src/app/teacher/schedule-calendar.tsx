@@ -167,8 +167,9 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
                               }`}
                             >
                               <p className="font-medium leading-tight">{s.protocolName}</p>
-                              <p className="leading-tight opacity-80">{s.studentName}</p>
-                              <p className="leading-tight text-[9px] uppercase opacity-60">{isDone ? 'completed' : s.status}</p>
+                              <p className="leading-tight opacity-80">
+                                {s.studentName} <span className="text-[9px] uppercase opacity-60">({isDone ? 'completed' : s.status})</span>
+                              </p>
                               {s.status === 'pending' && (
                                 <button
                                   onClick={() => handleConfirm(s.id)}
