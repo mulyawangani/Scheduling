@@ -122,8 +122,9 @@ export function SessionsList({ studentId, sessions }: { studentId: string; sessi
                           return (
                             <div key={s.id} className={`rounded px-1 py-0.5 ${colors.box}`}>
                               <p className="font-medium leading-tight">{s.protocolName}</p>
-                              <p className={`leading-tight ${colors.sub}`}>{s.teacherName}</p>
-                              <p className={`leading-tight text-[9px] uppercase ${colors.badge}`}>{s.status}</p>
+                              <p className={`leading-tight ${colors.sub}`}>
+                                {s.teacherName} <span className={`text-[9px] uppercase ${colors.badge}`}>({s.status})</span>
+                              </p>
                               {s.status !== 'completed' && (
                                 <button
                                   onClick={() => handleCancel(s.id, `${s.protocolName} with ${s.teacherName}`)}
