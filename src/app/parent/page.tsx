@@ -28,13 +28,13 @@ export default async function ParentDashboard() {
   // counts. A one-off session only counts if its date falls in the current
   // week, bucketed the same way admin/page.tsx buckets one-off dates into
   // weeks.
-  const statsByStudent = new Map<string, { proposedThisWeek: number; completedTotal: number }>()
+  const statsByStudent = new Map<string, { proposedThisWeek: number; confirmedThisWeek: number; completedTotal: number }>()
   for (const row of sessionRows ?? []) {
-    const stats = statsByStudent.get(row.student_id) ?? { proposedThisWeek: 0, completedTotal: 0 }
+    const stats = statsByStudent.get(row.student_id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
     if (row.status === 'completed') stats.completedTotal++
-    if (row.status === 'pending' && (row.recurrence_type === 'weekly' || (row.start_time && getWeekStart(new Date(row.start_time)) === weekStart))) {
-      stats.proposedThisWeek++
-    }
+    const inThisWeek = row.recurrence_type === 'weekly' || (row.start_time && getWeekStart(new Date(row.start_time)) === weekStart)
+    if (row.status === 'pending' && inThisWeek) stats.proposedThisWeek++
+    if (row.status === 'accepted' && inThisWeek) stats.confirmedThisWeek++
     statsByStudent.set(row.student_id, stats)
   }
 
@@ -58,15 +58,15 @@ export default async function ParentDashboard() {
       ) : (
         <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
           {students.map((student) => {
-            const stats = statsByStudent.get(student.id) ?? { proposedThisWeek: 0, completedTotal: 0 }
+            const stats = statsByStudent.get(student.id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
             return (
               <li key={student.id} className="p-3">
                 <Link href={`/parent/students/${student.id}`} className="font-medium hover:underline">
                   {student.name}
                 </Link>
                 <p className="text-sm text-gray-500">
-                  {stats.proposedThisWeek} proposed this week · {stats.completedTotal} session
-                  {stats.completedTotal === 1 ? '' : 's'} completed
+                  {stats.proposedThisWeek} proposed this week · {stats.confirmedThisWeek} confirmed this week ·{' '}
+                  {stats.completedTotal} session{stats.completedTotal === 1 ? '' : 's'} completed
                 </p>
               </li>
             )
