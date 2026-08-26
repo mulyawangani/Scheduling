@@ -17,31 +17,37 @@ export default async function TeacherDashboard() {
   const supabase = await createClient()
   const weekStart = getUpcomingWeekStart()
 
-  const [{ data: sessions }, { count: confirmedCount }, { count: completedCount }, { data: availability }] = await Promise.all([
-    supabase
-      .from('session_plans')
-      .select(
-        'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, students(name), protocols(title)'
-      )
-      .eq('teacher_id', result!.user.id)
-      .in('status', ['pending', 'accepted', 'completed'])
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('session_plans')
-      .select('id', { count: 'exact', head: true })
-      .eq('teacher_id', result!.user.id)
-      .in('status', ['accepted', 'completed']),
-    supabase
-      .from('session_plans')
-      .select('id', { count: 'exact', head: true })
-      .eq('teacher_id', result!.user.id)
-      .eq('status', 'completed'),
-    supabase
-      .from('teacher_availability')
-      .select('start_time, end_time')
-      .eq('teacher_id', result!.user.id)
-      .eq('week_start_date', weekStart),
-  ])
+  const [{ data: sessions }, { count: proposedCount }, { count: confirmedCount }, { count: completedCount }, { data: availability }] =
+    await Promise.all([
+      supabase
+        .from('session_plans')
+        .select(
+          'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, students(name), protocols(title)'
+        )
+        .eq('teacher_id', result!.user.id)
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('session_plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('teacher_id', result!.user.id)
+        .eq('status', 'pending'),
+      supabase
+        .from('session_plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('teacher_id', result!.user.id)
+        .eq('status', 'accepted'),
+      supabase
+        .from('session_plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('teacher_id', result!.user.id)
+        .eq('status', 'completed'),
+      supabase
+        .from('teacher_availability')
+        .select('start_time, end_time')
+        .eq('teacher_id', result!.user.id)
+        .eq('week_start_date', weekStart),
+    ])
 
   const availableHours = (availability ?? []).reduce((sum, a) => sum + hoursBetween(a.start_time, a.end_time), 0)
 
@@ -95,10 +101,14 @@ export default async function TeacherDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-lg border border-gray-200 p-4 text-center">
           <p className="text-2xl font-semibold">{availableHours}</p>
           <p className="text-sm text-gray-500">Hours available ({formatWeekLabel(weekStart)})</p>
+        </div>
+        <div className="rounded-lg border border-gray-200 p-4 text-center">
+          <p className="text-2xl font-semibold">{proposedCount ?? 0}</p>
+          <p className="text-sm text-gray-500">Proposed sessions</p>
         </div>
         <div className="rounded-lg border border-gray-200 p-4 text-center">
           <p className="text-2xl font-semibold">{confirmedCount ?? 0}</p>
