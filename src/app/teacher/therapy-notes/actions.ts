@@ -72,3 +72,30 @@ export async function submitTherapyNote(params: SubmitTherapyNoteParams) {
   revalidatePath('/teacher/therapy-notes')
   return { error: null }
 }
+
+/**
+ * Lets a teacher revise the homework on an already-submitted note, without
+ * waiting for the next session — e.g. adding a new exercise or correcting
+ * one mid-week. Bumps updated_at so the parent app can tell this apart from
+ * the note's original write; the parent's "Homework reminder" always reads
+ * the single most recent note across all of a child's sessions, so an edit
+ * here is what actually changes what she sees.
+ */
+export async function updateHomework(noteId: string, parentInstructions: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { error } = await supabase
+    .from('therapy_notes')
+    .update({ parent_instructions: parentInstructions || null, updated_at: new Date().toISOString() })
+    .eq('id', noteId)
+    .eq('teacher_id', user.id)
+
+  if (error) return { error: 'Could not update homework.' }
+
+  revalidatePath('/teacher/therapy-notes')
+  return { error: null }
+}

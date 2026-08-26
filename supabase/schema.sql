@@ -397,7 +397,11 @@ create table therapy_notes (
   parent_instructions text,
   objectives jsonb not null default '[]',
   observations text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Bumped whenever the teacher edits homework after the note was first
+  -- written (see updateHomework) — lets the parent app tell "just updated"
+  -- homework apart from the original note.
+  updated_at timestamptz not null default now()
 );
 create unique index therapy_notes_one_off_uidx on therapy_notes(session_plan_id) where week_start_date is null;
 create unique index therapy_notes_weekly_uidx on therapy_notes(session_plan_id, week_start_date) where week_start_date is not null;

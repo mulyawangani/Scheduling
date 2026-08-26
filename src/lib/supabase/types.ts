@@ -745,6 +745,7 @@ export interface Database {
           objectives: { objective: string; outcome: string }[]
           observations: string | null
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -763,6 +764,7 @@ export interface Database {
           objectives?: { objective: string; outcome: string }[]
           observations?: string | null
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
@@ -781,6 +783,7 @@ export interface Database {
           objectives?: { objective: string; outcome: string }[]
           observations?: string | null
           created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {

@@ -7,6 +7,7 @@ import { StudentEditor } from './student-editor'
 import { SessionsList, type SessionRow } from './sessions-list'
 
 const noteDateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BUSINESS_TIMEZONE })
+const homeworkDateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
 
 export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -49,12 +50,21 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       ? await supabase
           .from('therapy_notes')
           .select(
-            'id, session_date, review_label, todays_protocol, repatterning_notes, active_notes, parent_instructions, objectives, observations, profiles!therapy_notes_teacher_id_fkey(name)'
+            'id, session_date, review_label, todays_protocol, repatterning_notes, active_notes, parent_instructions, objectives, observations, updated_at, profiles!therapy_notes_teacher_id_fkey(name)'
           )
           .in('session_plan_id', sessionIds)
           .order('session_date', { ascending: false })
           .order('created_at', { ascending: false })
       : { data: [] }
+
+  // The current homework "reminder" isn't just the latest session's note —
+  // an older note's homework still stands until a newer one (or a
+  // retroactive edit, which bumps updated_at) replaces it. So this picks
+  // whichever note with homework was most recently touched, not just the
+  // most recent session.
+  const currentHomeworkNote = (therapyNotes ?? [])
+    .filter((n) => n.parent_instructions)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]
 
   const subProtocolsByProtocol: Record<string, SubProtocol[]> = {}
   for (const sp of subProtocols ?? []) {
@@ -83,6 +93,15 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     <main className="mx-auto max-w-lg p-6">
       <BackLink href="/parent" label="Home" />
       <h1 className="mb-6 text-xl font-semibold">{student.name}</h1>
+
+      {currentHomeworkNote && (
+        <section className="mb-8 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-blue-700">
+            Homework reminder · updated {homeworkDateFormatter.format(new Date(currentHomeworkNote.updated_at))}
+          </p>
+          <p className="text-sm text-blue-900">{currentHomeworkNote.parent_instructions}</p>
+        </section>
+      )}
 
       <section className="mb-8">
         <h2 className="mb-2 text-sm font-medium text-gray-700">Scheduled sessions</h2>

@@ -4,6 +4,7 @@ import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { BackLink } from '@/components/back-link'
 import { BUSINESS_TIMEZONE, dateStringInBusinessTz, businessLocalToISOString } from '@/lib/timezone'
 import { getWeekStart, dateForDayOfWeek } from '@/lib/week'
+import { RecentNotesList, type RecentNoteRow } from './recent-notes-list'
 
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -73,12 +74,34 @@ export default async function TherapyNotesPage() {
   const { data: recentNotes } = await supabase
     .from('therapy_notes')
     .select(
-      'id, session_date, week_start_date, review_label, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
+      'id, session_date, week_start_date, review_label, parent_instructions, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
     )
     .eq('teacher_id', teacherId)
     .order('session_date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(20)
+
+  const recentNoteRows: RecentNoteRow[] = (recentNotes ?? []).map((n) => {
+    const sp = Array.isArray(n.session_plans) ? n.session_plans[0] : n.session_plans
+    const student = Array.isArray(sp?.students) ? sp?.students[0] : sp?.students
+    const protocol = Array.isArray(sp?.protocols) ? sp?.protocols[0] : sp?.protocols
+    const whenLabel =
+      sp?.recurrence_type === 'one_off' && sp.start_time
+        ? dateTimeFormatter.format(new Date(sp.start_time))
+        : sp?.day_of_week !== undefined && sp?.day_of_week !== null && sp.time_of_day_start && n.week_start_date
+          ? dateTimeFormatter.format(
+              new Date(businessLocalToISOString(`${dateForDayOfWeek(n.week_start_date, sp.day_of_week)}T${sp.time_of_day_start.slice(0, 5)}`))
+            )
+          : dateTimeFormatter.format(new Date(`${n.session_date}T00:00:00Z`))
+    return {
+      id: n.id,
+      studentName: student?.name ?? 'Unknown student',
+      protocolName: protocol?.title ?? 'Unknown protocol',
+      whenLabel,
+      reviewLabel: n.review_label,
+      parentInstructions: n.parent_instructions,
+    }
+  })
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
@@ -119,33 +142,10 @@ export default async function TherapyNotesPage() {
 
       <section>
         <h2 className="mb-2 text-sm font-medium text-gray-700">Recent notes</h2>
-        {!recentNotes || recentNotes.length === 0 ? (
+        {recentNoteRows.length === 0 ? (
           <p className="text-sm text-gray-500">No notes written yet.</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
-            {recentNotes.map((n) => {
-              const sp = Array.isArray(n.session_plans) ? n.session_plans[0] : n.session_plans
-              const student = Array.isArray(sp?.students) ? sp?.students[0] : sp?.students
-              const protocol = Array.isArray(sp?.protocols) ? sp?.protocols[0] : sp?.protocols
-              const whenLabel =
-                sp?.recurrence_type === 'one_off' && sp.start_time
-                  ? dateTimeFormatter.format(new Date(sp.start_time))
-                  : sp?.day_of_week !== undefined && sp?.day_of_week !== null && sp.time_of_day_start && n.week_start_date
-                    ? dateTimeFormatter.format(
-                        new Date(businessLocalToISOString(`${dateForDayOfWeek(n.week_start_date, sp.day_of_week)}T${sp.time_of_day_start.slice(0, 5)}`))
-                      )
-                    : dateTimeFormatter.format(new Date(`${n.session_date}T00:00:00Z`))
-              return (
-                <li key={n.id} className="flex items-center justify-between p-3 text-sm">
-                  <span>
-                    {student?.name ?? 'Unknown student'} — {protocol?.title ?? 'Unknown protocol'}
-                    <span className="text-gray-400"> · {whenLabel}</span>
-                  </span>
-                  {n.review_label && <span className="shrink-0 text-xs text-gray-400">{n.review_label}</span>}
-                </li>
-              )
-            })}
-          </ul>
+          <RecentNotesList notes={recentNoteRows} />
         )}
       </section>
     </main>
