@@ -239,12 +239,24 @@ export async function deleteSession(sessionId: string) {
   return { error: null }
 }
 
-/** Permanently removes a student's protocol need — all underlying rows in the group (e.g. every needed sub-protocol under one protocol), since they're booked as a single session. */
+/**
+ * Permanently removes a student's protocol need — all underlying rows in
+ * the group (e.g. every needed sub-protocol under one protocol), since
+ * they're booked as a single session. Chunked because a single request
+ * (e.g. "Clear all" on Recommendation, which flattens needIds across every
+ * currently-shown need) can otherwise carry hundreds of ids — a protocol
+ * like Reflex Repatterning alone can bundle a dozen-plus per need — and a
+ * request that large can get rejected outright rather than erroring per id.
+ */
 export async function deleteNeeds(needIds: string[]) {
   const supabase = await createClient()
-  const { error } = await supabase.from('student_protocols').delete().in('id', needIds)
+  const CHUNK_SIZE = 100
 
-  if (error) return { error: 'Could not clear need.' }
+  for (let i = 0; i < needIds.length; i += CHUNK_SIZE) {
+    const chunk = needIds.slice(i, i + CHUNK_SIZE)
+    const { error } = await supabase.from('student_protocols').delete().in('id', chunk)
+    if (error) return { error: 'Could not clear need.' }
+  }
 
   revalidatePath('/admin/suggestions')
   return { error: null }
