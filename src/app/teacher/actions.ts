@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { logAudit } from '@/lib/audit'
 
 /**
  * Teacher confirms her own pending session — the same effect as a parent
@@ -73,6 +74,44 @@ export async function confirmAllSessions(sessionIds: string[]) {
       error: `Confirmed ${data?.length ?? 0} of ${sessionIds.length} — ${skipped} ${skipped === 1 ? 'was' : 'were'} no longer pending (cancelled or changed elsewhere). Refresh to see current status.`,
     }
   }
+  return { error: null }
+}
+
+/**
+ * Teacher declines her own pending session — she couldn't confirm it before
+ * the owner ever assigned it, e.g. a schedule conflict or a qualification
+ * mismatch she needs to flag. Same target status ('declined') the parent-
+ * facing offer flow already uses, so it plugs into the existing "unmet
+ * needs reopen automatically" mechanism (getUnmetNeeds excludes anything
+ * not pending/accepted/completed) with no new plumbing — the owner just
+ * sees the need reappear on the Recommendation page. Logged to audit_log
+ * with the optional reason since nothing else would otherwise tell the
+ * owner this happened or why.
+ */
+export async function declineSession(sessionId: string, reason: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { data, error } = await supabase
+    .from('session_plans')
+    .update({ status: 'declined', responded_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .eq('teacher_id', user.id)
+    .eq('status', 'pending')
+    .select('id')
+
+  if (error) return { error: 'Could not decline session.' }
+  if (!data || data.length === 0) {
+    return { error: "This session isn't pending anymore — it may have been cancelled or changed elsewhere. Refresh to see its current status." }
+  }
+
+  logAudit(supabase, user.id, 'decline_session', 'session_plan', sessionId, reason ? { reason } : undefined)
+
+  revalidatePath('/teacher')
   return { error: null }
 }
 

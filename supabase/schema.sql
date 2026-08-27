@@ -664,6 +664,12 @@ create policy "billing_rates teacher reads relevant" on billing_rates
 
 create policy "audit_log owner only" on audit_log
   for all to authenticated using (has_role('owner')) with check (has_role('owner'));
+-- A non-owner (e.g. a teacher declining a session) can log an action
+-- attributed to herself, but still can't read the log — select/update/
+-- delete stay owner-only via the policy above.
+create policy "audit_log self logs own actions" on audit_log
+  for insert to authenticated
+  with check (actor_id = auth.uid());
 
 create policy "therapy_notes teacher manages own" on therapy_notes
   for all to authenticated

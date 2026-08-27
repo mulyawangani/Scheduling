@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { confirmSession, confirmAllSessions } from './actions'
+import { confirmSession, confirmAllSessions, declineSession } from './actions'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
 
@@ -50,6 +50,22 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
     setPendingId(sessionId)
     startTransition(async () => {
       const result = await confirmSession(sessionId)
+      setPendingId(null)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
+
+  function handleDecline(sessionId: string, label: string) {
+    const reason = window.prompt(`Decline "${label}"? Let the owner know why (optional) — this reopens her need to be reassigned.`)
+    if (reason === null) return // Cancel pressed
+    setError(null)
+    setPendingId(sessionId)
+    startTransition(async () => {
+      const result = await declineSession(sessionId, reason)
       setPendingId(null)
       if (result.error) {
         setError(result.error)
@@ -171,13 +187,22 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
                                 {s.studentName} <span className="text-[9px] uppercase opacity-60">({isDone ? 'completed' : s.status})</span>
                               </p>
                               {s.status === 'pending' && (
-                                <button
-                                  onClick={() => handleConfirm(s.id)}
-                                  disabled={isBulkPending || (isPending && pendingId === s.id)}
-                                  className="mt-0.5 text-[10px] text-blue-700 hover:underline disabled:opacity-50"
-                                >
-                                  Confirm
-                                </button>
+                                <div className="mt-0.5 flex gap-2">
+                                  <button
+                                    onClick={() => handleConfirm(s.id)}
+                                    disabled={isBulkPending || (isPending && pendingId === s.id)}
+                                    className="text-[10px] text-blue-700 hover:underline disabled:opacity-50"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => handleDecline(s.id, `${s.protocolName} with ${s.studentName}`)}
+                                    disabled={isBulkPending || (isPending && pendingId === s.id)}
+                                    className="text-[10px] text-red-600 hover:underline disabled:opacity-50"
+                                  >
+                                    Decline
+                                  </button>
+                                </div>
                               )}
                               {s.status === 'accepted' && s.recurrenceType === 'one_off' && (
                                 <Link
