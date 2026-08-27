@@ -5,7 +5,16 @@ import { revalidatePath } from 'next/cache'
 import { dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
 
-/** Teacher confirms her own pending session — the same effect as a parent confirming via the WhatsApp offer link, just from her own portal. */
+/**
+ * Teacher confirms her own pending session — the same effect as a parent
+ * confirming via the WhatsApp offer link, just from her own portal.
+ * Selects back the updated row rather than trusting a null error: an
+ * .update() that matches zero rows still reports no error, so without this
+ * check a session that's no longer 'pending' (declined by the parent,
+ * cancelled/reset by the owner, or already confirmed a moment ago while her
+ * screen was stale) would silently no-op and look like "Confirm did
+ * nothing" with no explanation.
+ */
 export async function confirmSession(sessionId: string) {
   const supabase = await createClient()
   const {
@@ -14,20 +23,30 @@ export async function confirmSession(sessionId: string) {
 
   if (!user) return { error: 'You must be signed in.' }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('session_plans')
     .update({ status: 'accepted', responded_at: new Date().toISOString() })
     .eq('id', sessionId)
     .eq('teacher_id', user.id)
     .eq('status', 'pending')
+    .select('id')
 
   if (error) return { error: 'Could not confirm session.' }
+  if (!data || data.length === 0) {
+    return { error: "This session isn't pending anymore — it may have been cancelled or changed elsewhere. Refresh to see its current status." }
+  }
 
   revalidatePath('/teacher')
   return { error: null }
 }
 
-/** Confirms every pending session in one go — same effect as confirmSession, just batched so the teacher isn't clicking Confirm one row at a time. */
+/**
+ * Confirms every pending session in one go — same effect as confirmSession,
+ * just batched so the teacher isn't clicking Confirm one row at a time.
+ * Reports how many of the requested ids weren't actually confirmed (same
+ * "no longer pending" reasons as confirmSession), instead of silently
+ * declaring success when some rows didn't match.
+ */
 export async function confirmAllSessions(sessionIds: string[]) {
   const supabase = await createClient()
   const {
@@ -37,16 +56,23 @@ export async function confirmAllSessions(sessionIds: string[]) {
   if (!user) return { error: 'You must be signed in.' }
   if (sessionIds.length === 0) return { error: null }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('session_plans')
     .update({ status: 'accepted', responded_at: new Date().toISOString() })
     .in('id', sessionIds)
     .eq('teacher_id', user.id)
     .eq('status', 'pending')
+    .select('id')
 
   if (error) return { error: 'Could not confirm sessions.' }
 
   revalidatePath('/teacher')
+  const skipped = sessionIds.length - (data?.length ?? 0)
+  if (skipped > 0) {
+    return {
+      error: `Confirmed ${data?.length ?? 0} of ${sessionIds.length} — ${skipped} ${skipped === 1 ? 'was' : 'were'} no longer pending (cancelled or changed elsewhere). Refresh to see current status.`,
+    }
+  }
   return { error: null }
 }
 
@@ -105,15 +131,19 @@ export async function completeSession(sessionId: string) {
 
   if (!user) return { error: 'You must be signed in.' }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('session_plans')
     .update({ status: 'completed', responded_at: new Date().toISOString() })
     .eq('id', sessionId)
     .eq('teacher_id', user.id)
     .eq('status', 'accepted')
     .eq('recurrence_type', 'one_off')
+    .select('id')
 
   if (error) return { error: 'Could not complete session.' }
+  if (!data || data.length === 0) {
+    return { error: "This session isn't in accepted status anymore — it may have been cancelled or changed elsewhere. Refresh to see its current status." }
+  }
 
   revalidatePath('/teacher')
   return { error: null }
