@@ -15,10 +15,24 @@ function percentColor(percent: number | null) {
 export default async function AdminDashboard() {
   const supabase = await createClient()
 
-  const [{ data: allNeeds }, unmet] = await Promise.all([
+  const [{ data: allNeeds }, unmet, { data: allHistoryRows }] = await Promise.all([
     supabase.from('student_protocols').select('student_id, protocol_id, students(status)'),
     getUnmetNeeds(supabase, getUpcomingWeekStart()),
+    // Every status, newest first, to check whether each unmet need's most
+    // recent session outcome was a cancellation or a teacher decline — same
+    // "reopened" definition the Recommendation page uses.
+    supabase.from('session_plans').select('student_id, protocol_id, status').order('created_at', { ascending: false }),
   ])
+
+  const mostRecentStatusByNeed = new Map<string, string>()
+  for (const row of allHistoryRows ?? []) {
+    const key = `${row.student_id}:${row.protocol_id}`
+    if (!mostRecentStatusByNeed.has(key)) mostRecentStatusByNeed.set(key, row.status)
+  }
+  const reopenedCount = unmet.filter((n) => {
+    const status = mostRecentStatusByNeed.get(`${n.studentId}:${n.protocolId}`)
+    return status === 'cancelled' || status === 'declined'
+  }).length
 
   // Grouped by (student, protocol) — a protocol with several needed
   // sub-protocols (e.g. Reflex Repatterning) is one bookable session, so it
@@ -89,12 +103,25 @@ export default async function AdminDashboard() {
           <Link href="/admin/calendar" className="text-blue-600 hover:underline">
             Calendar
           </Link>
+          <Link href="/admin/therapy-notes" className="text-blue-600 hover:underline">
+            Therapy notes
+          </Link>
           <Link href="/admin/audit-log" className="text-blue-600 hover:underline">
             Audit log
           </Link>
           <LogoutButton />
         </div>
       </div>
+
+      {reopenedCount > 0 && (
+        <Link
+          href="/admin/suggestions/recommendation"
+          className="block rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700 hover:bg-red-100"
+        >
+          ⚠ {reopenedCount} session{reopenedCount === 1 ? '' : 's'} need{reopenedCount === 1 ? 's' : ''} reassignment — cancelled or declined,
+          reopened on Recommendation
+        </Link>
+      )}
 
       <div className="rounded-lg border border-gray-200 p-6 text-center">
         <h2 className="mb-2 text-sm font-medium text-gray-700">Active schedule</h2>

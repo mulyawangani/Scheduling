@@ -17,11 +17,16 @@ const ACTION_LABELS: Record<string, string> = {
   delete_schedule_batch: 'Delete schedule',
   cancel_schedule_batch: 'Cancel schedule',
   reset_all_schedules: 'Reset all schedules',
+  decline_session: 'Decline session',
+  cancel_monthly_transactions: 'Cancel monthly transactions',
 }
 
 function formatMetadata(metadata: unknown) {
   if (!metadata || typeof metadata !== 'object') return null
-  const entries = Object.entries(metadata as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined)
+  // Array-valued fields (e.g. a raw list of session ids) are bookkeeping for
+  // whoever needs to trace a specific row, not something worth cluttering
+  // this summary line with — the accompanying count already says how many.
+  const entries = Object.entries(metadata as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined && !Array.isArray(v))
   if (entries.length === 0) return null
   return entries.map(([k, v]) => `${k}: ${v}`).join(' · ')
 }
