@@ -85,6 +85,9 @@ export default async function AdminDashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Owner dashboard</h1>
         <div className="flex gap-4 text-sm">
+          <Link href="/admin/calendar" className="text-blue-600 hover:underline">
+            Calendar
+          </Link>
           <Link href="/admin/suggestions" className="text-blue-600 hover:underline">
             Scheduling
           </Link>
@@ -99,9 +102,6 @@ export default async function AdminDashboard() {
           </Link>
           <Link href="/admin/parents" className="text-blue-600 hover:underline">
             Parents
-          </Link>
-          <Link href="/admin/calendar" className="text-blue-600 hover:underline">
-            Calendar
           </Link>
           <Link href="/admin/therapy-notes" className="text-blue-600 hover:underline">
             Therapy notes
