@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { dateStringInBusinessTz } from '@/lib/timezone'
 import { ProtocolStatusList, type ProtocolStatus } from './protocol-status-list'
+import { CancelAllButton } from './cancel-all-button'
 import { SuggestionsNav } from '../suggestions-nav'
 
 const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -72,7 +73,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     supabase.from('student_protocols').select('student_id, protocol_id, protocols(title)'),
     supabase
       .from('session_plans')
-      .select('student_id, protocol_id, recurrence_type, start_time, status')
+      .select('id, student_id, protocol_id, recurrence_type, start_time, status')
       .in('status', ['pending', 'accepted', 'completed']),
     supabase.from('prioritized_needs').select('student_id, protocol_id'),
   ])
@@ -98,6 +99,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   // not-yet-completed session doesn't get double-booked, it just won't show
   // as "done" here until she completes it).
   const monthlySatisfiedByStudent = new Map<string, Set<string>>()
+  // The one-off sessions actually behind this month's "done" — a weekly
+  // session has no per-month row to cancel here (it counts as done every
+  // month it recurs through, per the comment above), so only one-offs are
+  // ever candidates for "Cancel all" below.
+  const doneOneOffSessionIds: string[] = []
   for (const row of monthSessionRows ?? []) {
     const delivered = row.recurrence_type === 'weekly' ? true : row.status === 'completed'
     if (!delivered) continue
@@ -106,6 +112,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     const set = monthlySatisfiedByStudent.get(row.student_id) ?? new Set<string>()
     set.add(row.protocol_id)
     monthlySatisfiedByStudent.set(row.student_id, set)
+    if (row.recurrence_type === 'one_off') doneOneOffSessionIds.push(row.id)
   }
 
   // A not-yet-delivered protocol can still already have a pending/accepted
@@ -179,6 +186,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         unscheduled — prioritize a red one to jump it to the front of Generate Schedule&apos;s queue for its next
         attempt.
       </p>
+
+      <CancelAllButton sessionIds={doneOneOffSessionIds} monthLabel={monthFormatter.format(new Date(`${monthPrefix}-01T00:00:00Z`))} />
 
       {monthlyRows.length === 0 ? (
         <p className="text-sm text-gray-500">No students with protocol needs.</p>
