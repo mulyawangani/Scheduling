@@ -631,7 +631,7 @@ create policy "session_plans teacher reads own" on session_plans
 create policy "session_plans teacher updates own" on session_plans
   for update to authenticated
   using (teacher_id = auth.uid() and status in ('pending', 'accepted'))
-  with check (teacher_id = auth.uid() and status in ('accepted', 'completed'));
+  with check (teacher_id = auth.uid() and status in ('accepted', 'completed', 'declined'));
 create policy "session_plans parent reads own students" on session_plans
   for select to authenticated
   using (exists (select 1 from students s where s.id = student_id and s.parent_id = auth.uid()));
