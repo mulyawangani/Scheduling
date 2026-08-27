@@ -12,8 +12,8 @@ export interface RankedNeed {
   need: UnmetNeed
   priority: number
   rate: number
-  /** Set when this need is unmet because its last session was cancelled — same teacher, so the owner can rebook her on a different day. */
-  previousTeacher: { teacherName: string; cancelledAt: string | null } | null
+  /** Set when this need is unmet because its last session was cancelled or the teacher declined it — same teacher, so the owner can rebook her on a different day. */
+  previousTeacher: { teacherName: string; outcome: 'cancelled' | 'declined'; reason: string | null; cancelledAt: string | null; respondedAtISO: string | null } | null
   bestCandidate: { teacherName: string; coverageCount: number; totalNeeded: number; rating: number } | null
 }
 
@@ -164,8 +164,10 @@ export function RecommendationList({ items, showRank = true }: { items: RankedNe
                   </p>
                   {item.previousTeacher && (
                     <p className="mt-1 text-xs font-medium text-purple-700">
-                      🔁 Cancelled{item.previousTeacher.cancelledAt ? ` ${item.previousTeacher.cancelledAt}` : ''} — try{' '}
-                      {item.previousTeacher.teacherName} again on a different day
+                      🔁 {item.previousTeacher.outcome === 'declined' ? 'Declined' : 'Cancelled'}
+                      {item.previousTeacher.cancelledAt ? ` ${item.previousTeacher.cancelledAt}` : ''}
+                      {item.previousTeacher.reason ? ` (${item.previousTeacher.reason})` : ''} — try {item.previousTeacher.teacherName} again on a
+                      different day
                     </p>
                   )}
                   <p className="mt-1 text-xs text-amber-700">{candidateLabel(item)}</p>

@@ -22,22 +22,36 @@ export default async function RecommendationPage() {
       .in('status', ['pending', 'accepted', 'completed']),
     // Every status, to find the most recent session_plans row per (student,
     // protocol) regardless of outcome — used below to detect "this need is
-    // unmet because it was just cancelled," as opposed to never having been
-    // scheduled or simply rolling over into a new month.
+    // unmet because it was just cancelled or declined," as opposed to never
+    // having been scheduled or simply rolling over into a new month.
     supabase
       .from('session_plans')
-      .select('student_id, protocol_id, teacher_id, status, responded_at, created_at')
+      .select('id, student_id, protocol_id, teacher_id, status, responded_at, created_at')
       .order('created_at', { ascending: false }),
   ])
 
   // First row seen per key wins, since allHistoryRows is already newest-first.
-  const mostRecentByNeed = new Map<string, { teacherId: string; status: string; respondedAt: string | null }>()
+  const mostRecentByNeed = new Map<string, { sessionId: string; teacherId: string; status: string; respondedAt: string | null }>()
   for (const row of allHistoryRows ?? []) {
     const key = `${row.student_id}:${row.protocol_id}`
     if (!mostRecentByNeed.has(key)) {
-      mostRecentByNeed.set(key, { teacherId: row.teacher_id, status: row.status, respondedAt: row.responded_at })
+      mostRecentByNeed.set(key, { sessionId: row.id, teacherId: row.teacher_id, status: row.status, respondedAt: row.responded_at })
     }
   }
+
+  // A teacher's decline records why on audit_log (see declineSession) —
+  // pull those in so the reason can show alongside the nudge below instead
+  // of the owner having to go digging for it.
+  const declinedSessionIds = Array.from(mostRecentByNeed.values())
+    .filter((v) => v.status === 'declined')
+    .map((v) => v.sessionId)
+  const { data: declineAuditRows } =
+    declinedSessionIds.length > 0
+      ? await supabase.from('audit_log').select('target_id, metadata').eq('action', 'decline_session').in('target_id', declinedSessionIds)
+      : { data: [] }
+  const declineReasonBySessionId = new Map(
+    (declineAuditRows ?? []).map((r) => [r.target_id as string, (r.metadata as { reason?: string } | null)?.reason])
+  )
 
   // Most recent one-off session date per (student, protocol), for the same
   // "hasn't had this protocol in a while" rotation tiebreak generateSchedule
@@ -97,17 +111,24 @@ export default async function RecommendationPage() {
     const best = candidatesByNeed.get(needKey(need))?.[0] ?? null
 
     // Only surface a "same teacher" nudge when the LAST thing that happened
-    // to this (student, protocol) pair was a cancellation — not when it's
-    // simply never been scheduled, or rolled over from a completed month.
-    // Also requires she still qualifies for the protocol today (teacherRowsByProtocol
-    // reflects current teacher_protocols, not history), so a since-removed
-    // teacher never gets recommended back.
+    // to this (student, protocol) pair was a cancellation or a teacher
+    // decline — not when it's simply never been scheduled, or rolled over
+    // from a completed month. Also requires she still qualifies for the
+    // protocol today (teacherRowsByProtocol reflects current
+    // teacher_protocols, not history), so a since-removed teacher never
+    // gets recommended back.
     const lastOutcome = mostRecentByNeed.get(needKey(need))
-    const previousTeacherName =
-      lastOutcome?.status === 'cancelled' ? teacherRowsByProtocol.get(need.protocolId)?.get(lastOutcome.teacherId)?.teacherName : undefined
+    const isReopened = lastOutcome?.status === 'cancelled' || lastOutcome?.status === 'declined'
+    const previousTeacherName = isReopened ? teacherRowsByProtocol.get(need.protocolId)?.get(lastOutcome.teacherId)?.teacherName : undefined
     const previousTeacher =
-      lastOutcome?.status === 'cancelled' && previousTeacherName
-        ? { teacherName: previousTeacherName, cancelledAt: lastOutcome.respondedAt ? cancelledDateFormatter.format(new Date(lastOutcome.respondedAt)) : null }
+      isReopened && lastOutcome && previousTeacherName
+        ? {
+            teacherName: previousTeacherName,
+            outcome: lastOutcome.status as 'cancelled' | 'declined',
+            reason: lastOutcome.status === 'declined' ? (declineReasonBySessionId.get(lastOutcome.sessionId) ?? null) : null,
+            cancelledAt: lastOutcome.respondedAt ? cancelledDateFormatter.format(new Date(lastOutcome.respondedAt)) : null,
+            respondedAtISO: lastOutcome.respondedAt,
+          }
         : null
 
     return {
@@ -134,6 +155,25 @@ export default async function RecommendationPage() {
         doesn&apos;t fully cover it or isn&apos;t free yet — a starting point for stretching capacity when supply is
         short, before you decide to accept a partial match or wait.
       </p>
+
+      {(() => {
+        const reopened = withCandidates
+          .filter((item) => item.previousTeacher)
+          .sort((a, b) => (b.previousTeacher?.respondedAtISO ?? '').localeCompare(a.previousTeacher?.respondedAtISO ?? ''))
+        if (reopened.length === 0) return null
+        return (
+          <section className="mb-8">
+            <h2 className="mb-2 text-sm font-medium text-red-700">
+              Cancelled or declined session{reopened.length === 1 ? '' : 's'} ({reopened.length})
+            </h2>
+            <p className="mb-3 text-xs text-gray-500">
+              These needs just reopened because a booked session was cancelled or the teacher declined it — surfaced
+              here first regardless of the normal Rules order below.
+            </p>
+            <RecommendationList items={reopened} showRank={false} />
+          </section>
+        )
+      })()}
 
       {withCandidates.length === 0 ? (
         <p className="text-sm text-gray-500">No unmet needs right now.</p>
