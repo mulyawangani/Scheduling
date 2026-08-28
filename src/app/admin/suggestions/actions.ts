@@ -247,15 +247,39 @@ export async function deleteSession(sessionId: string) {
  * currently-shown need) can otherwise carry hundreds of ids — a protocol
  * like Reflex Repatterning alone can bundle a dozen-plus per need — and a
  * request that large can get rejected outright rather than erroring per id.
+ *
+ * This deletes the actual student-protocol assignment (the same rows
+ * children/parent pages write when assigning a protocol to a child), not
+ * just a recommendation-list entry — there is no undo. The deleted
+ * student/protocol pairs are logged to audit_log first specifically so a
+ * mistaken clear can be manually re-entered from that record, since there's
+ * no soft-delete or trash for needs the way there is for sessions.
  */
 export async function deleteNeeds(needIds: string[]) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   const CHUNK_SIZE = 100
+
+  const { data: rowsToDelete } = await supabase
+    .from('student_protocols')
+    .select('student_id, protocol_id, students(name), protocols(title)')
+    .in('id', needIds)
 
   for (let i = 0; i < needIds.length; i += CHUNK_SIZE) {
     const chunk = needIds.slice(i, i + CHUNK_SIZE)
     const { error } = await supabase.from('student_protocols').delete().in('id', chunk)
     if (error) return { error: 'Could not clear need.' }
+  }
+
+  if (user) {
+    const cleared = (rowsToDelete ?? []).map((r) => {
+      const student = Array.isArray(r.students) ? r.students[0] : r.students
+      const protocol = Array.isArray(r.protocols) ? r.protocols[0] : r.protocols
+      return `${student?.name ?? r.student_id} — ${protocol?.title ?? r.protocol_id}`
+    })
+    logAudit(supabase, user.id, 'clear_needs', undefined, undefined, { count: cleared.length, cleared })
   }
 
   revalidatePath('/admin/suggestions')

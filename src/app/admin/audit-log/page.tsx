@@ -19,16 +19,30 @@ const ACTION_LABELS: Record<string, string> = {
   reset_all_schedules: 'Reset all schedules',
   decline_session: 'Decline session',
   cancel_monthly_transactions: 'Cancel monthly transactions',
+  clear_needs: 'Clear need(s)',
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function formatMetadata(metadata: unknown) {
   if (!metadata || typeof metadata !== 'object') return null
-  // Array-valued fields (e.g. a raw list of session ids) are bookkeeping for
-  // whoever needs to trace a specific row, not something worth cluttering
-  // this summary line with — the accompanying count already says how many.
-  const entries = Object.entries(metadata as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined && !Array.isArray(v))
-  if (entries.length === 0) return null
-  return entries.map(([k, v]) => `${k}: ${v}`).join(' · ')
+  const entries = Object.entries(metadata as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined)
+  const parts: string[] = []
+  for (const [k, v] of entries) {
+    if (Array.isArray(v)) {
+      // A raw id list (e.g. session ids) is bookkeeping for whoever needs to
+      // trace a specific row — the accompanying count already says how many,
+      // so skip it here. A list of human-readable labels (e.g. which
+      // student/protocol pairs a "Clear needs" cleared) is the whole point of
+      // logging the action, so show it in full — this is the only record of
+      // exactly what was removed, since needs have no soft-delete.
+      if (v.length === 0 || (typeof v[0] === 'string' && UUID_RE.test(v[0]))) continue
+      parts.push(`${k}: ${v.join('; ')}`)
+    } else {
+      parts.push(`${k}: ${v}`)
+    }
+  }
+  return parts.length === 0 ? null : parts.join(' · ')
 }
 
 export default async function AuditLogPage() {
