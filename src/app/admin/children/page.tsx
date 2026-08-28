@@ -4,7 +4,8 @@ import { BackLink } from '@/components/back-link'
 import { ChildCard } from './child-card'
 import { NewChildForm } from './new-child-form'
 
-export default async function ChildrenPage() {
+export default async function ChildrenPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
+  const { student: highlightStudentId } = await searchParams
   const supabase = await createClient()
 
   const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }] = await Promise.all([
@@ -54,6 +55,7 @@ export default async function ChildrenPage() {
                   protocolId: s.protocol_id,
                   subProtocolId: s.sub_protocol_id,
                 }))}
+                autoExpand={student.id === highlightStudentId}
               />
             )
           })}

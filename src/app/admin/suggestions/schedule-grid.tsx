@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { dateForDayOfWeek } from '@/lib/week'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import type { GeneratedSchedule } from '@/lib/matching/generate-schedule'
-import { commitSimulatedSession, commitAllSimulatedSessions, deleteSession, deleteNeeds } from './actions'
+import Link from 'next/link'
+import { commitSimulatedSession, commitAllSimulatedSessions, deleteSession } from './actions'
 import { saveScheduleVersion } from './versions-actions'
 import { createSchedule, addExistingSessionsToSchedule } from './schedules/actions'
 import { CollapsibleSection } from '@/components/collapsible-section'
@@ -30,7 +31,6 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
   const [createScheduleError, setCreateScheduleError] = useState<string | null>(null)
   const [addingExisting, setAddingExisting] = useState(false)
   const [addExistingError, setAddExistingError] = useState<string | null>(null)
-  const [clearingProposals, setClearingProposals] = useState<Set<number>>(new Set())
   const [bookingAllTotal, setBookingAllTotal] = useState<number | null>(null)
   const [bookingAllElapsed, setBookingAllElapsed] = useState(0)
   const [isPending, startTransition] = useTransition()
@@ -179,30 +179,6 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
       setErrors(newErrors)
       setCommitting(new Set())
       setBookingAllTotal(null)
-      router.refresh()
-    })
-  }
-
-  function handleClearProposal(index: number) {
-    const p = schedule.proposals[index]
-    if (!confirm(`Remove "${p.studentName} — ${p.protocolName}" from her needs, so it stops being proposed? This cannot be undone.`)) return
-    setErrors((prev) => {
-      const next = { ...prev }
-      delete next[index]
-      return next
-    })
-    setClearingProposals((prev) => new Set(prev).add(index))
-    startTransition(async () => {
-      const result = await deleteNeeds(p.needIds)
-      if (result.error) {
-        setErrors((prev) => ({ ...prev, [index]: result.error as string }))
-        setClearingProposals((prev) => {
-          const next = new Set(prev)
-          next.delete(index)
-          return next
-        })
-        return
-      }
       router.refresh()
     })
   }
@@ -605,13 +581,9 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
                   >
                     {committing.has(i) ? 'Booking…' : 'Book'}
                   </button>
-                  <button
-                    onClick={() => handleClearProposal(i)}
-                    disabled={isPending || clearingProposals.has(i)}
-                    className="text-sm text-red-600 hover:underline disabled:opacity-50"
-                  >
-                    Clear
-                  </button>
+                  <Link href={`/admin/children?student=${p.studentId}`} className="text-sm text-gray-500 hover:underline">
+                    Edit protocols
+                  </Link>
                 </div>
               </li>
             ))}

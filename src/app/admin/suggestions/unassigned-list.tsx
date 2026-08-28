@@ -1,11 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import type { UnmetNeed } from '@/lib/matching/unmet-needs'
 import type { ProposedSession } from '@/lib/matching/generate-schedule'
-import { deleteNeeds } from './actions'
 
 const tierLabels: Record<number, string> = { 0: 'Standard', 1: 'Priority', 2: 'VIP' }
 const DAY_NAMES: Record<number, string> = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri' }
@@ -18,27 +15,8 @@ export function UnassignedList({
   /** Keyed by `${studentId}:${protocolId}` — the same availability-aware placement the grid above computed, if any. */
   recommendedByNeed?: Record<string, ProposedSession>
 }) {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const router = useRouter()
-
-  function handleClear(need: UnmetNeed) {
-    const label =
-      need.subProtocols.length > 0
-        ? `${need.protocolName} (${need.subProtocols.length} sub-protocol${need.subProtocols.length === 1 ? '' : 's'})`
-        : need.protocolName
-    if (!confirm(`Remove "${label}" from ${need.studentName}'s needs? This cannot be undone.`)) return
-    setError(null)
-    startTransition(async () => {
-      const result = await deleteNeeds(need.needIds)
-      if (result.error) setError(result.error)
-      router.refresh()
-    })
-  }
-
   return (
     <div>
-      {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
       <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
         {needs.map((need) => {
           const rec = recommendedByNeed?.[`${need.studentId}:${need.protocolId}`]
@@ -69,13 +47,9 @@ export function UnassignedList({
               >
                 Assign
               </Link>
-              <button
-                onClick={() => handleClear(need)}
-                disabled={isPending}
-                className="text-sm text-red-600 hover:underline disabled:opacity-50"
-              >
-                Clear
-              </button>
+              <Link href={`/admin/children?student=${need.studentId}`} className="text-sm text-gray-500 hover:underline">
+                Edit protocols
+              </Link>
             </div>
           </li>
           )

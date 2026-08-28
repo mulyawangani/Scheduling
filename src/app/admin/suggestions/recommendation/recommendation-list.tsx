@@ -5,7 +5,6 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { UnmetNeed } from '@/lib/matching/unmet-needs'
 import { PRIORITY_LABEL } from '@/lib/priority'
-import { deleteNeeds } from '../actions'
 import { prioritizeNeed, unprioritizeNeed } from './actions'
 
 export interface RankedNeed {
@@ -49,38 +48,6 @@ export function RecommendationList({ items, showRank = true }: { items: RankedNe
     return true
   })
   const isFiltered = protocolFilter !== '' || teacherFilter !== '' || studentFilter !== ''
-
-  function handleClearAll(itemsToClear: RankedNeed[]) {
-    if (itemsToClear.length === 0) return
-    if (
-      !confirm(
-        `Remove all ${itemsToClear.length} need${itemsToClear.length === 1 ? '' : 's'} shown here? This cannot be undone.`
-      )
-    )
-      return
-    setError(null)
-    startTransition(async () => {
-      const allNeedIds = itemsToClear.flatMap((item) => item.need.needIds)
-      const result = await deleteNeeds(allNeedIds)
-      if (result.error) setError(result.error)
-      router.refresh()
-    })
-  }
-
-  function handleClear(item: RankedNeed) {
-    const need = item.need
-    const label =
-      need.subProtocols.length > 0
-        ? `${need.protocolName} (${need.subProtocols.length} sub-protocol${need.subProtocols.length === 1 ? '' : 's'})`
-        : need.protocolName
-    if (!confirm(`Remove "${label}" from ${need.studentName}'s needs? This cannot be undone.`)) return
-    setError(null)
-    startTransition(async () => {
-      const result = await deleteNeeds(need.needIds)
-      if (result.error) setError(result.error)
-      router.refresh()
-    })
-  }
 
   function handleTogglePrioritize(item: RankedNeed) {
     const need = item.need
@@ -151,15 +118,6 @@ export function RecommendationList({ items, showRank = true }: { items: RankedNe
               {filteredItems.length} of {items.length}
             </span>
           )}
-          {filteredItems.length > 0 && (
-            <button
-              onClick={() => handleClearAll(filteredItems)}
-              disabled={isPending}
-              className="ml-auto text-sm text-red-600 hover:underline disabled:opacity-50"
-            >
-              Clear all ({filteredItems.length})
-            </button>
-          )}
         </div>
       )}
       {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
@@ -207,13 +165,9 @@ export function RecommendationList({ items, showRank = true }: { items: RankedNe
                   >
                     Assign
                   </Link>
-                  <button
-                    onClick={() => handleClear(item)}
-                    disabled={isPending}
-                    className="text-sm text-red-600 hover:underline disabled:opacity-50"
-                  >
-                    Clear
-                  </button>
+                  <Link href={`/admin/children?student=${need.studentId}`} className="text-sm text-gray-500 hover:underline">
+                    Edit protocols
+                  </Link>
                 </div>
                 <button
                   onClick={() => handleTogglePrioritize(item)}

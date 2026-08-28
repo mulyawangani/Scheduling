@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Protocol, StudentStatus, SubProtocol } from '@/lib/supabase/types'
 import { priorityLabel } from '@/lib/priority'
 import { ChildProfileEditor, computeAge } from './child-profile-editor'
@@ -18,6 +18,7 @@ export function ChildCard({
   protocols,
   subProtocolsByProtocol,
   selectedNeeds,
+  autoExpand = false,
 }: {
   studentId: string
   name: string
@@ -30,13 +31,20 @@ export function ChildCard({
   protocols: Protocol[]
   subProtocolsByProtocol: Record<string, SubProtocol[]>
   selectedNeeds: SelectedNeed[]
+  /** Set when a link elsewhere (e.g. Recommendation's "Edit protocols") sent the owner here for this specific child — expands the card and scrolls it into view on load, instead of leaving her to find it in the full list. */
+  autoExpand?: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(autoExpand)
+  const liRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    if (autoExpand) liRef.current?.scrollIntoView({ block: 'center' })
+  }, [autoExpand])
 
   const age = computeAge(dateOfBirth)
 
   return (
-    <li className="flex flex-col gap-3 p-3">
+    <li ref={liRef} className={`flex flex-col gap-3 p-3 ${autoExpand ? 'bg-blue-50' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium">{name}</p>
