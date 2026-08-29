@@ -38,6 +38,15 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
         <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
           {students.map((student) => {
             const parentName = Array.isArray(student.profiles) ? student.profiles[0]?.name : student.profiles?.name
+            // A protocol-level row (sub_protocol_id null) for a protocol that
+            // actually has sub-protocols means the specific sub-protocol was
+            // never recorded (or, for the 2026-08-27 data-loss incident, was
+            // lost and reconstructed at the protocol level only) — flag it so
+            // it doesn't sit unnoticed next to the deliberately-general rows
+            // for protocols with no sub-protocols at all.
+            const needsSubProtocolReview = student.student_protocols.some(
+              (s) => s.sub_protocol_id === null && (subProtocolsByProtocol[s.protocol_id]?.length ?? 0) > 0
+            )
             return (
               <ChildCard
                 key={student.id}
@@ -56,6 +65,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                   subProtocolId: s.sub_protocol_id,
                 }))}
                 autoExpand={student.id === highlightStudentId}
+                needsSubProtocolReview={needsSubProtocolReview}
               />
             )
           })}
