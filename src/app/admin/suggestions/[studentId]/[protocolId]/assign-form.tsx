@@ -314,8 +314,17 @@ export function AssignForm({
             </div>
           ) : (
             <div key="one_off" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <input type="date" name="startDate" required className="rounded-lg border border-gray-300 px-3 py-2" />
-              <HourSelect name="startHour" required className="rounded-lg border border-gray-300 px-3 py-2" />
+              {/* Pre-filled from "Browse other times" above when it's actually been used
+                  (browseDate empty means it hasn't) — no reason to make her re-enter the
+                  same date/time she just picked to check availability. Still editable. */}
+              <input
+                type="date"
+                name="startDate"
+                required
+                defaultValue={browseDate}
+                className="rounded-lg border border-gray-300 px-3 py-2"
+              />
+              <HourSelect name="startHour" required defaultValue={browseDate ? browseHour : ''} className="rounded-lg border border-gray-300 px-3 py-2" />
             </div>
           )}
 
