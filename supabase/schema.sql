@@ -57,6 +57,27 @@ create table sub_protocols (
   unique (protocol_id, title)
 );
 
+-- The school a child is affiliated with (enrollment) — distinct from
+-- therapy_locations below (where therapy physically happens), even though
+-- both are the single real-world "Playtics Center" today. Kept as two
+-- separate concepts/tables so a future second physical site, or a
+-- non-enrolled therapy client tied to a different school, doesn't require
+-- reinterpreting one overloaded column.
+create table schools (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique
+);
+
+create table therapy_locations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique
+);
+-- Fixed (not gen_random_uuid()) so the column defaults below — a Postgres
+-- column default can't run a subquery, only a constant/immutable expression —
+-- can reference this row's id directly, on a fresh install same as production.
+insert into schools (id, name) values ('00000000-0000-0000-0000-000000000001', 'Playtics Center');
+insert into therapy_locations (id, name) values ('00000000-0000-0000-0000-000000000001', 'Playtics Center');
+
 create table students (
   id uuid primary key default gen_random_uuid(),
   parent_id uuid not null references profiles(id) on delete cascade,
@@ -64,6 +85,8 @@ create table students (
   date_of_birth date,
   rate_per_session numeric(10,2),
   priority smallint check (priority is null or priority between 1 and 3),
+  school_id uuid not null references schools(id) default '00000000-0000-0000-0000-000000000001',
+  therapy_location_id uuid not null references therapy_locations(id) default '00000000-0000-0000-0000-000000000001',
   -- 'student': availability is fixed to school hours (Mon-Fri 08:00-12:00),
   -- set automatically whenever this status is saved. 'non_student': the
   -- parent builds a custom weekly timetable on their own student page.

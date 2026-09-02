@@ -110,6 +110,36 @@ export interface Database {
           },
         ]
       }
+      schools: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      therapy_locations: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           id: string
@@ -118,6 +148,8 @@ export interface Database {
           date_of_birth: string | null
           rate_per_session: number | null
           priority: number | null
+          school_id: string
+          therapy_location_id: string
           status: StudentStatus | null
           weekly_target_sessions: number
           created_at: string
@@ -129,6 +161,8 @@ export interface Database {
           date_of_birth?: string | null
           rate_per_session?: number | null
           priority?: number | null
+          school_id?: string
+          therapy_location_id?: string
           status?: StudentStatus | null
           weekly_target_sessions?: number
           created_at?: string
@@ -140,6 +174,8 @@ export interface Database {
           date_of_birth?: string | null
           rate_per_session?: number | null
           priority?: number | null
+          school_id?: string
+          therapy_location_id?: string
           status?: StudentStatus | null
           weekly_target_sessions?: number
           created_at?: string
@@ -150,6 +186,20 @@ export interface Database {
             columns: ['parent_id']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'students_school_id_fkey'
+            columns: ['school_id']
+            isOneToOne: false
+            referencedRelation: 'schools'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'students_therapy_location_id_fkey'
+            columns: ['therapy_location_id']
+            isOneToOne: false
+            referencedRelation: 'therapy_locations'
             referencedColumns: ['id']
           },
         ]
