@@ -201,6 +201,10 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
 
   const holidayByDate = new Map(schedule.holidays.map((h) => [h.date, h]))
 
+  const sessionsByDay = new Map<number, number>()
+  for (const e of schedule.existing) sessionsByDay.set(e.dayOfWeek, (sessionsByDay.get(e.dayOfWeek) ?? 0) + 1)
+  for (const p of schedule.proposals) sessionsByDay.set(p.dayOfWeek, (sessionsByDay.get(p.dayOfWeek) ?? 0) + 1)
+
   const scheduledByTeacher = new Map<string, number>()
   for (const e of schedule.existing) scheduledByTeacher.set(e.teacherName, (scheduledByTeacher.get(e.teacherName) ?? 0) + 1)
   const proposedByTeacher = new Map<string, number>()
@@ -219,6 +223,9 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
     new Set([...schedule.existing.map((e) => e.protocolName), ...schedule.proposals.map((p) => p.protocolName)])
   ).sort((a, b) => a.localeCompare(b))
   const teacherMatrixCellKey = (teacherName: string, protocolName: string) => `${teacherName}::${protocolName}`
+  const protocolTotalCount = new Map<string, number>()
+  for (const e of schedule.existing) protocolTotalCount.set(e.protocolName, (protocolTotalCount.get(e.protocolName) ?? 0) + 1)
+  for (const p of schedule.proposals) protocolTotalCount.set(p.protocolName, (protocolTotalCount.get(p.protocolName) ?? 0) + 1)
   const teacherMatrixCells = new Map<string, TeacherMatrixCell[]>()
   for (const e of schedule.existing) {
     const key = teacherMatrixCellKey(e.teacherName, e.protocolName)
@@ -301,7 +308,7 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
                 const holiday = holidayByDate.get(date)
                 return (
                   <th key={day} className="p-0.5 text-center font-medium text-gray-600">
-                    {DAY_NAMES[day]}
+                    {DAY_NAMES[day]} <span className="font-normal text-gray-400">({sessionsByDay.get(day) ?? 0})</span>
                     <div className="font-normal text-gray-400">{dateLabelFormatter.format(new Date(`${date}T00:00:00Z`))}</div>
                     {holiday && (
                       <div className={`mt-0.5 rounded px-1 text-[9px] font-medium ${holiday.type === 'public' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -362,7 +369,7 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
                   <th className="sticky left-0 z-10 bg-gray-50 p-2 text-left font-medium text-gray-700">Teacher</th>
                   {teacherProtocolNames.map((name) => (
                     <th key={name} className="p-2 text-left font-medium text-gray-700">
-                      {name}
+                      {name} <span className="font-normal text-gray-400">({protocolTotalCount.get(name) ?? 0})</span>
                     </th>
                   ))}
                 </tr>
@@ -414,7 +421,7 @@ export function ScheduleGrid({ schedule }: { schedule: GeneratedSchedule }) {
                   <th className="sticky left-0 z-10 bg-gray-50 p-2 text-left font-medium text-gray-700">Child</th>
                   {matrixProtocolNames.map((name) => (
                     <th key={name} className="p-2 text-left font-medium text-gray-700">
-                      {name}
+                      {name} <span className="font-normal text-gray-400">({protocolTotalCount.get(name) ?? 0})</span>
                     </th>
                   ))}
                 </tr>
