@@ -12,7 +12,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
     supabase
       .from('students')
       .select(
-        'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, profiles!students_parent_id_fkey(name), student_protocols(protocol_id, sub_protocol_id)'
+        'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
       )
       .order('name'),
     supabase.from('protocols').select('*').eq('is_active', true).order('title'),
@@ -38,6 +38,10 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
         <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
           {students.map((student) => {
             const parentName = Array.isArray(student.profiles) ? student.profiles[0]?.name : student.profiles?.name
+            const schoolName = Array.isArray(student.schools) ? student.schools[0]?.name : student.schools?.name
+            const therapyLocationName = Array.isArray(student.therapy_locations)
+              ? student.therapy_locations[0]?.name
+              : student.therapy_locations?.name
             // A protocol-level row (sub_protocol_id null) for a protocol that
             // actually has sub-protocols means the specific sub-protocol was
             // never recorded (or, for the 2026-08-27 data-loss incident, was
@@ -53,6 +57,8 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                 studentId={student.id}
                 name={student.name}
                 parentName={parentName}
+                schoolName={schoolName}
+                therapyLocationName={therapyLocationName}
                 dateOfBirth={student.date_of_birth}
                 ratePerSession={student.rate_per_session}
                 priority={student.priority}

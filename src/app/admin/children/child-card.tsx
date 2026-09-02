@@ -10,6 +10,8 @@ export function ChildCard({
   studentId,
   name,
   parentName,
+  schoolName,
+  therapyLocationName,
   dateOfBirth,
   ratePerSession,
   priority,
@@ -24,6 +26,8 @@ export function ChildCard({
   studentId: string
   name: string
   parentName: string | undefined
+  schoolName: string | undefined
+  therapyLocationName: string | undefined
   dateOfBirth: string | null
   ratePerSession: number | null
   priority: number | null
@@ -59,6 +63,9 @@ export function ChildCard({
             )}
           </p>
           <p className="text-sm text-gray-500">Parent: {parentName}</p>
+          <p className="text-xs text-gray-400">
+            School: {schoolName ?? '—'} · Location: {therapyLocationName ?? '—'}
+          </p>
           {!expanded && (
             <p className="mt-1 text-xs text-gray-400">
               {age !== null ? `Age ${age}` : 'No DOB'} · {ratePerSession !== null ? `$${ratePerSession}/session` : 'No rate'} ·{' '}
