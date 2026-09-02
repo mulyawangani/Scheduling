@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { logAudit } from '@/lib/audit'
 
 export async function toggleProtocol(
   studentId: string,
@@ -10,21 +11,52 @@ export async function toggleProtocol(
   enabled: boolean
 ) {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (enabled) {
     const { error } = await supabase
       .from('student_protocols')
       .insert({ student_id: studentId, protocol_id: protocolId, sub_protocol_id: subProtocolId })
     if (error) return { error: 'Could not add protocol.' }
+
+    if (user) logAudit(supabase, user.id, 'add_protocol_need', 'student_protocols', undefined, await needLabel(supabase, studentId, protocolId, subProtocolId))
+
+    // Checking a specific sub-protocol supersedes an earlier protocol-level
+    // placeholder for the same protocol — clear it so it doesn't linger as an
+    // invisible duplicate need alongside the now-specific one.
+    if (subProtocolId) {
+      await supabase.from('student_protocols').delete().eq('student_id', studentId).eq('protocol_id', protocolId).is('sub_protocol_id', null)
+    }
   } else {
+    const label = await needLabel(supabase, studentId, protocolId, subProtocolId)
     let query = supabase.from('student_protocols').delete().eq('student_id', studentId).eq('protocol_id', protocolId)
     query = subProtocolId ? query.eq('sub_protocol_id', subProtocolId) : query.is('sub_protocol_id', null)
     const { error } = await query
     if (error) return { error: 'Could not remove protocol.' }
+
+    if (user) logAudit(supabase, user.id, 'remove_protocol_need', 'student_protocols', undefined, label)
   }
 
   revalidatePath(`/parent/students/${studentId}`)
   return { error: null }
+}
+
+async function needLabel(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  studentId: string,
+  protocolId: string,
+  subProtocolId: string | null
+) {
+  const [{ data: student }, { data: protocol }, { data: subProtocol }] = await Promise.all([
+    supabase.from('students').select('name').eq('id', studentId).single(),
+    supabase.from('protocols').select('title').eq('id', protocolId).single(),
+    subProtocolId ? supabase.from('sub_protocols').select('title').eq('id', subProtocolId).single() : Promise.resolve({ data: null }),
+  ])
+  return {
+    label: `${student?.name ?? studentId} — ${protocol?.title ?? protocolId}${subProtocol?.title ? ` (${subProtocol.title})` : ''}`,
+  }
 }
 
 export async function addAvailability(studentId: string, formData: FormData) {

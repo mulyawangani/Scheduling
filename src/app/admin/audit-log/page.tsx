@@ -19,6 +19,9 @@ const ACTION_LABELS: Record<string, string> = {
   reset_all_schedules: 'Reset all schedules',
   decline_session: 'Decline session',
   cancel_monthly_transactions: 'Cancel monthly transactions',
+  add_protocol_need: 'Add protocol need',
+  remove_protocol_need: 'Remove protocol need',
+  restore_lost_needs: 'Restore lost needs',
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
