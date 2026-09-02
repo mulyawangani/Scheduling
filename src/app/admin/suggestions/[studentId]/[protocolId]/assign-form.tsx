@@ -294,21 +294,28 @@ export function AssignForm({
           </select>
 
           {recurrenceType === 'weekly' ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <select name="day" defaultValue="" className="rounded-lg border border-gray-300 px-3 py-2">
-                <option value="">Day</option>
+            // key={recurrenceType} forces a full remount when switching modes —
+            // without it, React reuses the HourSelect at this same grid
+            // position across both branches (same component type, same tree
+            // position), so a value picked in one mode could silently carry
+            // over into the other mode's differently-named field.
+            <div key="weekly" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <select name="day" required defaultValue="" className="rounded-lg border border-gray-300 px-3 py-2">
+                <option value="" disabled>
+                  Day
+                </option>
                 {DAYS.map((day, i) => (
                   <option key={day} value={i}>
                     {day}
                   </option>
                 ))}
               </select>
-              <HourSelect name="timeOfDayStart" className="rounded-lg border border-gray-300 px-3 py-2" />
+              <HourSelect name="timeOfDayStart" required className="rounded-lg border border-gray-300 px-3 py-2" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <input type="date" name="startDate" className="rounded-lg border border-gray-300 px-3 py-2" />
-              <HourSelect name="startHour" className="rounded-lg border border-gray-300 px-3 py-2" />
+            <div key="one_off" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <input type="date" name="startDate" required className="rounded-lg border border-gray-300 px-3 py-2" />
+              <HourSelect name="startHour" required className="rounded-lg border border-gray-300 px-3 py-2" />
             </div>
           )}
 
