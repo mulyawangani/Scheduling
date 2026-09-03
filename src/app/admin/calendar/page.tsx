@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { currentMonthParam, addMonths, formatMonthLabel, getMonthGridDays } from '@/lib/calendar-month'
 import { HolidayCalendar } from './holiday-calendar'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+  await requireOwner()
   const { month } = await searchParams
   const monthParam = month && /^\d{4}-\d{2}$/.test(month) ? month : currentMonthParam()
   const days = getMonthGridDays(monthParam)

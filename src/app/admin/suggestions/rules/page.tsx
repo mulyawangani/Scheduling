@@ -3,8 +3,10 @@ import { BackLink } from '@/components/back-link'
 import { RulesEditor } from './rules-editor'
 import { PrioritizedList, type PrioritizedItem } from './prioritized-list'
 import { SuggestionsNav } from '../suggestions-nav'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function RulesPage() {
+  await requireOwner()
   const supabase = await createClient()
   const [{ data: rules }, { data: prioritizedRows }, { data: teachers }, { data: teacherConcurrencyRules }, { data: protocols }] = await Promise.all([
     supabase.from('scheduling_rules').select('*').eq('id', true).single(),

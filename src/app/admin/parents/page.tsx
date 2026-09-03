@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { ParentRow } from './parent-row'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function ParentsPage() {
+  await requireOwner()
   const supabase = await createClient()
   const { data: parents } = await supabase
     .from('profiles')

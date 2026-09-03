@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { CapacityList } from './capacity-list'
 import { SuggestionsNav } from '../suggestions-nav'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function CapacityPage() {
+  await requireOwner()
   const supabase = await createClient()
   const { data: rules } = await supabase.from('capacity_rules').select('*').order('start_time')
 

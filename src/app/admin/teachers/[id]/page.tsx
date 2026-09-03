@@ -7,6 +7,7 @@ import { ScheduleView, type SessionForSchedule } from './schedule-view'
 import { ProtocolsEditor, type AssignedProtocol } from './protocols-editor'
 import { ClearScheduleButton } from './clear-schedule-button'
 import { addWeeks, formatWeekLabel, getUpcomingWeekStart } from '@/lib/week'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function TeacherDetailPage({
   params,
@@ -15,6 +16,7 @@ export default async function TeacherDetailPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ week?: string }>
 }) {
+  await requireOwner()
   const { id } = await params
   const { week } = await searchParams
   const weekStartDate = week || getUpcomingWeekStart()

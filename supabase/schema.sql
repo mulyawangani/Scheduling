@@ -5,7 +5,11 @@ drop table if exists clients cascade;
 
 create extension if not exists pgcrypto;
 
-create type user_role as enum ('parent', 'teacher', 'owner');
+-- 'admin' is a narrower operational role, added 2026-09-07: scheduling
+-- (Simulations/book), Schedules (WhatsApp push), Billing, and Reports only —
+-- no children/teachers/protocols/rules/audit-log access. See requireOwner()
+-- in src/lib/auth/require-owner.ts for where that boundary is enforced.
+create type user_role as enum ('parent', 'teacher', 'owner', 'admin');
 create type recurrence_type as enum ('one_off', 'weekly');
 create type session_source as enum ('algorithm', 'manual');
 -- 'completed': teacher-marked, only reachable from 'accepted', only meaningful
@@ -506,6 +510,10 @@ $$;
 create policy "select own or owner sees all" on profiles
   for select to authenticated
   using (id = auth.uid() or has_role('owner'));
+-- 'admin' needs to read teacher/parent names+phones (WhatsApp push, billing,
+-- rosters) but never gets insert/update-of-others — those stay owner-only.
+create policy "profiles admin reads all" on profiles
+  for select to authenticated using (has_role('admin'));
 
 create policy "self insert as parent" on profiles
   for insert to authenticated
@@ -571,6 +579,10 @@ create policy "students parent or owner" on students
   for all to authenticated
   using (parent_id = auth.uid() or has_role('owner'))
   with check (parent_id = auth.uid() or has_role('owner'));
+-- 'admin' reads every child (needed for Simulations/Billing/Reports) but
+-- can't create/edit children — no insert/update/delete policy for it here.
+create policy "students admin reads all" on students
+  for select to authenticated using (has_role('admin'));
 create policy "students teacher reads assigned" on students
   for select to authenticated
   using (is_teacher_of_student(id));
@@ -580,6 +592,8 @@ create policy "student_protocols parent or owner" on student_protocols
   for all to authenticated
   using (exists (select 1 from students s where s.id = student_id and s.parent_id = auth.uid()) or has_role('owner'))
   with check (exists (select 1 from students s where s.id = student_id and s.parent_id = auth.uid()) or has_role('owner'));
+create policy "student_protocols admin reads all" on student_protocols
+  for select to authenticated using (has_role('admin'));
 create policy "student_protocols teacher reads assigned" on student_protocols
   for select to authenticated
   using (is_teacher_of_student(student_id));
@@ -615,15 +629,21 @@ create policy "teacher_concurrency_rules owner writes" on teacher_concurrency_ru
 
 create policy "schedule_versions owner only" on schedule_versions
   for all to authenticated using (has_role('owner')) with check (has_role('owner'));
+create policy "schedule_versions admin full access" on schedule_versions
+  for all to authenticated using (has_role('admin')) with check (has_role('admin'));
 
 create policy "schedule_batches owner only" on schedule_batches
   for all to authenticated using (has_role('owner')) with check (has_role('owner'));
+create policy "schedule_batches admin full access" on schedule_batches
+  for all to authenticated using (has_role('admin')) with check (has_role('admin'));
 
 create policy "scheduling_rules owner only" on scheduling_rules
   for all to authenticated using (has_role('owner')) with check (has_role('owner'));
 
 create policy "prioritized_needs owner only" on prioritized_needs
   for all to authenticated using (has_role('owner')) with check (has_role('owner'));
+create policy "prioritized_needs admin full access" on prioritized_needs
+  for all to authenticated using (has_role('admin')) with check (has_role('admin'));
 
 -- holidays — readable by any authenticated user (the matching algorithm and
 -- teacher/parent views may want to explain a gap), writable by owner only.
@@ -639,11 +659,16 @@ create policy "teacher_protocols teacher reads own" on teacher_protocols
 create policy "teacher_protocols owner full access" on teacher_protocols
   for all to authenticated
   using (has_role('owner')) with check (has_role('owner'));
+create policy "teacher_protocols admin reads all" on teacher_protocols
+  for select to authenticated using (has_role('admin'));
 
 -- session_plans
 create policy "session_plans owner full access" on session_plans
   for all to authenticated
   using (has_role('owner')) with check (has_role('owner'));
+create policy "session_plans admin full access" on session_plans
+  for all to authenticated
+  using (has_role('admin')) with check (has_role('admin'));
 create policy "session_plans teacher reads own" on session_plans
   for select to authenticated
   using (teacher_id = auth.uid());
@@ -681,6 +706,9 @@ create policy "session_occurrences teacher manages own" on session_occurrences
 create policy "billing_rates owner full access" on billing_rates
   for all to authenticated
   using (has_role('owner')) with check (has_role('owner'));
+create policy "billing_rates admin full access" on billing_rates
+  for all to authenticated
+  using (has_role('admin')) with check (has_role('admin'));
 create policy "billing_rates teacher reads relevant" on billing_rates
   for select to authenticated
   using (teacher_id = auth.uid() or teacher_id is null);

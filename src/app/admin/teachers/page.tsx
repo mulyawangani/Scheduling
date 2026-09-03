@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { NewTeacherForm } from './new-teacher-form'
 import { TeacherRow } from './teacher-row'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function TeachersPage() {
+  await requireOwner()
   const supabase = await createClient()
   const { data: teachers } = await supabase
     .from('profiles')

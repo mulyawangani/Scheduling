@@ -1,4 +1,4 @@
-export type UserRole = 'parent' | 'teacher' | 'owner'
+export type UserRole = 'parent' | 'teacher' | 'owner' | 'admin'
 export type RecurrenceType = 'one_off' | 'weekly'
 export type SessionSource = 'algorithm' | 'manual'
 export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed'

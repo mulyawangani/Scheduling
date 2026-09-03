@@ -7,10 +7,12 @@ import { getUpcomingWeekStart } from '@/lib/week'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import { RecommendationList, type RankedNeed } from './recommendation-list'
 import { SuggestionsNav } from '../suggestions-nav'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 const cancelledDateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
 
 export default async function RecommendationPage() {
+  await requireOwner()
   const supabase = await createClient()
 
   const [rawNeeds, { rules, studentInfoById }, { data: sessionHistoryRows }, { data: allHistoryRows }] = await Promise.all([

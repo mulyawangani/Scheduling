@@ -4,6 +4,7 @@ import { LogoutButton } from '@/components/logout-button'
 import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
 import { generateSchedule } from '@/lib/matching/generate-schedule'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 function percentColor(percent: number | null) {
   if (percent === null) return 'text-gray-400'
@@ -13,6 +14,7 @@ function percentColor(percent: number | null) {
 }
 
 export default async function AdminDashboard() {
+  await requireOwner()
   const supabase = await createClient()
 
   const [{ data: allNeeds }, unmet, { data: allHistoryRows }] = await Promise.all([
