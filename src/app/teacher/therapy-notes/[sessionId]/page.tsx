@@ -49,6 +49,18 @@ export default async function TherapyNotePage({
   if (!session || session.status !== 'accepted') notFound()
   if (session.recurrence_type === 'weekly' && !week) notFound()
 
+  // A note shouldn't be writable for a class that hasn't happened yet —
+  // hiding the "Write note" link is only a display convenience, not a real
+  // boundary, since this page is reachable directly by URL regardless.
+  const today = dateStringInBusinessTz(new Date())
+  const occurrenceDate =
+    session.recurrence_type === 'one_off'
+      ? session.start_time
+        ? dateStringInBusinessTz(new Date(session.start_time))
+        : null
+      : dateForDayOfWeek(week as string, session.day_of_week as number)
+  if (occurrenceDate && occurrenceDate > today) notFound()
+
   const student = Array.isArray(session.students) ? session.students[0] : session.students
   const protocol = Array.isArray(session.protocols) ? session.protocols[0] : session.protocols
   const studentName = student?.name ?? 'Unknown student'

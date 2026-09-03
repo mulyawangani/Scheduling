@@ -174,7 +174,15 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
                           const isWeeklyCompletedThisWeek =
                             s.recurrenceType === 'weekly' && completedWeeklyKeys.has(occurrenceKey(s.id, weekStart))
                           const isDone = s.status === 'completed' || isWeeklyCompletedThisWeek
-                          const occurrenceInFuture = s.recurrenceType === 'weekly' && dateForDayOfWeek(weekStart, s.dayOfWeek) > todayStr
+                          // A weekly session's own day this week hasn't happened yet, or a
+                          // one-off session's date hasn't happened yet — either way, no note
+                          // can be written for a class that hasn't occurred. The one-off case
+                          // was missing entirely before this: it let a note (and the "protocol
+                          // delivered this month" it implies) be filed for a future session.
+                          const occurrenceInFuture =
+                            s.recurrenceType === 'weekly'
+                              ? dateForDayOfWeek(weekStart, s.dayOfWeek) > todayStr
+                              : s.date !== null && s.date > todayStr
                           return (
                             <div
                               key={s.id}
@@ -204,7 +212,7 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
                                   </button>
                                 </div>
                               )}
-                              {s.status === 'accepted' && s.recurrenceType === 'one_off' && (
+                              {s.status === 'accepted' && s.recurrenceType === 'one_off' && !occurrenceInFuture && (
                                 <Link
                                   href={`/teacher/therapy-notes/${s.id}`}
                                   className="mt-0.5 block text-[10px] text-green-700 hover:underline"
