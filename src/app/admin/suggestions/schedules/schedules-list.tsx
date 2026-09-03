@@ -11,11 +11,19 @@ import { ActualSessionsGrid, type GridSession } from './actual-sessions-grid'
 export interface ScheduleBatchWithSessions extends ScheduleBatch {
   sessions: {
     id: string
+    /** "S1", "S2"... — shared with this same session's cell in the
+     *  ActualSessionsGrid below, so a row and its cell always match. */
+    label: string
     studentName: string
     protocolName: string
     teacherName: string
     when: string
     hasPhone: boolean
+    /** Mon=1..Fri=5 (7 for unknown) and minutes-from-midnight — sorted by these
+     *  server-side so this list reads top-to-bottom in the same order as the
+     *  grid below it (Mon→Fri, chronological), instead of query order. */
+    sortDay: number
+    sortMinutes: number
   }[]
   /** Every real booked session for this batch's week, tagged into this batch or not — see ActualSessionsGrid. */
   actualSessions: GridSession[]
@@ -188,7 +196,8 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
                     {batch.sessions.map((s) => (
                       <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
                         <span>
-                          {s.studentName} — {s.protocolName} with {s.teacherName}
+                          <span className="text-gray-400">{s.label}</span> {s.studentName} — {s.protocolName} with{' '}
+                          {s.teacherName}
                           <span className="text-gray-400"> · {s.when}</span>
                         </span>
                         {!s.hasPhone && <span className="shrink-0 text-xs text-amber-600">No phone on file</span>}

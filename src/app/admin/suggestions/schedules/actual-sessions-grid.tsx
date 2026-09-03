@@ -8,6 +8,11 @@ const dateLabelFormatter = new Intl.DateTimeFormat('en-US', { month: 'numeric', 
 
 export interface GridSession {
   id: string
+  /** "S1", "S2"... assigned chronologically (Mon→Fri, earliest first) across
+   *  this whole week's real sessions — shared with the same session's row in
+   *  the "Sessions tagged into this schedule" list above, so a row and its
+   *  cell always show the same number. */
+  label: string
   dayOfWeek: number
   startTime: string // "HH:MM"
   status: string
@@ -89,7 +94,7 @@ export function ActualSessionsGrid({ weekStartDate, sessions }: { weekStartDate:
                         return (
                           <div key={s.id} className={`rounded px-1 py-0.5 ${colors}`}>
                             <p className="font-medium leading-tight">
-                              {s.studentName} — {s.protocolName}
+                              <span className="opacity-60">{s.label}</span> {s.studentName} — {s.protocolName}
                             </p>
                             <p className="leading-tight">{s.teacherName}</p>
                           </div>
