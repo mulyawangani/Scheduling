@@ -7,6 +7,7 @@ import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import { formatWeekLabel } from '@/lib/week'
 import { pushWhatsAppForBatch, deleteScheduleBatch, cancelScheduleBatch } from './actions'
 import { ActualSessionsGrid, type GridSession } from './actual-sessions-grid'
+import { CollapsibleSection } from '@/components/collapsible-section'
 
 export interface ScheduleBatchWithSessions extends ScheduleBatch {
   sessions: {
@@ -213,12 +214,17 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
                 {batch.sessions.length === 0 ? (
                   <p className="mb-3 text-xs text-gray-400">None — see the actual grid below for what&apos;s really booked this week.</p>
                 ) : (
-                  <div className="mb-3 flex flex-col gap-3">
+                  <div className="mb-3 flex flex-col gap-2">
                     {groupByTeacher(batch.sessions).map((group) => (
-                      <div key={group.teacherName}>
-                        <p className="mb-1 text-xs font-semibold text-gray-600">
-                          {group.teacherName} <span className="font-normal text-gray-400">({group.sessions.length})</span>
-                        </p>
+                      <CollapsibleSection
+                        key={group.teacherName}
+                        defaultOpen={false}
+                        title={
+                          <>
+                            {group.teacherName} <span className="font-normal text-gray-400">({group.sessions.length})</span>
+                          </>
+                        }
+                      >
                         <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
                           {group.sessions.map((s) => (
                             <li key={s.id} className="flex items-center justify-between px-2 py-1.5 text-sm">
@@ -230,7 +236,7 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
                             </li>
                           ))}
                         </ul>
-                      </div>
+                      </CollapsibleSection>
                     ))}
                   </div>
                 )}
