@@ -8,18 +8,21 @@ const TABS = [
   { href: '/admin/suggestions/capacity', label: 'Capacity' },
   { href: '/admin/suggestions/rules', label: 'Rules' },
   { href: '/admin/suggestions/recommendation', label: 'Recommendation' },
+  { href: '/admin/suggestions/reschedule', label: 'Reschedule' },
   { href: '/admin/suggestions/schedules', label: 'Schedules' },
   { href: '/admin/suggestions/reports', label: 'Reports' },
   { href: '/admin/suggestions/billing', label: 'Billing' },
 ] as const
 
-// The narrower 'admin' role only has these three — its job is pushing
-// confirmed sessions to parents via WhatsApp (Schedules), plus Billing and
-// Reports, not generating/booking schedules. Everything else, Simulations
-// included, redirects it away via requireOwner() on those pages, so hiding
-// them here is just keeping the nav honest about what's actually reachable,
-// not the real access boundary.
+// The narrower 'admin' role only has these four — its job is pushing
+// confirmed sessions to parents via WhatsApp (Schedules), Billing, Reports,
+// and fixing a cancelled/declined session (Reschedule) — not
+// generating/booking new schedules. Everything else, Simulations included,
+// redirects it away via requireOwner() on those pages, so hiding them here
+// is just keeping the nav honest about what's actually reachable, not the
+// real access boundary.
 const ADMIN_VISIBLE_HREFS: ReadonlySet<string> = new Set([
+  '/admin/suggestions/reschedule',
   '/admin/suggestions/schedules',
   '/admin/suggestions/reports',
   '/admin/suggestions/billing',

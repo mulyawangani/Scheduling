@@ -23,6 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
   add_protocol_need: 'Add protocol need',
   remove_protocol_need: 'Remove protocol need',
   restore_lost_needs: 'Restore lost needs',
+  admin_reschedule: 'Admin reschedule',
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

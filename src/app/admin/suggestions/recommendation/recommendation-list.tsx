@@ -3,18 +3,11 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import type { UnmetNeed } from '@/lib/matching/unmet-needs'
 import { PRIORITY_LABEL } from '@/lib/priority'
 import { prioritizeNeed, unprioritizeNeed } from './actions'
+import type { RankedNeed } from '@/lib/matching/ranked-needs'
 
-export interface RankedNeed {
-  need: UnmetNeed
-  priority: number
-  rate: number
-  /** Set when this need is unmet because its last session was cancelled or the teacher declined it — same teacher, so the owner can rebook her on a different day. */
-  previousTeacher: { teacherName: string; outcome: 'cancelled' | 'declined'; reason: string | null; cancelledAt: string | null; respondedAtISO: string | null } | null
-  bestCandidate: { teacherName: string; coverageCount: number; totalNeeded: number; rating: number } | null
-}
+export type { RankedNeed }
 
 function candidateLabel(item: RankedNeed): string {
   if (!item.bestCandidate) return 'No qualified teacher assigned to this protocol at all yet.'

@@ -606,6 +606,10 @@ create policy "student_availability parent or owner" on student_availability
 create policy "student_availability teacher reads assigned" on student_availability
   for select to authenticated
   using (is_teacher_of_student(student_id));
+-- 'admin' needs this to check availability when rescheduling — the Assign
+-- page's suggestion algorithm reads it regardless of who's using the page.
+create policy "student_availability admin reads all" on student_availability
+  for select to authenticated using (has_role('admin'));
 
 -- teacher_availability
 create policy "teacher_availability teacher manages own" on teacher_availability
@@ -614,6 +618,9 @@ create policy "teacher_availability teacher manages own" on teacher_availability
 create policy "teacher_availability owner reads all" on teacher_availability
   for select to authenticated
   using (has_role('owner'));
+create policy "teacher_availability admin reads all" on teacher_availability
+  for select to authenticated
+  using (has_role('admin'));
 
 -- capacity_rules — readable by any authenticated user (used at session-create
 -- time), writable by owner only.

@@ -1,148 +1,17 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
-import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
-import { getRankingContext, rankNeeds, needKey, coverageRatioForRanking, type BestMatchInfo } from '@/lib/matching/rank-needs'
-import { groupTeacherProtocolRows, coverageQualificationsFromGroup } from '@/lib/matching/suggest'
+import { getRankedNeeds, isReopenedNeed } from '@/lib/matching/ranked-needs'
 import { getUpcomingWeekStart } from '@/lib/week'
-import { BUSINESS_TIMEZONE } from '@/lib/timezone'
-import { RecommendationList, type RankedNeed } from './recommendation-list'
+import { RecommendationList } from './recommendation-list'
 import { SuggestionsNav } from '../suggestions-nav'
 import { requireOwner } from '@/lib/auth/require-owner'
-
-const cancelledDateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
 
 export default async function RecommendationPage() {
   await requireOwner()
   const supabase = await createClient()
 
-  const [rawNeeds, { rules, studentInfoById }, { data: sessionHistoryRows }, { data: allHistoryRows }] = await Promise.all([
-    getUnmetNeeds(supabase, getUpcomingWeekStart()),
-    getRankingContext(supabase),
-    supabase
-      .from('session_plans')
-      .select('student_id, protocol_id, recurrence_type, start_time')
-      .in('status', ['pending', 'accepted', 'completed']),
-    // Every status, to find the most recent session_plans row per (student,
-    // protocol) regardless of outcome — used below to detect "this need is
-    // unmet because it was just cancelled or declined," as opposed to never
-    // having been scheduled or simply rolling over into a new month.
-    supabase
-      .from('session_plans')
-      .select('id, student_id, protocol_id, teacher_id, status, responded_at, created_at')
-      .order('created_at', { ascending: false }),
-  ])
-
-  // First row seen per key wins, since allHistoryRows is already newest-first.
-  const mostRecentByNeed = new Map<string, { sessionId: string; teacherId: string; status: string; respondedAt: string | null }>()
-  for (const row of allHistoryRows ?? []) {
-    const key = `${row.student_id}:${row.protocol_id}`
-    if (!mostRecentByNeed.has(key)) {
-      mostRecentByNeed.set(key, { sessionId: row.id, teacherId: row.teacher_id, status: row.status, respondedAt: row.responded_at })
-    }
-  }
-
-  // A teacher's decline records why on audit_log (see declineSession) —
-  // pull those in so the reason can show alongside the nudge below instead
-  // of the owner having to go digging for it.
-  const declinedSessionIds = Array.from(mostRecentByNeed.values())
-    .filter((v) => v.status === 'declined')
-    .map((v) => v.sessionId)
-  const { data: declineAuditRows } =
-    declinedSessionIds.length > 0
-      ? await supabase.from('audit_log').select('target_id, metadata').eq('action', 'decline_session').in('target_id', declinedSessionIds)
-      : { data: [] }
-  const declineReasonBySessionId = new Map(
-    (declineAuditRows ?? []).map((r) => [r.target_id as string, (r.metadata as { reason?: string } | null)?.reason])
-  )
-
-  // Most recent one-off session date per (student, protocol), for the same
-  // "hasn't had this protocol in a while" rotation tiebreak generateSchedule
-  // uses — see the matching comment in generate-schedule.ts.
-  const lastSeenByNeed = new Map<string, string>()
-  for (const row of sessionHistoryRows ?? []) {
-    if (row.recurrence_type !== 'one_off' || !row.start_time) continue
-    const key = `${row.student_id}:${row.protocol_id}`
-    const seenSoFar = lastSeenByNeed.get(key)
-    if (!seenSoFar || row.start_time > seenSoFar) lastSeenByNeed.set(key, row.start_time)
-  }
-
-  // One bulk query for every teacher's qualifications across every protocol
-  // these needs touch, instead of a per-need round-trip — also lets us
-  // compute the best-available-teacher coverage/rating BEFORE ranking, so
-  // the match_quality/teacher_rating factors can actually sort by it.
-  const protocolIds = Array.from(new Set(rawNeeds.map((n) => n.protocolId)))
-  const { data: teacherProtocolRows } =
-    protocolIds.length > 0
-      ? await supabase
-          .from('teacher_protocols')
-          .select('teacher_id, protocol_id, sub_protocol_id, rating, profiles!teacher_protocols_teacher_id_fkey(name)')
-          .in('protocol_id', protocolIds)
-      : { data: [] }
-  const teacherRowsByProtocol = groupTeacherProtocolRows(
-    (teacherProtocolRows ?? []).map((row) => ({
-      teacher_id: row.teacher_id,
-      protocol_id: row.protocol_id,
-      sub_protocol_id: row.sub_protocol_id,
-      rating: row.rating,
-      teacherName: (Array.isArray(row.profiles) ? row.profiles[0]?.name : row.profiles?.name) ?? 'Unknown teacher',
-    }))
-  )
-
-  const candidatesByNeed = new Map(
-    rawNeeds.map((need) => {
-      const neededSubProtocolIds = need.subProtocols.map((sp) => sp.id)
-      return [needKey(need), coverageQualificationsFromGroup(teacherRowsByProtocol, need.protocolId, neededSubProtocolIds)]
-    })
-  )
-  const bestMatchByNeed = new Map<string, BestMatchInfo>(
-    rawNeeds.map((need) => {
-      const totalNeeded = need.subProtocols.length || 1
-      const best = candidatesByNeed.get(needKey(need))?.[0]
-      return [
-        needKey(need),
-        { coverageRatio: best ? coverageRatioForRanking(best.coverageCount, totalNeeded, rules.match_quality_threshold) : 0, rating: best?.rating ?? 0 },
-      ]
-    })
-  )
-
-  const ranked = rankNeeds(rawNeeds, rules, studentInfoById, undefined, bestMatchByNeed, lastSeenByNeed)
-
-  const withCandidates: RankedNeed[] = ranked.map((need) => {
-    const neededSubProtocolIds = need.subProtocols.map((sp) => sp.id)
-    const totalNeeded = neededSubProtocolIds.length || 1
-    const best = candidatesByNeed.get(needKey(need))?.[0] ?? null
-
-    // Only surface a "same teacher" nudge when the LAST thing that happened
-    // to this (student, protocol) pair was a cancellation or a teacher
-    // decline — not when it's simply never been scheduled, or rolled over
-    // from a completed month. Also requires she still qualifies for the
-    // protocol today (teacherRowsByProtocol reflects current
-    // teacher_protocols, not history), so a since-removed teacher never
-    // gets recommended back.
-    const lastOutcome = mostRecentByNeed.get(needKey(need))
-    const isReopened = lastOutcome?.status === 'cancelled' || lastOutcome?.status === 'declined'
-    const previousTeacherName = isReopened ? teacherRowsByProtocol.get(need.protocolId)?.get(lastOutcome.teacherId)?.teacherName : undefined
-    const previousTeacher =
-      isReopened && lastOutcome && previousTeacherName
-        ? {
-            teacherName: previousTeacherName,
-            outcome: lastOutcome.status as 'cancelled' | 'declined',
-            reason: lastOutcome.status === 'declined' ? (declineReasonBySessionId.get(lastOutcome.sessionId) ?? null) : null,
-            cancelledAt: lastOutcome.respondedAt ? cancelledDateFormatter.format(new Date(lastOutcome.respondedAt)) : null,
-            respondedAtISO: lastOutcome.respondedAt,
-          }
-        : null
-
-    return {
-      need,
-      priority: studentInfoById.get(need.studentId)?.priority ?? 0,
-      rate: studentInfoById.get(need.studentId)?.rate ?? 0,
-      previousTeacher,
-      bestCandidate: best
-        ? { teacherName: best.teacherName, coverageCount: best.coverageCount, totalNeeded, rating: best.rating }
-        : null,
-    }
-  })
+  const withCandidates = await getRankedNeeds(supabase, getUpcomingWeekStart())
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -160,7 +29,7 @@ export default async function RecommendationPage() {
 
       {(() => {
         const reopened = withCandidates
-          .filter((item) => item.previousTeacher)
+          .filter(isReopenedNeed)
           .sort((a, b) => (b.previousTeacher?.respondedAtISO ?? '').localeCompare(a.previousTeacher?.respondedAtISO ?? ''))
         if (reopened.length === 0) return null
         return (
@@ -170,7 +39,11 @@ export default async function RecommendationPage() {
             </h2>
             <p className="mb-3 text-xs text-gray-500">
               These needs just reopened because a booked session was cancelled or the teacher declined it — surfaced
-              here first regardless of the normal Rules order below.
+              here first regardless of the normal Rules order below. Also handleable from the narrower{' '}
+              <Link href="/admin/suggestions/reschedule" className="underline">
+                Reschedule
+              </Link>{' '}
+              page, which is what the admin role uses for exactly this.
             </p>
             <RecommendationList items={reopened} showRank={false} />
           </section>

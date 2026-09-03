@@ -86,7 +86,7 @@ export async function createSessionPlan(params: AssignParams) {
       note: params.note || null,
       schedule_batch_id: params.scheduleBatchId ?? null,
     })
-    .select('token')
+    .select('id, token')
     .single()
 
   // A duplicate booking of the exact same student/teacher/protocol/time
@@ -99,6 +99,22 @@ export async function createSessionPlan(params: AssignParams) {
     return { error: null, whatsappError: null, duplicate: true }
   }
   if (error || !plan) return { error: `Could not create session: ${error?.message}` }
+
+  // The admin role only ever reaches this action through the Reschedule
+  // page's one narrow exception (see requireOwnerOrReschedulableNeed) —
+  // worth an explicit, readable audit-log entry beyond the raw owner_id
+  // column, since it's the one place admin can create a real session.
+  const { data: actorProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (actorProfile?.role === 'admin') {
+    const [{ data: studentRow }, { data: protocolRow }, { data: teacherRow }] = await Promise.all([
+      supabase.from('students').select('name').eq('id', params.studentId).single(),
+      supabase.from('protocols').select('title').eq('id', params.protocolId).single(),
+      supabase.from('profiles').select('name').eq('id', params.teacherId).single(),
+    ])
+    logAudit(supabase, user.id, 'admin_reschedule', 'session_plan', plan.id, {
+      label: `${studentRow?.name ?? params.studentId} — ${protocolRow?.title ?? params.protocolId} with ${teacherRow?.name ?? params.teacherId}`,
+    })
+  }
 
   // Create Schedule books everything with notify:false and pushes WhatsApp
   // later, as one deliberate bulk action from the Schedules tab — so skip
