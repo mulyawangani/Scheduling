@@ -2,12 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { suggestTeachers } from '@/lib/matching/suggest'
 import { BackLink } from '@/components/back-link'
 import { AssignForm } from './assign-form'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function SuggestionDetailPage({
   params,
 }: {
   params: Promise<{ studentId: string; protocolId: string }>
 }) {
+  await requireOwner()
   const { studentId, protocolId } = await params
   const supabase = await createClient()
 

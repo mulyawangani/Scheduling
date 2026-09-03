@@ -11,12 +11,14 @@ import { ResetAllButton } from './reset-all-button'
 import { SuggestionsNav } from './suggestions-nav'
 import { CollapsibleSection } from '@/components/collapsible-section'
 import type { ProposedSession, UnscheduledNeed } from '@/lib/matching/generate-schedule'
+import { requireOwner } from '@/lib/auth/require-owner'
 
 export default async function SuggestionsPage({
   searchParams,
 }: {
   searchParams: Promise<{ week?: string }>
 }) {
+  await requireOwner()
   const { week } = await searchParams
   const supabase = await createClient()
   const weekStartDate = week ? getWeekStart(new Date(`${week}T00:00:00Z`)) : null

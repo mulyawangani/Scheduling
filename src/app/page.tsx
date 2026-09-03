@@ -14,7 +14,7 @@ export default async function Home() {
     case 'owner':
       redirect('/admin')
     case 'admin':
-      redirect('/admin/suggestions')
+      redirect('/admin/suggestions/schedules')
     case 'teacher':
       redirect('/teacher')
     case 'parent':
