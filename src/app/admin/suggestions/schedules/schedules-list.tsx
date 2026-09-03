@@ -29,6 +29,27 @@ export interface ScheduleBatchWithSessions extends ScheduleBatch {
   actualSessions: GridSession[]
 }
 
+/**
+ * Groups an already chronologically-sorted session list by teacher, without
+ * touching each session's own S-number (that stays whatever chronological
+ * position it was assigned across the whole week) — this only changes the
+ * order rows are displayed in, grouping one teacher's sessions together so
+ * her day fully appears in one place instead of interleaved with everyone
+ * else's. Sessions stay chronological within each teacher's own group,
+ * since the incoming array already is.
+ */
+function groupByTeacher<T extends { teacherName: string }>(sessions: T[]): { teacherName: string; sessions: T[] }[] {
+  const byTeacher = new Map<string, T[]>()
+  for (const s of sessions) {
+    const arr = byTeacher.get(s.teacherName) ?? []
+    arr.push(s)
+    byTeacher.set(s.teacherName, arr)
+  }
+  return Array.from(byTeacher.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([teacherName, sessions]) => ({ teacherName, sessions }))
+}
+
 const createdAtFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
@@ -192,18 +213,26 @@ export function SchedulesList({ batches }: { batches: ScheduleBatchWithSessions[
                 {batch.sessions.length === 0 ? (
                   <p className="mb-3 text-xs text-gray-400">None — see the actual grid below for what&apos;s really booked this week.</p>
                 ) : (
-                  <ul className="mb-3 flex flex-col divide-y divide-gray-200">
-                    {batch.sessions.map((s) => (
-                      <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
-                        <span>
-                          <span className="text-gray-400">{s.label}</span> {s.studentName} — {s.protocolName} with{' '}
-                          {s.teacherName}
-                          <span className="text-gray-400"> · {s.when}</span>
-                        </span>
-                        {!s.hasPhone && <span className="shrink-0 text-xs text-amber-600">No phone on file</span>}
-                      </li>
+                  <div className="mb-3 flex flex-col gap-3">
+                    {groupByTeacher(batch.sessions).map((group) => (
+                      <div key={group.teacherName}>
+                        <p className="mb-1 text-xs font-semibold text-gray-600">
+                          {group.teacherName} <span className="font-normal text-gray-400">({group.sessions.length})</span>
+                        </p>
+                        <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
+                          {group.sessions.map((s) => (
+                            <li key={s.id} className="flex items-center justify-between px-2 py-1.5 text-sm">
+                              <span>
+                                <span className="text-gray-400">{s.label}</span> {s.studentName} — {s.protocolName}
+                                <span className="text-gray-400"> · {s.when}</span>
+                              </span>
+                              {!s.hasPhone && <span className="shrink-0 text-xs text-amber-600">No phone on file</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
 
                 <p className="mb-1 text-xs font-medium text-gray-500">
