@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
 import { getUpcomingWeekStart } from '@/lib/week'
-import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { sendOwnerSchedulingReminderWhatsApp } from '@/lib/whatsapp'
 
 /**
  * Runs every Friday (see vercel.json) to nudge the owner about next week's
@@ -26,12 +26,10 @@ export async function GET(request: Request) {
 
   const { data: owners } = await supabase.from('profiles').select('phone').eq('role', 'owner')
 
-  const message = `${needs.length} session${needs.length === 1 ? '' : 's'} need scheduling for next week. Review at ${process.env.NEXT_PUBLIC_SITE_URL}/admin/suggestions`
-
   let notified = 0
   for (const owner of owners ?? []) {
     if (!owner.phone) continue
-    const result = await sendWhatsAppMessage(owner.phone, message)
+    const result = await sendOwnerSchedulingReminderWhatsApp(owner.phone, needs.length)
     if (!result.error) notified++
   }
 

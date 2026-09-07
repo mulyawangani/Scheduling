@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createSessionPlan } from '../actions'
-import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { sendBookingConfirmationWhatsApp } from '@/lib/whatsapp'
 import { BUSINESS_TIMEZONE, businessLocalToISOString } from '@/lib/timezone'
 import { logAudit } from '@/lib/audit'
 import type { ProposedSession } from '@/lib/matching/generate-schedule'
@@ -171,9 +171,14 @@ export async function pushWhatsAppForBatch(batchId: string) {
         row.recurrence_type === 'one_off' && row.start_time
           ? dateFormatter.format(new Date(row.start_time))
           : `every ${DAYS[row.day_of_week ?? 0]} ${row.time_of_day_start?.slice(0, 5)}`
-      const link = `${process.env.NEXT_PUBLIC_SITE_URL}/offer/${row.token}`
-      const message = `Hi ${parent.name}, a session for ${student?.name} (${protocol?.title} with ${teacher?.name}) is proposed for ${when}. Confirm here: ${link}`
-      const result = await sendWhatsAppMessage(parent.phone, message)
+      const result = await sendBookingConfirmationWhatsApp(parent.phone, {
+        parentName: parent.name,
+        studentName: student?.name ?? 'the student',
+        protocolName: protocol?.title ?? 'the protocol',
+        teacherName: teacher?.name ?? 'the teacher',
+        when,
+        token: row.token,
+      })
       return result.error ? { ok: false as const, reason: 'send_failed' as const } : { ok: true as const }
     })
   )

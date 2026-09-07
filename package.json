@@ -15,8 +15,7 @@
     "jspdf-autotable": "^5.0.8",
     "next": "15.5.23",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "twilio": "^6.1.0"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

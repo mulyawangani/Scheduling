@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import type { RecurrenceType } from '@/lib/supabase/types'
-import { sendWhatsAppMessage } from '@/lib/whatsapp'
+import { sendBookingConfirmationWhatsApp } from '@/lib/whatsapp'
 import { computeMatchScore, conflictWindow, findTeachersAtSlot, type TimeSlotCandidate } from '@/lib/matching/suggest'
 import { checkCapacity, type CapacityCheck } from '@/lib/matching/capacity'
 import { BUSINESS_TIMEZONE, businessLocalToISOString, dateStringInBusinessTz } from '@/lib/timezone'
@@ -136,17 +136,24 @@ export async function createSessionPlan(params: AssignParams) {
       ? dateFormatter.format(new Date(params.startTime))
       : `every ${DAYS[params.dayOfWeek ?? 0]} ${params.timeOfDayStart?.slice(0, 5)}`
 
-  // The WhatsApp send is a real network call to Twilio (regularly the
-  // slowest single step here) — deferring it via after() lets the response
-  // go back to the browser as soon as the booking itself is committed,
-  // instead of making the owner's "Book all" wait on 45 sequential Twilio
-  // round-trips. Vercel keeps the function alive to finish it in the
-  // background; the caller no longer gets a synchronous send/fail result.
+  // The WhatsApp send is a real network call to Meta's Graph API (regularly
+  // the slowest single step here) — deferring it via after() lets the
+  // response go back to the browser as soon as the booking itself is
+  // committed, instead of making the owner's "Book all" wait on 45
+  // sequential round-trips. Vercel keeps the function alive to finish it in
+  // the background; the caller no longer gets a synchronous send/fail result.
   const whatsappError = parent?.phone ? null : 'Parent has no phone number on file.'
   if (parent?.phone) {
-    const link = `${process.env.NEXT_PUBLIC_SITE_URL}/offer/${plan.token}`
-    const message = `Hi ${parent.name}, a session for ${details?.name} (${protocol?.title} with ${teacher?.name}) is proposed for ${when}. Confirm here: ${link}`
-    after(() => sendWhatsAppMessage(parent.phone!, message))
+    after(() =>
+      sendBookingConfirmationWhatsApp(parent.phone!, {
+        parentName: parent.name,
+        studentName: details?.name ?? 'the student',
+        protocolName: protocol?.title ?? 'the protocol',
+        teacherName: teacher?.name ?? 'the teacher',
+        when,
+        token: plan.token,
+      })
+    )
   }
 
   revalidatePath('/admin/suggestions')
