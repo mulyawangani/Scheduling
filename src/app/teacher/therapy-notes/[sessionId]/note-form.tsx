@@ -172,18 +172,16 @@ export function NoteForm({
               <p className="px-3 py-2 text-sm text-gray-900">{protocolName}</p>
             )}
           </div>
-          {subProtocolTitles.length > 0 && (
-            <div>
-              <label className={labelClass}>Repatterning</label>
-              <input
-                type="text"
-                value={repatterningNotes}
-                onChange={(e) => setRepatterningNotes(e.target.value)}
-                placeholder="e.g. FPR, Hands Pulling"
-                className={inputClass}
-              />
-            </div>
-          )}
+          <div>
+            <label className={labelClass}>Repatterning</label>
+            <input
+              type="text"
+              value={repatterningNotes}
+              onChange={(e) => setRepatterningNotes(e.target.value)}
+              placeholder="e.g. FPR, Hands Pulling"
+              className={inputClass}
+            />
+          </div>
           <div>
             <label className={labelClass}>Active</label>
             <input
