@@ -101,14 +101,14 @@ function NoteReviewRow({ note }: { note: NoteRow }) {
           {note.objectives.map((o, i) => (
             <li key={i}>
               <span className="font-medium">{o.objective}</span>
-              {o.outcome && <span> — {o.outcome}</span>}
+              {o.outcome && <span className="whitespace-pre-wrap"> — {o.outcome}</span>}
             </li>
           ))}
         </ul>
       )}
-      {note.observations && <p className="mt-1 text-xs text-gray-600">{note.observations}</p>}
+      {note.observations && <p className="mt-1 whitespace-pre-wrap text-xs text-gray-600">{note.observations}</p>}
       {note.parentInstructions && (
-        <p className="mt-1 text-xs text-blue-700">
+        <p className="mt-1 whitespace-pre-wrap text-xs text-blue-700">
           <span className="font-medium">Homework: </span>
           {note.parentInstructions}
         </p>

@@ -80,7 +80,7 @@ export function RecentNotesList({ notes }: { notes: RecentNoteRow[] }) {
 
             {!isEditing ? (
               <div className="mt-1 flex items-start justify-between gap-3">
-                <p className="text-xs text-gray-500">
+                <p className="whitespace-pre-wrap text-xs text-gray-500">
                   {n.parentInstructions ? (
                     <>
                       <span className="font-medium text-blue-700">Homework: </span>

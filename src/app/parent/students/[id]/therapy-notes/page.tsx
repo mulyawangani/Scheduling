@@ -56,7 +56,7 @@ export default async function StudentTherapyNotesPage({ params }: { params: Prom
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-blue-700">
             Homework reminder · updated {homeworkDateFormatter.format(new Date(currentHomeworkNote.updated_at))}
           </p>
-          <p className="text-sm text-blue-900">{currentHomeworkNote.parent_instructions}</p>
+          <p className="whitespace-pre-wrap text-sm text-blue-900">{currentHomeworkNote.parent_instructions}</p>
         </section>
       )}
 
@@ -101,20 +101,20 @@ export default async function StudentTherapyNotesPage({ params }: { params: Prom
                       {objectives.map((o, i) => (
                         <li key={i}>
                           <span className="font-medium">{o.objective}</span>
-                          {o.outcome && <span className="text-gray-600"> — {o.outcome}</span>}
+                          {o.outcome && <span className="whitespace-pre-wrap text-gray-600"> — {o.outcome}</span>}
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
                 {n.observations && (
-                  <p className="mt-2">
+                  <p className="mt-2 whitespace-pre-wrap">
                     <span className="text-xs font-medium text-gray-500">Observations: </span>
                     {n.observations}
                   </p>
                 )}
                 {n.parent_instructions && (
-                  <p className="mt-2 rounded-lg bg-blue-50 p-2 text-blue-900">
+                  <p className="mt-2 whitespace-pre-wrap rounded-lg bg-blue-50 p-2 text-blue-900">
                     <span className="text-xs font-medium text-blue-700">Homework for you: </span>
                     {n.parent_instructions}
                   </p>
