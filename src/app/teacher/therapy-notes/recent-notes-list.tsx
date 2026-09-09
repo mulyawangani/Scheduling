@@ -11,6 +11,10 @@ export interface RecentNoteRow {
   protocolName: string
   whenLabel: string
   reviewLabel: string | null
+  repatterningNotes: string | null
+  activeNotes: string | null
+  objectives: { objective: string; outcome: string }[]
+  observations: string | null
   parentInstructions: string | null
   status: 'submitted' | 'sent_back' | 'accepted'
   ownerComment: string | null
@@ -76,6 +80,35 @@ export function RecentNotesList({ notes }: { notes: RecentNoteRow[] }) {
                   Edit &amp; resubmit
                 </Link>
               </div>
+            )}
+
+            {n.repatterningNotes && (
+              <p className="mt-2 whitespace-pre-wrap text-xs text-gray-600">
+                <span className="font-medium">Repatterning: </span>
+                {n.repatterningNotes}
+              </p>
+            )}
+            {n.activeNotes && (
+              <p className="mt-1 whitespace-pre-wrap text-xs text-gray-600">
+                <span className="font-medium">Active: </span>
+                {n.activeNotes}
+              </p>
+            )}
+            {n.objectives.length > 0 && (
+              <ul className="mt-1 text-xs text-gray-600">
+                {n.objectives.map((o, i) => (
+                  <li key={i}>
+                    <span className="font-medium">{o.objective}</span>
+                    {o.outcome && <span className="whitespace-pre-wrap"> — {o.outcome}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {n.observations && (
+              <p className="mt-1 whitespace-pre-wrap text-xs text-gray-600">
+                <span className="font-medium">Observations: </span>
+                {n.observations}
+              </p>
             )}
 
             {!isEditing ? (

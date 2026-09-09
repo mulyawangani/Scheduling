@@ -74,7 +74,7 @@ export default async function TherapyNotesPage() {
   const { data: recentNotes } = await supabase
     .from('therapy_notes')
     .select(
-      'id, session_date, week_start_date, review_label, parent_instructions, status, owner_comment, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
+      'id, session_date, week_start_date, review_label, todays_protocol, repatterning_notes, active_notes, objectives, observations, parent_instructions, status, owner_comment, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
     )
     .eq('teacher_id', teacherId)
     .order('session_date', { ascending: false })
@@ -95,9 +95,13 @@ export default async function TherapyNotesPage() {
     return {
       id: n.id,
       studentName: student?.name ?? 'Unknown student',
-      protocolName: protocol?.title ?? 'Unknown protocol',
+      protocolName: n.todays_protocol || protocol?.title || 'Unknown protocol',
       whenLabel,
       reviewLabel: n.review_label,
+      repatterningNotes: n.repatterning_notes,
+      activeNotes: n.active_notes,
+      objectives: n.objectives as { objective: string; outcome: string }[],
+      observations: n.observations,
       parentInstructions: n.parent_instructions,
       status: n.status as 'submitted' | 'sent_back' | 'accepted',
       ownerComment: n.owner_comment,
