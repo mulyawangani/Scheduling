@@ -79,7 +79,6 @@ export default async function TherapyNotesPage() {
     .eq('teacher_id', teacherId)
     .order('session_date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(20)
 
   const recentNoteRows: RecentNoteRow[] = (recentNotes ?? []).map((n) => {
     const sp = Array.isArray(n.session_plans) ? n.session_plans[0] : n.session_plans
@@ -143,7 +142,9 @@ export default async function TherapyNotesPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-medium text-gray-700">Recent notes</h2>
+        <h2 className="mb-2 text-sm font-medium text-gray-700">
+          All your notes{recentNoteRows.length > 0 ? ` (${recentNoteRows.length})` : ''}
+        </h2>
         {recentNoteRows.length === 0 ? (
           <p className="text-sm text-gray-500">No notes written yet.</p>
         ) : (
