@@ -88,6 +88,9 @@ export default async function TeacherDashboard() {
             <p className="font-medium text-gray-900">{result!.profile.name}</p>
             <p className="text-gray-500">{result!.user.email}</p>
           </div>
+          <Link href="/teacher/students" className="text-sm text-blue-600 hover:underline">
+            Your students
+          </Link>
           <Link href="/teacher/availability" className="text-sm text-blue-600 hover:underline">
             Manage availability
           </Link>
