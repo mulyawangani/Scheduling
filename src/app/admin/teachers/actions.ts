@@ -65,6 +65,20 @@ export async function updateTeacherProfile(teacherId: string, name: string, stat
   return { error: null }
 }
 
+// Toggled straight from the teachers list, no edit mode needed — flips
+// whether this teacher's future notes need the owner's accept/send-back (see
+// submitTherapyNote) or auto-publish straight to 'accepted'. Doesn't touch
+// any note already written.
+export async function setTeacherNoteReview(teacherId: string, requiresReview: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('profiles').update({ requires_note_review: requiresReview }).eq('id', teacherId)
+
+  if (error) return { error: 'Could not update this teacher.' }
+
+  revalidatePath('/admin/teachers')
+  return { error: null }
+}
+
 // Deleting the auth user (not just the profiles row) cascades to profiles
 // and every dependent row (availability, protocol assignments, sessions),
 // same as how createTeacher creates the auth user first.

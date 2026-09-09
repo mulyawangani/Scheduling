@@ -24,6 +24,7 @@ export interface Database {
           daily_quota: number | null
           status: TeacherStatus | null
           serves_scope: ServesScope | null
+          requires_note_review: boolean
           created_at: string
         }
         Insert: {
@@ -37,6 +38,7 @@ export interface Database {
           daily_quota?: number | null
           status?: TeacherStatus | null
           serves_scope?: ServesScope | null
+          requires_note_review?: boolean
           created_at?: string
         }
         Update: {
@@ -50,6 +52,7 @@ export interface Database {
           daily_quota?: number | null
           status?: TeacherStatus | null
           serves_scope?: ServesScope | null
+          requires_note_review?: boolean
           created_at?: string
         }
         Relationships: []

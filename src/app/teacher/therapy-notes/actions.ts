@@ -40,6 +40,12 @@ export async function submitTherapyNote(params: SubmitTherapyNoteParams) {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'You must be signed in.' }
 
+  // A teacher not flagged for review (see admin/teachers) publishes straight
+  // to 'accepted' — everyone else starts at 'submitted' and needs the
+  // owner's accept/send-back before a parent can see it.
+  const { data: profile } = await supabase.from('profiles').select('requires_note_review').eq('id', user.id).single()
+  const initialStatus = profile?.requires_note_review === false ? 'accepted' : 'submitted'
+
   const { error: noteError } = await supabase.from('therapy_notes').insert({
     session_plan_id: params.sessionPlanId,
     week_start_date: params.weekStartDate,
@@ -55,6 +61,7 @@ export async function submitTherapyNote(params: SubmitTherapyNoteParams) {
     parent_instructions: params.parentInstructions || null,
     objectives: params.objectives.filter((o) => o.objective.trim() || o.outcome.trim()),
     observations: params.observations || null,
+    status: initialStatus,
   })
 
   if (noteError) {

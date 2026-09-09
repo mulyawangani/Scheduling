@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ServesScope, TeacherStatus } from '@/lib/supabase/types'
-import { updateTeacherProfile, deleteTeacher } from './actions'
+import { updateTeacherProfile, deleteTeacher, setTeacherNoteReview } from './actions'
 
 const STATUS_LABEL: Record<TeacherStatus, string> = { teacher: 'Teacher', therapist: 'Therapist' }
 const SCOPE_LABEL: Record<ServesScope, string> = {
@@ -19,12 +19,14 @@ export function TeacherRow({
   email,
   status,
   servesScope,
+  requiresNoteReview,
 }: {
   id: string
   name: string
   email: string | null
   status: TeacherStatus | null
   servesScope: ServesScope | null
+  requiresNoteReview: boolean
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [nameInput, setNameInput] = useState(name)
@@ -32,7 +34,19 @@ export function TeacherRow({
   const [servesScopeInput, setServesScopeInput] = useState<ServesScope | ''>(servesScope ?? '')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isTogglingReview, startReviewToggle] = useTransition()
   const router = useRouter()
+
+  function handleToggleReview() {
+    startReviewToggle(async () => {
+      const result = await setTeacherNoteReview(id, !requiresNoteReview)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      router.refresh()
+    })
+  }
 
   function handleSave() {
     setError(null)
@@ -127,6 +141,16 @@ export function TeacherRow({
           )}
         </div>
         <p className="text-sm text-gray-500">{email}</p>
+        <button
+          onClick={handleToggleReview}
+          disabled={isTogglingReview}
+          title="Click to toggle whether her therapy notes need your review before a parent sees them"
+          className={`mt-1 rounded-full px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${
+            requiresNoteReview ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
+          }`}
+        >
+          {requiresNoteReview ? 'Notes need review' : 'Notes auto-publish'}
+        </button>
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
       <div className="flex shrink-0 gap-3 text-sm">

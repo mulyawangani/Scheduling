@@ -9,7 +9,7 @@ export default async function TeachersPage() {
   const supabase = await createClient()
   const { data: teachers } = await supabase
     .from('profiles')
-    .select('id, name, email, status, serves_scope')
+    .select('id, name, email, status, serves_scope, requires_note_review')
     .eq('role', 'teacher')
     .order('name')
 
@@ -33,6 +33,7 @@ export default async function TeachersPage() {
               email={teacher.email}
               status={teacher.status}
               servesScope={teacher.serves_scope}
+              requiresNoteReview={teacher.requires_note_review}
             />
           ))}
         </ul>

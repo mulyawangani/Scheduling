@@ -37,6 +37,10 @@ create table profiles (
   -- lift the restriction entirely, e.g. for a therapist who also covers
   -- students (Gaby).
   serves_scope text check (serves_scope is null or serves_scope in ('student_only', 'non_student_only', 'both')),
+  -- Meaningful for the teacher role only: whether her therapy notes need the
+  -- owner's accept/send-back review before a parent can see them (see
+  -- therapy_notes.status), or auto-publish straight to 'accepted' on submit.
+  requires_note_review boolean not null default true,
   created_at timestamptz not null default now()
 );
 
