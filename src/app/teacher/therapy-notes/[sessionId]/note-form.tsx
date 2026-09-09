@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { submitTherapyNote, type ObjectiveRow } from '../actions'
+import { submitTherapyNote, resubmitTherapyNote, type ObjectiveRow } from '../actions'
 
 export interface NotePrefill {
   startDate: string
@@ -14,6 +14,7 @@ export interface NotePrefill {
   activeNotes: string
   parentInstructions: string
   objectives: ObjectiveRow[]
+  observations: string
   priorObservations: string | null
 }
 
@@ -28,6 +29,7 @@ export function NoteForm({
   protocolName,
   subProtocolTitles,
   prefill,
+  editing,
 }: {
   sessionId: string
   weekStartDate: string | null
@@ -36,6 +38,8 @@ export function NoteForm({
   protocolName: string
   subProtocolTitles: string[]
   prefill: NotePrefill
+  /** Set when revising a note the owner sent back, instead of writing a brand-new one. */
+  editing?: { noteId: string; ownerComment: string | null }
 }) {
   const [startDate, setStartDate] = useState(prefill.startDate)
   const [duration, setDuration] = useState(prefill.duration)
@@ -46,7 +50,7 @@ export function NoteForm({
   const [activeNotes, setActiveNotes] = useState(prefill.activeNotes)
   const [parentInstructions, setParentInstructions] = useState(prefill.parentInstructions)
   const [objectives, setObjectives] = useState<ObjectiveRow[]>(prefill.objectives)
-  const [observations, setObservations] = useState('')
+  const [observations, setObservations] = useState(prefill.observations)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -66,22 +70,27 @@ export function NoteForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    // Guards against an accidental Enter press in one of the plain text
+    // inputs above (which natively submits the form) as much as an
+    // accidental click — either way, nothing reaches the owner without this.
+    if (!confirm(editing ? 'Resubmit this note to the owner for review?' : 'Send this note to the owner for review?')) return
+    const noteFields = {
+      sessionDate,
+      startDate,
+      duration,
+      reviewLabel,
+      lastSessionSummary,
+      todaysProtocol,
+      repatterningNotes,
+      activeNotes,
+      parentInstructions,
+      objectives,
+      observations,
+    }
     startTransition(async () => {
-      const result = await submitTherapyNote({
-        sessionPlanId: sessionId,
-        weekStartDate,
-        sessionDate,
-        startDate,
-        duration,
-        reviewLabel,
-        lastSessionSummary,
-        todaysProtocol,
-        repatterningNotes,
-        activeNotes,
-        parentInstructions,
-        objectives,
-        observations,
-      })
+      const result = editing
+        ? await resubmitTherapyNote(editing.noteId, noteFields)
+        : await submitTherapyNote({ sessionPlanId: sessionId, weekStartDate, ...noteFields })
       if (result.error) {
         setError(result.error)
         return
@@ -93,6 +102,13 @@ export function NoteForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {editing?.ownerComment && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-700">Sent back for revision</p>
+          <p className="text-sm text-amber-900">{editing.ownerComment}</p>
+        </div>
+      )}
 
       <section className="rounded-lg border border-gray-200 p-4">
         <h2 className="mb-3 text-sm font-medium text-gray-700">Basic information</h2>
@@ -212,7 +228,7 @@ export function NoteForm({
                 onChange={(e) => updateObjective(i, 'outcome', e.target.value)}
                 placeholder="What happened today"
                 rows={2}
-                className={`${inputClass} flex-1`}
+                className="min-w-0 flex-1 basis-0 rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               <button
                 type="button"
@@ -245,7 +261,7 @@ export function NoteForm({
         disabled={isPending}
         className="self-start rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
       >
-        {isPending ? 'Saving…' : 'Save note & mark session complete'}
+        {isPending ? 'Saving…' : editing ? 'Resubmit note' : 'Save note & mark session complete'}
       </button>
     </form>
   )

@@ -424,6 +424,12 @@ create table therapy_notes (
   parent_instructions text,
   objectives jsonb not null default '[]',
   observations text,
+  -- Review workflow: a note starts 'submitted' (awaiting the owner), moves to
+  -- 'sent_back' (owner_comment set, teacher must edit and resubmit — which
+  -- returns it to 'submitted'), or 'accepted' (owner signed off; only then is
+  -- it visible to the parent — see the parent RLS policy below).
+  status text not null default 'submitted' check (status in ('submitted', 'sent_back', 'accepted')),
+  owner_comment text,
   created_at timestamptz not null default now(),
   -- Bumped whenever the teacher edits homework after the note was first
   -- written (see updateHomework) — lets the parent app tell "just updated"
@@ -736,10 +742,19 @@ create policy "therapy_notes teacher manages own" on therapy_notes
 create policy "therapy_notes owner reads all" on therapy_notes
   for select to authenticated
   using (has_role('owner'));
+create policy "therapy_notes owner reviews" on therapy_notes
+  for update to authenticated
+  using (has_role('owner'))
+  with check (has_role('owner'));
+-- Not additive like the rest of this file's policies: this REPLACES the
+-- original unconditional parent-select policy (an additional permissive
+-- policy could only OR in more access, never narrow it) so a parent only ever
+-- sees a note once the owner has accepted it.
 create policy "therapy_notes parent reads own students" on therapy_notes
   for select to authenticated
   using (
-    exists (
+    status = 'accepted'
+    and exists (
       select 1 from session_plans sp
       join students s on s.id = sp.student_id
       where sp.id = therapy_notes.session_plan_id and s.parent_id = auth.uid()

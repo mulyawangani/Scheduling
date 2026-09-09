@@ -131,6 +131,7 @@ export default async function TherapyNotePage({
     activeNotes: priorNote?.active_notes ?? '',
     parentInstructions: priorNote?.parent_instructions ?? '',
     objectives: priorNote?.objectives?.length ? priorNote.objectives.map((o) => ({ objective: o.objective, outcome: '' })) : [{ objective: '', outcome: '' }],
+    observations: '',
     priorObservations: priorNote?.observations ?? null,
   }
 

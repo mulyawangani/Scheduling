@@ -794,6 +794,8 @@ export interface Database {
           parent_instructions: string | null
           objectives: { objective: string; outcome: string }[]
           observations: string | null
+          status: string
+          owner_comment: string | null
           created_at: string
           updated_at: string
         }
@@ -813,6 +815,8 @@ export interface Database {
           parent_instructions?: string | null
           objectives?: { objective: string; outcome: string }[]
           observations?: string | null
+          status?: string
+          owner_comment?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -832,6 +836,8 @@ export interface Database {
           parent_instructions?: string | null
           objectives?: { objective: string; outcome: string }[]
           observations?: string | null
+          status?: string
+          owner_comment?: string | null
           created_at?: string
           updated_at?: string
         }

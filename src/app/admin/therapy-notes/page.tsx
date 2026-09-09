@@ -13,7 +13,7 @@ export default async function AdminTherapyNotesPage() {
   const { data: notes } = await supabase
     .from('therapy_notes')
     .select(
-      'id, session_date, review_label, todays_protocol, observations, parent_instructions, created_at, profiles!therapy_notes_teacher_id_fkey(name), session_plans(students(name), protocols(title))'
+      'id, session_date, review_label, todays_protocol, repatterning_notes, active_notes, objectives, observations, parent_instructions, status, owner_comment, created_at, profiles!therapy_notes_teacher_id_fkey(name), session_plans(students(name), protocols(title))'
     )
     .order('created_at', { ascending: false })
     .limit(150)
@@ -30,8 +30,13 @@ export default async function AdminTherapyNotesPage() {
       teacherName: teacher?.name ?? 'Unknown teacher',
       protocolName: n.todays_protocol || protocol?.title || 'Unknown protocol',
       reviewLabel: n.review_label,
+      repatterningNotes: n.repatterning_notes,
+      activeNotes: n.active_notes,
+      objectives: n.objectives as { objective: string; outcome: string }[],
       observations: n.observations,
       parentInstructions: n.parent_instructions,
+      status: n.status as 'submitted' | 'sent_back' | 'accepted',
+      ownerComment: n.owner_comment,
     }
   })
 

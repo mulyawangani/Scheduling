@@ -74,6 +74,46 @@ export async function submitTherapyNote(params: SubmitTherapyNoteParams) {
 }
 
 /**
+ * Revises a note the owner sent back — same fields as submitTherapyNote minus
+ * the identifiers that never change, plus it puts the note back to
+ * 'submitted' for a second look. Doesn't touch session completion; that
+ * already happened when the note was first submitted.
+ */
+export async function resubmitTherapyNote(noteId: string, params: Omit<SubmitTherapyNoteParams, 'sessionPlanId' | 'weekStartDate'>) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { error } = await supabase
+    .from('therapy_notes')
+    .update({
+      session_date: params.sessionDate,
+      start_date: params.startDate || null,
+      duration: params.duration || null,
+      review_label: params.reviewLabel || null,
+      last_session_summary: params.lastSessionSummary || null,
+      todays_protocol: params.todaysProtocol || null,
+      repatterning_notes: params.repatterningNotes || null,
+      active_notes: params.activeNotes || null,
+      parent_instructions: params.parentInstructions || null,
+      objectives: params.objectives.filter((o) => o.objective.trim() || o.outcome.trim()),
+      observations: params.observations || null,
+      status: 'submitted',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', noteId)
+    .eq('teacher_id', user.id)
+
+  if (error) return { error: 'Could not resubmit the note.' }
+
+  revalidatePath('/teacher/therapy-notes')
+  revalidatePath('/admin/therapy-notes')
+  return { error: null }
+}
+
+/**
  * Lets a teacher revise the homework on an already-submitted note, without
  * waiting for the next session — e.g. adding a new exercise or correcting
  * one mid-week. Bumps updated_at so the parent app can tell this apart from
