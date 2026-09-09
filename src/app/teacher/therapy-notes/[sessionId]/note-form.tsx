@@ -215,20 +215,20 @@ export function NoteForm({
         </div>
         <div className="flex flex-col gap-3">
           {objectives.map((row, i) => (
-            <div key={i} className="flex gap-2">
+            <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-start gap-2">
               <input
                 type="text"
                 value={row.objective}
                 onChange={(e) => updateObjective(i, 'objective', e.target.value)}
                 placeholder="Objective (e.g. Grounding and balance)"
-                className={`${inputClass} w-1/3`}
+                className={inputClass}
               />
               <textarea
                 value={row.outcome}
                 onChange={(e) => updateObjective(i, 'outcome', e.target.value)}
                 placeholder="What happened today"
                 rows={2}
-                className="min-w-0 flex-1 basis-0 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className={inputClass}
               />
               <button
                 type="button"
