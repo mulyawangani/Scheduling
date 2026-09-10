@@ -22,9 +22,10 @@ export function ManualPickerForm({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // Protocols the child doesn't have as a declared need at all stay selectable with no
-  // annotation (manual override), same as before this feature existed — only a protocol
-  // she's already covered this month gets greyed out with a reason.
+  // Every protocol stays selectable — Manual Addition is the owner's explicit
+  // override, so a protocol already covered this month is only ever a
+  // recommendation hint (see reason below), never a hard block the way it is
+  // for Generate Schedule's automatic monthly-reopening rule.
   const protocolOptions = useMemo(() => {
     const optionsForStudent = new Map((protocolOptionsByStudent[studentId] ?? []).map((o) => [o.protocolId, o]))
     return protocols.map((p) => {
@@ -32,7 +33,6 @@ export function ManualPickerForm({
       return {
         id: p.id,
         title: p.title,
-        disabled: status ? !status.available : false,
         reason: status?.reason ?? null,
       }
     })
@@ -54,11 +54,7 @@ export function ManualPickerForm({
 
   function handleStudentChange(nextStudentId: string) {
     setStudentId(nextStudentId)
-    const optionsForStudent = new Map((protocolOptionsByStudent[nextStudentId] ?? []).map((o) => [o.protocolId, o]))
-    const currentStatus = optionsForStudent.get(protocolId)
-    const nextProtocolId = currentStatus && !currentStatus.available ? '' : protocolId
-    setProtocolId(nextProtocolId)
-    loadAssignData(nextStudentId, nextProtocolId)
+    loadAssignData(nextStudentId, protocolId)
   }
 
   function handleProtocolChange(nextProtocolId: string) {
@@ -94,14 +90,16 @@ export function ManualPickerForm({
           >
             <option value="">Select a protocol</option>
             {protocolOptions.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.disabled}>
+              <option key={p.id} value={p.id}>
                 {p.title}
                 {p.reason ? ` — ${p.reason}` : ''}
               </option>
             ))}
           </select>
-          {studentId && protocolOptions.some((p) => p.disabled) && (
-            <span className="text-xs text-gray-500">Greyed out protocols already have a session for this child this month.</span>
+          {studentId && protocolOptions.some((p) => p.reason) && (
+            <span className="text-xs text-gray-500">
+              A note next to a protocol just means it already has a session this month — you can still pick it.
+            </span>
           )}
         </label>
       </div>
