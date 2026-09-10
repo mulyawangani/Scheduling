@@ -2,7 +2,67 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import type { StudentStatus } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
+
+const SCHOOL_HOURS_WEEKDAYS = [1, 2, 3, 4, 5]
+const SCHOOL_HOURS_START = '08:00:00'
+const SCHOOL_HOURS_END = '12:00:00'
+
+export async function updateStudentProfile(studentId: string, name: string, status: StudentStatus | '') {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const trimmed = name.trim()
+  if (!trimmed) return { error: 'Name is required.' }
+
+  const { error } = await supabase
+    .from('students')
+    .update({ name: trimmed, status: status || null })
+    .eq('id', studentId)
+
+  if (error) return { error: 'Could not update profile.' }
+
+  // Same rule as creating a student: 'student' status means school hours,
+  // set automatically rather than the parent building a timetable by hand.
+  if (status === 'student') {
+    await supabase.from('student_availability').delete().eq('student_id', studentId)
+    const { error: availError } = await supabase.from('student_availability').insert(
+      SCHOOL_HOURS_WEEKDAYS.map((day_of_week) => ({
+        student_id: studentId,
+        day_of_week,
+        start_time: SCHOOL_HOURS_START,
+        end_time: SCHOOL_HOURS_END,
+      }))
+    )
+    if (availError) return { error: 'Profile saved, but could not set school-hours availability.' }
+  }
+
+  if (user) logAudit(supabase, user.id, 'update_student_profile', 'students', studentId, { name: trimmed, status: status || null })
+
+  revalidatePath(`/parent/students/${studentId}`)
+  return { error: null }
+}
+
+export async function deleteStudent(studentId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { data: student } = await supabase.from('students').select('name').eq('id', studentId).single()
+  const { error } = await supabase.from('students').delete().eq('id', studentId)
+
+  if (error) return { error: 'Could not delete child.' }
+
+  if (user) logAudit(supabase, user.id, 'delete_student', 'students', studentId, { name: student?.name ?? null })
+
+  revalidatePath('/parent')
+  redirect('/parent')
+}
 
 export async function toggleProtocol(
   studentId: string,
