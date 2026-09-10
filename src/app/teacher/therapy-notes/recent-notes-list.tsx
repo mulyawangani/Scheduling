@@ -7,6 +7,8 @@ import { updateHomework } from './actions'
 
 export interface RecentNoteRow {
   id: string
+  sessionId: string
+  weekStartDate: string | null
   studentName: string
   protocolName: string
   whenLabel: string
@@ -16,13 +18,14 @@ export interface RecentNoteRow {
   objectives: { objective: string; outcome: string }[]
   observations: string | null
   parentInstructions: string | null
-  status: 'submitted' | 'sent_back' | 'accepted'
+  status: 'draft' | 'submitted' | 'sent_back' | 'accepted'
   ownerComment: string | null
 }
 
 const inputClass = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm'
 
 const STATUS_BADGE: Record<RecentNoteRow['status'], { label: string; className: string }> = {
+  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-600' },
   submitted: { label: 'Awaiting review', className: 'bg-gray-100 text-gray-600' },
   sent_back: { label: 'Sent back', className: 'bg-amber-100 text-amber-800' },
   accepted: { label: 'Accepted', className: 'bg-green-100 text-green-800' },
@@ -78,6 +81,17 @@ export function RecentNotesList({ notes }: { notes: RecentNoteRow[] }) {
                 <p className="text-xs text-amber-900">{n.ownerComment}</p>
                 <Link href={`/teacher/therapy-notes/edit/${n.id}`} className="mt-1 inline-block text-xs font-medium text-blue-600 hover:underline">
                   Edit &amp; resubmit
+                </Link>
+              </div>
+            )}
+            {n.status === 'draft' && (
+              <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                <p className="text-xs text-gray-600">Not sent yet — still a draft.</p>
+                <Link
+                  href={`/teacher/therapy-notes/${n.sessionId}${n.weekStartDate ? `?week=${n.weekStartDate}` : ''}`}
+                  className="mt-1 inline-block text-xs font-medium text-blue-600 hover:underline"
+                >
+                  Continue editing
                 </Link>
               </div>
             )}

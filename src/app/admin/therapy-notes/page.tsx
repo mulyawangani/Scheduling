@@ -15,6 +15,8 @@ export default async function AdminTherapyNotesPage() {
     .select(
       'id, session_date, review_label, todays_protocol, repatterning_notes, active_notes, objectives, observations, parent_instructions, status, owner_comment, created_at, profiles!therapy_notes_teacher_id_fkey(name), session_plans(students(name), protocols(title))'
     )
+    // A draft is still being written — nothing to review yet.
+    .neq('status', 'draft')
     .order('created_at', { ascending: false })
     .limit(150)
 

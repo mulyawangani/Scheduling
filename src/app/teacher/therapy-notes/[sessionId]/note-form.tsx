@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { submitTherapyNote, resubmitTherapyNote, type ObjectiveRow } from '../actions'
+import { submitTherapyNote, resubmitTherapyNote, saveTherapyNoteDraft, type ObjectiveRow } from '../actions'
 
 export interface NotePrefill {
   startDate: string
@@ -30,6 +30,7 @@ export function NoteForm({
   subProtocolTitles,
   prefill,
   editing,
+  requiresReview = true,
 }: {
   sessionId: string
   weekStartDate: string | null
@@ -40,6 +41,8 @@ export function NoteForm({
   prefill: NotePrefill
   /** Set when revising a note the owner sent back, instead of writing a brand-new one. */
   editing?: { noteId: string; ownerComment: string | null }
+  /** Only meaningful for a brand-new note (not editing): offers a "Save draft" option alongside submitting. */
+  requiresReview?: boolean
 }) {
   const [startDate, setStartDate] = useState(prefill.startDate)
   const [duration, setDuration] = useState(prefill.duration)
@@ -52,6 +55,7 @@ export function NoteForm({
   const [objectives, setObjectives] = useState<ObjectiveRow[]>(prefill.objectives)
   const [observations, setObservations] = useState(prefill.observations)
   const [error, setError] = useState<string | null>(null)
+  const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -67,14 +71,8 @@ export function NoteForm({
     setObjectives((prev) => prev.filter((_, i) => i !== index))
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    // Guards against an accidental Enter press in one of the plain text
-    // inputs above (which natively submits the form) as much as an
-    // accidental click — either way, nothing reaches the owner without this.
-    if (!confirm(editing ? 'Resubmit this note to the owner for review?' : 'Send this note to the owner for review?')) return
-    const noteFields = {
+  function noteFields() {
+    return {
       sessionDate,
       startDate,
       duration,
@@ -87,10 +85,32 @@ export function NoteForm({
       objectives,
       observations,
     }
+  }
+
+  function handleSaveDraft() {
+    setError(null)
+    startTransition(async () => {
+      const result = await saveTherapyNoteDraft({ sessionPlanId: sessionId, weekStartDate, ...noteFields() })
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      setDraftSavedAt(new Date())
+    })
+  }
+
+  function handleFinalize() {
+    setError(null)
+    // Only the direct-to-parent path gets a confirmation — sending to the
+    // owner is low-stakes (she can always send it back), but publishing
+    // straight to a parent with no review safety net isn't.
+    if (!editing && !requiresReview) {
+      if (!confirm('Publish this note now? The parent will be able to see it immediately.')) return
+    }
     startTransition(async () => {
       const result = editing
-        ? await resubmitTherapyNote(editing.noteId, noteFields)
-        : await submitTherapyNote({ sessionPlanId: sessionId, weekStartDate, ...noteFields })
+        ? await resubmitTherapyNote(editing.noteId, noteFields())
+        : await submitTherapyNote({ sessionPlanId: sessionId, weekStartDate, ...noteFields() })
       if (result.error) {
         setError(result.error)
         return
@@ -100,7 +120,7 @@ export function NoteForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-6">
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {editing?.ownerComment && (
@@ -254,13 +274,37 @@ export function NoteForm({
         />
       </section>
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="self-start rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        {isPending ? 'Saving…' : editing ? 'Resubmit note' : 'Save note & mark session complete'}
-      </button>
+      <div className="flex items-center gap-3">
+        {!editing && requiresReview && (
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={isPending}
+            className="self-start rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isPending ? 'Saving…' : 'Save draft'}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleFinalize}
+          disabled={isPending}
+          className="self-start rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {isPending
+            ? 'Saving…'
+            : editing
+              ? 'Resubmit note'
+              : requiresReview
+                ? 'Submit for review'
+                : 'Save note & mark session complete'}
+        </button>
+        {draftSavedAt && (
+          <span className="text-xs text-gray-500">
+            Draft saved {draftSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} — keep editing or submit when ready.
+          </span>
+        )}
+      </div>
     </form>
   )
 }

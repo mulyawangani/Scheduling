@@ -428,11 +428,14 @@ create table therapy_notes (
   parent_instructions text,
   objectives jsonb not null default '[]',
   observations text,
-  -- Review workflow: a note starts 'submitted' (awaiting the owner), moves to
-  -- 'sent_back' (owner_comment set, teacher must edit and resubmit — which
-  -- returns it to 'submitted'), or 'accepted' (owner signed off; only then is
-  -- it visible to the parent — see the parent RLS policy below).
-  status text not null default 'submitted' check (status in ('submitted', 'sent_back', 'accepted')),
+  -- Review workflow: a note starts 'draft' while a teacher flagged for review
+  -- is still writing it (not visible to anyone else), then 'submitted' once
+  -- she sends it to the owner. From there it moves to 'sent_back'
+  -- (owner_comment set, teacher must edit and resubmit — which returns it to
+  -- 'submitted') or 'accepted' (owner signed off; only then is it visible to
+  -- the parent — see the parent RLS policy below). A teacher not flagged for
+  -- review skips 'draft'/'submitted' entirely and lands straight on 'accepted'.
+  status text not null default 'submitted' check (status in ('draft', 'submitted', 'sent_back', 'accepted')),
   owner_comment text,
   created_at timestamptz not null default now(),
   -- Bumped whenever the teacher edits homework after the note was first

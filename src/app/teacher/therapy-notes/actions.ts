@@ -26,30 +26,27 @@ export interface SubmitTherapyNoteParams {
 }
 
 /**
- * Records the teacher's therapy note for one occurrence, then marks that
- * occurrence complete the normal way — completeSession for a one-off,
- * completeWeeklyOccurrence for a weekly session's specific week. The note is
- * the gate: the teacher portal has no other path to mark a session complete
- * without going through this first (see schedule-calendar.tsx, which links
- * here instead of calling those directly).
+ * Writes params into the therapy_notes row for this occurrence, at the given
+ * status — inserting it the first time, updating in place on every save
+ * after that (a draft saved more than once, or a draft being finalized), so
+ * the unique index on (session_plan_id[, week_start_date]) never sees a
+ * second insert for the same occurrence.
  */
-export async function submitTherapyNote(params: SubmitTherapyNoteParams) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'You must be signed in.' }
+async function upsertTherapyNote(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  teacherId: string,
+  params: SubmitTherapyNoteParams,
+  status: 'draft' | 'submitted' | 'accepted'
+) {
+  let existingQuery = supabase
+    .from('therapy_notes')
+    .select('id')
+    .eq('session_plan_id', params.sessionPlanId)
+    .eq('teacher_id', teacherId)
+  existingQuery = params.weekStartDate ? existingQuery.eq('week_start_date', params.weekStartDate) : existingQuery.is('week_start_date', null)
+  const { data: existing } = await existingQuery.maybeSingle()
 
-  // A teacher not flagged for review (see admin/teachers) publishes straight
-  // to 'accepted' — everyone else starts at 'submitted' and needs the
-  // owner's accept/send-back before a parent can see it.
-  const { data: profile } = await supabase.from('profiles').select('requires_note_review').eq('id', user.id).single()
-  const initialStatus = profile?.requires_note_review === false ? 'accepted' : 'submitted'
-
-  const { error: noteError } = await supabase.from('therapy_notes').insert({
-    session_plan_id: params.sessionPlanId,
-    week_start_date: params.weekStartDate,
-    teacher_id: user.id,
+  const noteFields = {
     session_date: params.sessionDate,
     start_date: params.startDate || null,
     duration: params.duration || null,
@@ -61,13 +58,70 @@ export async function submitTherapyNote(params: SubmitTherapyNoteParams) {
     parent_instructions: params.parentInstructions || null,
     objectives: params.objectives.filter((o) => o.objective.trim() || o.outcome.trim()),
     observations: params.observations || null,
-    status: initialStatus,
-  })
+    status,
+    updated_at: new Date().toISOString(),
+  }
 
-  if (noteError) {
-    if (noteError.code === '23505') return { error: 'A note for this session already exists.' }
+  const { error } = existing
+    ? await supabase.from('therapy_notes').update(noteFields).eq('id', existing.id)
+    : await supabase.from('therapy_notes').insert({
+        session_plan_id: params.sessionPlanId,
+        week_start_date: params.weekStartDate,
+        teacher_id: teacherId,
+        ...noteFields,
+      })
+
+  if (error) {
+    if (error.code === '23505') return { error: 'A note for this session already exists.' }
     return { error: 'Could not save the note.' }
   }
+  return { error: null }
+}
+
+/**
+ * Saves progress on a note without sending it anywhere — no session
+ * completion, no owner queue, no parent visibility. Only meaningful for a
+ * teacher flagged for review (see requires_note_review): she can come back
+ * to "Write note" for the same occurrence and keep editing until she's ready
+ * to submit.
+ */
+export async function saveTherapyNoteDraft(params: SubmitTherapyNoteParams) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' }
+
+  const result = await upsertTherapyNote(supabase, user.id, params, 'draft')
+  if (result.error) return result
+
+  revalidatePath('/teacher/therapy-notes')
+  return { error: null }
+}
+
+/**
+ * Finalizes the therapy note for one occurrence, then marks that occurrence
+ * complete the normal way — completeSession for a one-off,
+ * completeWeeklyOccurrence for a weekly session's specific week. The note is
+ * the gate: the teacher portal has no other path to mark a session complete
+ * without going through this first (see schedule-calendar.tsx, which links
+ * here instead of calling those directly). A teacher not flagged for review
+ * (see admin/teachers) publishes straight to 'accepted'; everyone else lands
+ * at 'submitted' and needs the owner's accept/send-back before a parent can
+ * see it.
+ */
+export async function submitTherapyNote(params: SubmitTherapyNoteParams) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { data: profile } = await supabase.from('profiles').select('requires_note_review').eq('id', user.id).single()
+  const finalStatus = profile?.requires_note_review === false ? 'accepted' : 'submitted'
+
+  const noteResult = await upsertTherapyNote(supabase, user.id, params, finalStatus)
+  if (noteResult.error) return noteResult
 
   const result = params.weekStartDate
     ? await completeWeeklyOccurrence(params.sessionPlanId, params.weekStartDate)

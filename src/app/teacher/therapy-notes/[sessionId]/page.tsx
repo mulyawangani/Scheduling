@@ -37,17 +37,21 @@ export default async function TherapyNotePage({
   const supabase = await createClient()
   const teacherId = result!.user.id
 
-  const { data: session } = await supabase
-    .from('session_plans')
-    .select(
-      'id, student_id, protocol_id, recurrence_type, start_time, day_of_week, time_of_day_start, status, students(name), protocols(title)'
-    )
-    .eq('id', sessionId)
-    .eq('teacher_id', teacherId)
-    .single()
+  const [{ data: session }, { data: profile }] = await Promise.all([
+    supabase
+      .from('session_plans')
+      .select(
+        'id, student_id, protocol_id, recurrence_type, start_time, day_of_week, time_of_day_start, status, students(name), protocols(title)'
+      )
+      .eq('id', sessionId)
+      .eq('teacher_id', teacherId)
+      .single(),
+    supabase.from('profiles').select('requires_note_review').eq('id', teacherId).single(),
+  ])
 
   if (!session || session.status !== 'accepted') notFound()
   if (session.recurrence_type === 'weekly' && !week) notFound()
+  const requiresReview = profile?.requires_note_review !== false
 
   // A note shouldn't be writable for a class that hasn't happened yet —
   // hiding the "Write note" link is only a display convenience, not a real
@@ -118,22 +122,43 @@ export default async function TherapyNotePage({
     .order('title')
   const subProtocolTitles = (subProtocols ?? []).map((sp) => sp.title)
 
-  const prefill = {
-    startDate: priorNote?.start_date ?? earliestDate ?? sessionDate,
-    duration: priorNote?.duration ?? '',
-    reviewLabel: nextReviewLabel(priorNote?.review_label ?? null),
-    lastSessionSummary: priorNote
-      ? `${dateFormatter.format(new Date(`${priorNote.session_date}T00:00:00Z`))}${priorNote.review_label ? ` - ${priorNote.review_label}` : ''}`
-      : '',
-    todaysProtocol:
-      subProtocolTitles.length > 0 ? (priorNote?.todays_protocol && subProtocolTitles.includes(priorNote.todays_protocol) ? priorNote.todays_protocol : '') : protocolName,
-    repatterningNotes: priorNote?.repatterning_notes ?? '',
-    activeNotes: priorNote?.active_notes ?? '',
-    parentInstructions: priorNote?.parent_instructions ?? '',
-    objectives: priorNote?.objectives?.length ? priorNote.objectives.map((o) => ({ objective: o.objective, outcome: '' })) : [{ objective: '', outcome: '' }],
-    observations: '',
-    priorObservations: priorNote?.observations ?? null,
-  }
+  // A draft for this exact occurrence (from an earlier "Save draft") takes
+  // over the whole prefill — it's the same note being continued, not a fresh
+  // one templated off some other prior session.
+  let draftQuery = supabase.from('therapy_notes').select('*').eq('session_plan_id', session.id).eq('teacher_id', teacherId).eq('status', 'draft')
+  draftQuery = week ? draftQuery.eq('week_start_date', week) : draftQuery.is('week_start_date', null)
+  const { data: draftNote } = await draftQuery.maybeSingle()
+
+  const prefill = draftNote
+    ? {
+        startDate: draftNote.start_date ?? sessionDate,
+        duration: draftNote.duration ?? '',
+        reviewLabel: draftNote.review_label ?? '',
+        lastSessionSummary: draftNote.last_session_summary ?? '',
+        todaysProtocol: draftNote.todays_protocol ?? '',
+        repatterningNotes: draftNote.repatterning_notes ?? '',
+        activeNotes: draftNote.active_notes ?? '',
+        parentInstructions: draftNote.parent_instructions ?? '',
+        objectives: draftNote.objectives?.length ? draftNote.objectives : [{ objective: '', outcome: '' }],
+        observations: draftNote.observations ?? '',
+        priorObservations: priorNote?.observations ?? null,
+      }
+    : {
+        startDate: priorNote?.start_date ?? earliestDate ?? sessionDate,
+        duration: priorNote?.duration ?? '',
+        reviewLabel: nextReviewLabel(priorNote?.review_label ?? null),
+        lastSessionSummary: priorNote
+          ? `${dateFormatter.format(new Date(`${priorNote.session_date}T00:00:00Z`))}${priorNote.review_label ? ` - ${priorNote.review_label}` : ''}`
+          : '',
+        todaysProtocol:
+          subProtocolTitles.length > 0 ? (priorNote?.todays_protocol && subProtocolTitles.includes(priorNote.todays_protocol) ? priorNote.todays_protocol : '') : protocolName,
+        repatterningNotes: priorNote?.repatterning_notes ?? '',
+        activeNotes: priorNote?.active_notes ?? '',
+        parentInstructions: priorNote?.parent_instructions ?? '',
+        objectives: priorNote?.objectives?.length ? priorNote.objectives.map((o) => ({ objective: o.objective, outcome: '' })) : [{ objective: '', outcome: '' }],
+        observations: '',
+        priorObservations: priorNote?.observations ?? null,
+      }
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -153,6 +178,7 @@ export default async function TherapyNotePage({
         protocolName={protocolName}
         subProtocolTitles={subProtocolTitles}
         prefill={prefill}
+        requiresReview={requiresReview}
       />
     </main>
   )

@@ -74,7 +74,7 @@ export default async function TherapyNotesPage() {
   const { data: recentNotes } = await supabase
     .from('therapy_notes')
     .select(
-      'id, session_date, week_start_date, review_label, todays_protocol, repatterning_notes, active_notes, objectives, observations, parent_instructions, status, owner_comment, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
+      'id, session_plan_id, session_date, week_start_date, review_label, todays_protocol, repatterning_notes, active_notes, objectives, observations, parent_instructions, status, owner_comment, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
     )
     .eq('teacher_id', teacherId)
     .order('session_date', { ascending: false })
@@ -94,6 +94,8 @@ export default async function TherapyNotesPage() {
           : dateTimeFormatter.format(new Date(`${n.session_date}T00:00:00Z`))
     return {
       id: n.id,
+      sessionId: n.session_plan_id,
+      weekStartDate: n.week_start_date,
       studentName: student?.name ?? 'Unknown student',
       protocolName: n.todays_protocol || protocol?.title || 'Unknown protocol',
       whenLabel,
@@ -103,7 +105,7 @@ export default async function TherapyNotesPage() {
       objectives: n.objectives as { objective: string; outcome: string }[],
       observations: n.observations,
       parentInstructions: n.parent_instructions,
-      status: n.status as 'submitted' | 'sent_back' | 'accepted',
+      status: n.status as 'draft' | 'submitted' | 'sent_back' | 'accepted',
       ownerComment: n.owner_comment,
     }
   })
