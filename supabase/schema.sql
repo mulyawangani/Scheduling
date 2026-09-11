@@ -692,6 +692,14 @@ create policy "session_plans admin full access" on session_plans
 create policy "session_plans teacher reads own" on session_plans
   for select to authenticated
   using (teacher_id = auth.uid());
+-- Needed so a teacher's therapy_notes query can actually join through to a
+-- shared student's session_plans row written by a DIFFERENT teacher (see
+-- "therapy_notes teacher reads for shared students") — without this, that
+-- join silently drops the other teacher's row even though the therapy_notes
+-- policy itself would allow it.
+create policy "session_plans teacher reads shared students" on session_plans
+  for select to authenticated
+  using (is_teacher_of_student(student_id));
 -- Lets a teacher confirm (pending -> accepted) or complete (accepted ->
 -- completed) her own sessions from /teacher. Which specific transition is
 -- allowed is enforced in teacher/actions.ts, not here — this policy is
@@ -753,6 +761,18 @@ create policy "therapy_notes owner reviews" on therapy_notes
   for update to authenticated
   using (has_role('owner'))
   with check (has_role('owner'));
+-- A teacher needs to see another teacher's homework for a shared student
+-- (see the cross-protocol homework carry-forward on the "Write note" page) —
+-- but only once it's actually been sent somewhere, not a private draft.
+create policy "therapy_notes teacher reads for shared students" on therapy_notes
+  for select to authenticated
+  using (
+    status <> 'draft'
+    and exists (
+      select 1 from session_plans sp
+      where sp.id = therapy_notes.session_plan_id and is_teacher_of_student(sp.student_id)
+    )
+  );
 -- Not additive like the rest of this file's policies: this REPLACES the
 -- original unconditional parent-select policy (an additional permissive
 -- policy could only OR in more access, never narrow it) so a parent only ever
