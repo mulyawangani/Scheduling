@@ -15,7 +15,6 @@ export interface NotePrefill {
   parentInstructions: string
   objectives: ObjectiveRow[]
   observations: string
-  priorObservations: string | null
 }
 
 const inputClass = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm'
@@ -255,9 +254,6 @@ export function NoteForm({
 
       <section className="rounded-lg border border-gray-200 p-4">
         <h2 className="mb-1 text-sm font-medium text-gray-700">Observations to date</h2>
-        {prefill.priorObservations && (
-          <p className="mb-2 text-xs text-gray-400">Last time: {prefill.priorObservations}</p>
-        )}
         <textarea
           value={observations}
           onChange={(e) => setObservations(e.target.value)}

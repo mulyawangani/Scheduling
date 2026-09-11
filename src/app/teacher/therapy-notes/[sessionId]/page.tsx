@@ -99,21 +99,26 @@ export default async function TherapyNotePage({
     .limit(1)
   const priorNote = priorNotes?.[0] ?? null
 
-  // Homework isn't protocol-specific — it's one running set of instructions
-  // for the family, same "most recently touched" note the parent app shows
-  // as the current homework reminder (see parent/students/[id]/therapy-notes).
-  // So whichever teacher wrote it last, for whichever protocol, today's note
-  // should start from it too — draft notes don't count since they were never
-  // actually sent anywhere.
-  const { data: recentHomeworkNotes } = await supabase
+  // Several fields aren't protocol-specific — homework, start date, duration,
+  // objectives, and observations are all really about the CHILD, not the
+  // protocol, so whichever teacher last touched any of them, for whichever
+  // protocol, today's note should carry them forward too. Same "most
+  // recently touched" note the parent app already uses for its homework
+  // reminder (see parent/students/[id]/therapy-notes) — draft notes don't
+  // count since they were never actually sent anywhere.
+  const { data: recentNotes } = await supabase
     .from('therapy_notes')
-    .select('parent_instructions, session_plans!inner(student_id)')
+    .select('start_date, duration, objectives, observations, parent_instructions, updated_at, session_plans!inner(student_id)')
     .eq('session_plans.student_id', session.student_id)
     .neq('status', 'draft')
-    .not('parent_instructions', 'is', null)
     .order('updated_at', { ascending: false })
-    .limit(1)
-  const currentHomework = recentHomeworkNotes?.[0]?.parent_instructions ?? ''
+    .limit(20)
+  const recentNote = recentNotes?.[0] ?? null
+  // Homework specifically skips forward past a note that happened to leave
+  // it blank, to whichever one most recently actually set it — same rule
+  // the parent app's reminder uses, so a family's current homework doesn't
+  // silently disappear just because someone's note that day didn't touch it.
+  const currentHomework = recentNotes?.find((n) => n.parent_instructions)?.parent_instructions ?? ''
 
   // Only meaningful as a fallback "when did this protocol start" for a
   // one-off session's very first note — a weekly session has no comparable
@@ -151,11 +156,10 @@ export default async function TherapyNotePage({
         parentInstructions: draftNote.parent_instructions ?? '',
         objectives: draftNote.objectives?.length ? draftNote.objectives : [{ objective: '', outcome: '' }],
         observations: draftNote.observations ?? '',
-        priorObservations: priorNote?.observations ?? null,
       }
     : {
-        startDate: priorNote?.start_date ?? earliestDate ?? sessionDate,
-        duration: priorNote?.duration ?? '',
+        startDate: recentNote?.start_date ?? earliestDate ?? sessionDate,
+        duration: recentNote?.duration ?? '',
         reviewLabel: nextReviewLabel(priorNote?.review_label ?? null),
         lastSessionSummary: priorNote
           ? `${dateFormatter.format(new Date(`${priorNote.session_date}T00:00:00Z`))}${priorNote.review_label ? ` - ${priorNote.review_label}` : ''}`
@@ -167,9 +171,8 @@ export default async function TherapyNotePage({
         repatterningNotes: priorNote?.repatterning_notes ?? '',
         activeNotes: priorNote?.active_notes ?? '',
         parentInstructions: currentHomework,
-        objectives: priorNote?.objectives?.length ? priorNote.objectives.map((o) => ({ objective: o.objective, outcome: '' })) : [{ objective: '', outcome: '' }],
-        observations: '',
-        priorObservations: priorNote?.observations ?? null,
+        objectives: recentNote?.objectives?.length ? recentNote.objectives.map((o) => ({ objective: o.objective, outcome: '' })) : [{ objective: '', outcome: '' }],
+        observations: recentNote?.observations ?? '',
       }
 
   return (

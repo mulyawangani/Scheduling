@@ -69,7 +69,6 @@ export default async function EditTherapyNotePage({ params }: { params: Promise<
     parentInstructions: note.parent_instructions ?? '',
     objectives: note.objectives?.length ? note.objectives : [{ objective: '', outcome: '' }],
     observations: note.observations ?? '',
-    priorObservations: null,
   }
 
   return (
