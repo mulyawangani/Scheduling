@@ -99,6 +99,22 @@ export default async function TherapyNotePage({
     .limit(1)
   const priorNote = priorNotes?.[0] ?? null
 
+  // Homework isn't protocol-specific — it's one running set of instructions
+  // for the family, same "most recently touched" note the parent app shows
+  // as the current homework reminder (see parent/students/[id]/therapy-notes).
+  // So whichever teacher wrote it last, for whichever protocol, today's note
+  // should start from it too — draft notes don't count since they were never
+  // actually sent anywhere.
+  const { data: recentHomeworkNotes } = await supabase
+    .from('therapy_notes')
+    .select('parent_instructions, session_plans!inner(student_id)')
+    .eq('session_plans.student_id', session.student_id)
+    .neq('status', 'draft')
+    .not('parent_instructions', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+  const currentHomework = recentHomeworkNotes?.[0]?.parent_instructions ?? ''
+
   // Only meaningful as a fallback "when did this protocol start" for a
   // one-off session's very first note — a weekly session has no comparable
   // single start date of its own to fall back on.
@@ -150,7 +166,7 @@ export default async function TherapyNotePage({
         todaysProtocol: protocolName,
         repatterningNotes: priorNote?.repatterning_notes ?? '',
         activeNotes: priorNote?.active_notes ?? '',
-        parentInstructions: priorNote?.parent_instructions ?? '',
+        parentInstructions: currentHomework,
         objectives: priorNote?.objectives?.length ? priorNote.objectives.map((o) => ({ objective: o.objective, outcome: '' })) : [{ objective: '', outcome: '' }],
         observations: '',
         priorObservations: priorNote?.observations ?? null,
