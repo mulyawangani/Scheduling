@@ -144,7 +144,10 @@ export default async function TherapyNotePage({
         lastSessionSummary: priorNote
           ? `${dateFormatter.format(new Date(`${priorNote.session_date}T00:00:00Z`))}${priorNote.review_label ? ` - ${priorNote.review_label}` : ''}`
           : '',
-        todaysProtocol: priorNote?.todays_protocol || protocolName,
+        // Always the protocol actually scheduled for this session, not
+        // whatever specific text a prior note happened to type in here (e.g.
+        // a named sub-protocol) — the teacher can still edit it freely.
+        todaysProtocol: protocolName,
         repatterningNotes: priorNote?.repatterning_notes ?? '',
         activeNotes: priorNote?.active_notes ?? '',
         parentInstructions: priorNote?.parent_instructions ?? '',
