@@ -84,31 +84,37 @@ export default async function TherapyNotePage({
       ? dateStringInBusinessTz(new Date(session.start_time as string))
       : dateForDayOfWeek(week as string, session.day_of_week as number)
 
-  // Every prior session for this same (student, protocol) — used to find the
-  // most recent therapy note for it, so today's note can carry forward
-  // fields that usually repeat (homework, technique names, running session
-  // count) instead of the teacher retyping them every visit.
-  const { data: relatedSessions } = await supabase
-    .from('session_plans')
-    .select('id, start_time')
-    .eq('student_id', session.student_id)
-    .eq('protocol_id', session.protocol_id)
-    .eq('recurrence_type', 'one_off')
-    .order('start_time', { ascending: true })
-  const relatedIds = (relatedSessions ?? []).map((r) => r.id)
-  const earliestDate = relatedSessions?.[0]?.start_time ? dateStringInBusinessTz(new Date(relatedSessions[0].start_time)) : null
-
-  const { data: priorNotes } =
-    relatedIds.length > 0
-      ? await supabase
-          .from('therapy_notes')
-          .select('*')
-          .in('session_plan_id', relatedIds)
-          .order('session_date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(1)
-      : { data: [] }
+  // The most recent therapy note for this same (student, protocol) —
+  // regardless of whether it came from a one-off session or a different week
+  // of a weekly-recurring one — so today's note can carry forward fields
+  // that usually repeat (homework, technique names, running session count)
+  // instead of the teacher retyping them every visit.
+  const { data: priorNotes } = await supabase
+    .from('therapy_notes')
+    .select('*, session_plans!inner(student_id, protocol_id)')
+    .eq('session_plans.student_id', session.student_id)
+    .eq('session_plans.protocol_id', session.protocol_id)
+    .order('session_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
   const priorNote = priorNotes?.[0] ?? null
+
+  // Only meaningful as a fallback "when did this protocol start" for a
+  // one-off session's very first note — a weekly session has no comparable
+  // single start date of its own to fall back on.
+  const { data: earliestOneOff } =
+    session.recurrence_type === 'one_off'
+      ? await supabase
+          .from('session_plans')
+          .select('start_time')
+          .eq('student_id', session.student_id)
+          .eq('protocol_id', session.protocol_id)
+          .eq('recurrence_type', 'one_off')
+          .order('start_time', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : { data: null }
+  const earliestDate = earliestOneOff?.start_time ? dateStringInBusinessTz(new Date(earliestOneOff.start_time)) : null
 
   // A protocol like Reflex Repatterning breaks down into many sub-protocols
   // (the rest don't) — when it does, "today's protocol" should be picked
