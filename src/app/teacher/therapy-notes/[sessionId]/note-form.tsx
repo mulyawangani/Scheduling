@@ -27,7 +27,6 @@ export function NoteForm({
   sessionDate,
   studentName,
   protocolName,
-  subProtocolTitles,
   prefill,
   editing,
   requiresReview = true,
@@ -37,7 +36,6 @@ export function NoteForm({
   sessionDate: string
   studentName: string
   protocolName: string
-  subProtocolTitles: string[]
   prefill: NotePrefill
   /** Set when revising a note the owner sent back, instead of writing a brand-new one. */
   editing?: { noteId: string; ownerComment: string | null }
@@ -179,18 +177,13 @@ export function NoteForm({
           </div>
           <div>
             <label className={labelClass}>Today&apos;s protocol</label>
-            {subProtocolTitles.length > 0 ? (
-              <select value={todaysProtocol} onChange={(e) => setTodaysProtocol(e.target.value)} className={inputClass}>
-                <option value="">— Select sub-protocol —</option>
-                {subProtocolTitles.map((title) => (
-                  <option key={title} value={title}>
-                    {title}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="px-3 py-2 text-sm text-gray-900">{protocolName}</p>
-            )}
+            <input
+              type="text"
+              value={todaysProtocol}
+              onChange={(e) => setTodaysProtocol(e.target.value)}
+              placeholder={protocolName}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Repatterning</label>

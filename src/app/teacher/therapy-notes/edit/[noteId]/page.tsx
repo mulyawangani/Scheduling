@@ -31,7 +31,7 @@ export default async function EditTherapyNotePage({ params }: { params: Promise<
   const { data: note } = await supabase
     .from('therapy_notes')
     .select(
-      'id, session_plan_id, week_start_date, session_date, start_date, duration, review_label, last_session_summary, todays_protocol, repatterning_notes, active_notes, parent_instructions, objectives, observations, status, owner_comment, session_plans(protocol_id, recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
+      'id, session_plan_id, week_start_date, session_date, start_date, duration, review_label, last_session_summary, todays_protocol, repatterning_notes, active_notes, parent_instructions, objectives, observations, status, owner_comment, session_plans(recurrence_type, start_time, day_of_week, time_of_day_start, students(name), protocols(title))'
     )
     .eq('id', noteId)
     .eq('teacher_id', teacherId)
@@ -57,11 +57,6 @@ export default async function EditTherapyNotePage({ params }: { params: Promise<
             )
           )
         : null
-
-  const { data: subProtocols } = session?.protocol_id
-    ? await supabase.from('sub_protocols').select('id, title').eq('protocol_id', session.protocol_id).eq('is_active', true).order('title')
-    : { data: [] }
-  const subProtocolTitles = (subProtocols ?? []).map((sp) => sp.title)
 
   const prefill: NotePrefill = {
     startDate: note.start_date ?? note.session_date,
@@ -93,7 +88,6 @@ export default async function EditTherapyNotePage({ params }: { params: Promise<
         sessionDate={note.session_date}
         studentName={studentName}
         protocolName={protocolName}
-        subProtocolTitles={subProtocolTitles}
         prefill={prefill}
         editing={{ noteId: note.id, ownerComment: note.owner_comment }}
       />

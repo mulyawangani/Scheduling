@@ -116,18 +116,6 @@ export default async function TherapyNotePage({
       : { data: null }
   const earliestDate = earliestOneOff?.start_time ? dateStringInBusinessTz(new Date(earliestOneOff.start_time)) : null
 
-  // A protocol like Reflex Repatterning breaks down into many sub-protocols
-  // (the rest don't) — when it does, "today's protocol" should be picked
-  // from that real list rather than typed freehand, since it's meant to
-  // record which specific one this session actually covered.
-  const { data: subProtocols } = await supabase
-    .from('sub_protocols')
-    .select('id, title')
-    .eq('protocol_id', session.protocol_id)
-    .eq('is_active', true)
-    .order('title')
-  const subProtocolTitles = (subProtocols ?? []).map((sp) => sp.title)
-
   // A draft for this exact occurrence (from an earlier "Save draft") takes
   // over the whole prefill — it's the same note being continued, not a fresh
   // one templated off some other prior session.
@@ -156,8 +144,7 @@ export default async function TherapyNotePage({
         lastSessionSummary: priorNote
           ? `${dateFormatter.format(new Date(`${priorNote.session_date}T00:00:00Z`))}${priorNote.review_label ? ` - ${priorNote.review_label}` : ''}`
           : '',
-        todaysProtocol:
-          subProtocolTitles.length > 0 ? (priorNote?.todays_protocol && subProtocolTitles.includes(priorNote.todays_protocol) ? priorNote.todays_protocol : '') : protocolName,
+        todaysProtocol: priorNote?.todays_protocol || protocolName,
         repatterningNotes: priorNote?.repatterning_notes ?? '',
         activeNotes: priorNote?.active_notes ?? '',
         parentInstructions: priorNote?.parent_instructions ?? '',
@@ -182,7 +169,6 @@ export default async function TherapyNotePage({
         sessionDate={sessionDate}
         studentName={studentName}
         protocolName={protocolName}
-        subProtocolTitles={subProtocolTitles}
         prefill={prefill}
         requiresReview={requiresReview}
       />
