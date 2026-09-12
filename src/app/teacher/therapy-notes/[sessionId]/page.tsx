@@ -172,7 +172,12 @@ export default async function TherapyNotePage({
         activeNotes: priorNote?.active_notes ?? '',
         parentInstructions: currentHomework,
         objectives: recentNote?.objectives?.length ? recentNote.objectives.map((o) => ({ objective: o.objective, outcome: '' })) : [{ objective: '', outcome: '' }],
-        observations: recentNote?.observations ?? '',
+        // Left blank on purpose — this is what happened THIS session, not a
+        // repeat of last time. The prior text shows alongside the box
+        // instead (see priorObservations) so the teacher has it to refer to
+        // while writing, without it silently standing in for real content.
+        observations: '',
+        priorObservations: recentNote?.observations ?? null,
       }
 
   return (
