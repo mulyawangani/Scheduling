@@ -100,15 +100,15 @@ export default async function TherapyNotePage({
   const priorNote = priorNotes?.[0] ?? null
 
   // Several fields aren't protocol-specific — homework, start date, duration,
-  // objectives, and observations are all really about the CHILD, not the
-  // protocol, so whichever teacher last touched any of them, for whichever
-  // protocol, today's note should carry them forward too. Same "most
-  // recently touched" note the parent app already uses for its homework
-  // reminder (see parent/students/[id]/therapy-notes) — draft notes don't
-  // count since they were never actually sent anywhere.
+  // review label, last session, objectives, and observations are all really
+  // about the CHILD, not the protocol, so whichever teacher last touched any
+  // of them, for whichever protocol, today's note should carry them forward
+  // too. Same "most recently touched" note the parent app already uses for
+  // its homework reminder (see parent/students/[id]/therapy-notes) — draft
+  // notes don't count since they were never actually sent anywhere.
   const { data: recentNotes } = await supabase
     .from('therapy_notes')
-    .select('start_date, duration, objectives, observations, parent_instructions, updated_at, session_plans!inner(student_id)')
+    .select('session_date, review_label, start_date, duration, objectives, observations, parent_instructions, updated_at, session_plans!inner(student_id)')
     .eq('session_plans.student_id', session.student_id)
     .neq('status', 'draft')
     .order('updated_at', { ascending: false })
@@ -160,9 +160,9 @@ export default async function TherapyNotePage({
     : {
         startDate: recentNote?.start_date ?? earliestDate ?? sessionDate,
         duration: recentNote?.duration ?? '',
-        reviewLabel: nextReviewLabel(priorNote?.review_label ?? null),
-        lastSessionSummary: priorNote
-          ? `${dateFormatter.format(new Date(`${priorNote.session_date}T00:00:00Z`))}${priorNote.review_label ? ` - ${priorNote.review_label}` : ''}`
+        reviewLabel: nextReviewLabel(recentNote?.review_label ?? null),
+        lastSessionSummary: recentNote
+          ? `${dateFormatter.format(new Date(`${recentNote.session_date}T00:00:00Z`))}${recentNote.review_label ? ` - ${recentNote.review_label}` : ''}`
           : '',
         // Always the protocol actually scheduled for this session, not
         // whatever specific text a prior note happened to type in here (e.g.
