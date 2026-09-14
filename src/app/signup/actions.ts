@@ -33,7 +33,12 @@ export async function signUpParent(formData: FormData) {
   })
 
   if (profileError) {
-    return { error: 'Account created but profile setup failed. Contact support.' }
+    // Without this, a failed profile insert leaves an orphaned auth.users row:
+    // invisible everywhere in the app (which only ever queries profiles), yet
+    // permanently blocking that email from signing up again ("already
+    // registered"). Roll the auth user back so the email is free to retry.
+    await admin.auth.admin.deleteUser(data.user.id)
+    return { error: 'Could not finish creating the account — please try again.' }
   }
 
   return { error: null }
