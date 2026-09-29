@@ -22,5 +22,12 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Playtics tile watermark background for auth pages */
+.playtics-bg {
+  background-color: #f5f5f5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect x='4' y='4' width='52' height='52' rx='10' fill='%23F59030' opacity='0.18'/%3E%3Crect x='64' y='4' width='52' height='52' rx='10' fill='%23DC2870' opacity='0.18'/%3E%3Crect x='4' y='64' width='52' height='52' rx='10' fill='%234488FF' opacity='0.14'/%3E%3Crect x='64' y='64' width='52' height='52' rx='10' fill='%2322BB88' opacity='0.14'/%3E%3C/svg%3E");
 }

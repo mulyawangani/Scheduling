@@ -1,4 +1,5 @@
 export type UserRole = 'parent' | 'teacher' | 'owner' | 'admin'
+export type ContactType = 'father' | 'mother' | 'emergency'
 export type RecurrenceType = 'one_off' | 'weekly'
 export type SessionSource = 'algorithm' | 'manual'
 export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed'
@@ -148,7 +149,15 @@ export interface Database {
           id: string
           parent_id: string
           name: string
+          nickname: string | null
           date_of_birth: string | null
+          gender: string | null
+          nationality: string | null
+          religion: string | null
+          address: string | null
+          phone_home: string | null
+          previous_school: string | null
+          photo_url: string | null
           rate_per_session: number | null
           priority: number | null
           school_id: string
@@ -161,7 +170,15 @@ export interface Database {
           id?: string
           parent_id: string
           name: string
+          nickname?: string | null
           date_of_birth?: string | null
+          gender?: string | null
+          nationality?: string | null
+          religion?: string | null
+          address?: string | null
+          phone_home?: string | null
+          previous_school?: string | null
+          photo_url?: string | null
           rate_per_session?: number | null
           priority?: number | null
           school_id?: string
@@ -174,7 +191,15 @@ export interface Database {
           id?: string
           parent_id?: string
           name?: string
+          nickname?: string | null
           date_of_birth?: string | null
+          gender?: string | null
+          nationality?: string | null
+          religion?: string | null
+          address?: string | null
+          phone_home?: string | null
+          previous_school?: string | null
+          photo_url?: string | null
           rate_per_session?: number | null
           priority?: number | null
           school_id?: string
@@ -903,6 +928,46 @@ export interface Database {
           },
         ]
       }
+      student_contacts: {
+        Row: {
+          id: string
+          student_id: string
+          type: ContactType
+          full_name: string
+          phone_mobile: string | null
+          phone_home: string | null
+          email: string | null
+          date_of_birth: string | null
+          employment: string | null
+          relationship: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          type: ContactType
+          full_name: string
+          phone_mobile?: string | null
+          phone_home?: string | null
+          email?: string | null
+          date_of_birth?: string | null
+          employment?: string | null
+          relationship?: string | null
+          created_at?: string
+        }
+        Update: {
+          full_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'student_contacts_student_id_fkey'
+            columns: ['student_id']
+            isOneToOne: false
+            referencedRelation: 'students'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -927,3 +992,4 @@ export type SchedulingRules = Database['public']['Tables']['scheduling_rules']['
 export type SessionPlan = Database['public']['Tables']['session_plans']['Row']
 export type SessionOccurrence = Database['public']['Tables']['session_occurrences']['Row']
 export type BillingRate = Database['public']['Tables']['billing_rates']['Row']
+export type StudentContact = Database['public']['Tables']['student_contacts']['Row']
