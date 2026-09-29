@@ -957,6 +957,12 @@ export interface Database {
         }
         Update: {
           full_name?: string
+          phone_mobile?: string | null
+          phone_home?: string | null
+          email?: string | null
+          date_of_birth?: string | null
+          employment?: string | null
+          relationship?: string | null
         }
         Relationships: [
           {
