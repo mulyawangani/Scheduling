@@ -343,7 +343,7 @@ export default function ChildrenPage() {
         <div className="pt-10 pb-4 px-4 text-center">
           <p className="font-bold text-gray-800 text-lg">{profile.name}</p>
           {profile.nickname && (
-            <p className="text-sm text-gray-400 mt-0.5">"{profile.nickname}"</p>
+            <p className="text-sm text-gray-400 mt-0.5">&ldquo;{profile.nickname}&rdquo;</p>
           )}
           <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
             {age && (
