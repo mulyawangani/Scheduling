@@ -75,7 +75,6 @@ export default function LoginPage() {
           style={{ background: 'linear-gradient(135deg, #F59030 0%, #DC2870 100%)' }}
         >
           <div className="text-white text-2xl font-bold tracking-widest">PLAYTICS</div>
-          <div className="text-orange-100 text-xs mt-1 tracking-wide">Parent Portal</div>
         </div>
 
         <div className="p-6">
