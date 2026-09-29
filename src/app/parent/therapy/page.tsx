@@ -1,220 +1,82 @@
-'use client'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import { getUserProfile } from '@/lib/auth/get-user-profile'
+import { getWeekStart } from '@/lib/week'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useParentContext } from '../parent-context'
+export default async function TherapyPage() {
+  const result = await getUserProfile()
+  const supabase = await createClient()
 
-type StudentProfile = {
-  id: string
-  name: string
-  nickname: string | null
-  date_of_birth: string | null
-  gender: string | null
-  nationality: string | null
-  religion: string | null
-  address: string | null
-  phone_home: string | null
-  previous_school: string | null
-  photo_url: string | null
-  weekly_target_sessions: number
-  status: string | null
-  schools: { name: string } | { name: string }[] | null
-  therapy_locations: { name: string } | { name: string }[] | null
-}
+  const weekStart = getWeekStart(new Date())
 
-function schoolName(s: StudentProfile['schools']): string | null {
-  if (!s) return null
-  return Array.isArray(s) ? (s[0]?.name ?? null) : s.name
-}
-
-function therapyName(t: StudentProfile['therapy_locations']): string | null {
-  if (!t) return null
-  return Array.isArray(t) ? (t[0]?.name ?? null) : t.name
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
-function calcAge(dob: string | null): string | null {
-  if (!dob) return null
-  const birth = new Date(dob)
-  const now = new Date()
-  const totalMonths = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
-  if (totalMonths < 1) return 'Newborn'
-  if (totalMonths < 24) return `${totalMonths} month${totalMonths !== 1 ? 's' : ''}`
-  const y = Math.floor(totalMonths / 12)
-  const m = totalMonths % 12
-  return m > 0 ? `${y} yr ${m} mo` : `${y} year${y !== 1 ? 's' : ''}`
-}
-
-function InfoRow({ label, value, dim }: { label: string; value: string | null; dim?: boolean }) {
-  const display = value?.trim() || null
-  return (
-    <div className="flex items-start py-2.5 border-b border-gray-50 last:border-0 gap-3">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 w-28 shrink-0 mt-0.5">{label}</span>
-      <span className="text-sm" style={{ color: display ? (dim ? '#6B7280' : '#1F2937') : '#D1D5DB' }}>
-        {display ?? 'Not provided'}
-      </span>
-    </div>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-4 pt-3 pb-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{title}</p>
-      </div>
-      <div className="px-4 pb-2">{children}</div>
-    </div>
-  )
-}
-
-export default function ChildrenPage() {
-  const { kids, selectedChild } = useParentContext()
-  const [profile, setProfile] = useState<StudentProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!selectedChild) { setLoading(false); return }
-    const supabase = createClient()
-    setLoading(true)
+  const [{ data: students }, { data: sessionRows }] = await Promise.all([
     supabase
       .from('students')
-      .select(`
-        id, name, nickname, date_of_birth, gender, nationality, religion,
-        address, phone_home, previous_school, photo_url, weekly_target_sessions, status,
-        schools(name),
-        therapy_locations(name)
-      `)
-      .eq('id', selectedChild.id)
-      .single()
-      .then(({ data }) => {
-        setProfile(data as StudentProfile | null)
-        setLoading(false)
-      })
-  }, [selectedChild?.id])
+      .select('id, name, nickname, schools(name)')
+      .eq('parent_id', result!.user.id)
+      .order('created_at', { ascending: true }),
+    supabase.from('session_plans').select('student_id, status, recurrence_type, start_time'),
+  ])
 
-  if (!selectedChild || kids.length === 0) {
-    return (
-      <div className="p-5 text-center py-16 text-gray-400">
-        <p className="text-4xl mb-3">👶</p>
-        <p className="font-medium text-gray-600">No children linked</p>
-        <p className="text-sm mt-1">Children will appear here once enrolled.</p>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return <div className="p-5 flex items-center justify-center py-20 text-gray-400 text-sm">Loading…</div>
-  }
-
-  if (!profile) {
-    return <div className="p-5 text-center py-16 text-sm text-gray-400">Could not load profile.</div>
-  }
-
-  const age = calcAge(profile.date_of_birth)
-  const displayName = profile.nickname ?? profile.name
-  const school = schoolName(profile.schools)
-  const therapy = therapyName(profile.therapy_locations)
-
-  const statusColor: Record<string, string> = {
-    student: '#059669',
-    non_student: '#F59030',
-    inactive: '#9CA3AF',
-  }
-  const statusLabel: Record<string, string> = {
-    student: 'Active',
-    non_student: 'Non-student',
-    inactive: 'Inactive',
+  const statsByStudent = new Map<string, { proposedThisWeek: number; confirmedThisWeek: number; completedTotal: number }>()
+  for (const row of sessionRows ?? []) {
+    const stats = statsByStudent.get(row.student_id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
+    if (row.status === 'completed') stats.completedTotal++
+    const inThisWeek = row.recurrence_type === 'weekly' || (row.start_time && getWeekStart(new Date(row.start_time)) === weekStart)
+    if (row.status === 'pending' && inThisWeek) stats.proposedThisWeek++
+    if (row.status === 'accepted' && inThisWeek) stats.confirmedThisWeek++
+    statsByStudent.set(row.student_id, stats)
   }
 
   return (
-    <div className="p-5 flex flex-col gap-4 pb-8">
-      <h2 className="text-lg font-bold text-gray-800">Children Profiles</h2>
+    <div className="p-5 flex flex-col gap-4">
+      <h2 className="text-lg font-bold text-gray-800">Therapy</h2>
 
-      {/* Avatar card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div
-          className="h-20 flex items-end justify-center pb-0"
-          style={{ background: 'linear-gradient(135deg, #F59030 0%, #DC2870 100%)' }}
-        >
-          <div
-            className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-3xl translate-y-8 shadow-md"
-            style={{ background: 'linear-gradient(135deg, #FEF3E2 0%, #FCE4ED 100%)' }}
-          >
-            {profile.photo_url
-              ? <img src={profile.photo_url} alt={displayName} className="w-full h-full object-cover rounded-full" />
-              : '👶'
-            }
-          </div>
+      {!students || students.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-4xl mb-3">🏥</p>
+          <p className="font-medium">No therapy sessions yet</p>
+          <p className="text-sm mt-1">Session details will appear here once scheduled.</p>
         </div>
-        <div className="pt-10 pb-4 px-4 text-center">
-          <p className="font-bold text-gray-800 text-lg">{profile.name}</p>
-          {profile.nickname && (
-            <p className="text-sm text-gray-400 mt-0.5">"{profile.nickname}"</p>
-          )}
-          <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-            {age && (
-              <span className="text-xs bg-orange-50 text-orange-600 px-2.5 py-1 rounded-full font-medium">{age}</span>
-            )}
-            {school && (
-              <span className="text-xs bg-gray-50 text-gray-500 px-2.5 py-1 rounded-full font-medium">📍 {school}</span>
-            )}
-            {profile.status && (
-              <span
-                className="text-xs px-2.5 py-1 rounded-full font-medium"
-                style={{
-                  background: `${statusColor[profile.status] ?? '#9CA3AF'}18`,
-                  color: statusColor[profile.status] ?? '#9CA3AF',
-                }}
-              >
-                {statusLabel[profile.status] ?? profile.status}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Basic info */}
-      <Section title="Basic Information">
-        <InfoRow label="Full Name" value={profile.name} />
-        <InfoRow label="Nickname" value={profile.nickname} />
-        <InfoRow label="Date of Birth" value={formatDate(profile.date_of_birth)} />
-        <InfoRow label="Age" value={age} />
-        <InfoRow label="Gender" value={profile.gender} />
-      </Section>
-
-      {/* Identity */}
-      <Section title="Identity">
-        <InfoRow label="Nationality" value={profile.nationality} />
-        <InfoRow label="Religion" value={profile.religion} />
-      </Section>
-
-      {/* Contact */}
-      <Section title="Contact">
-        <InfoRow label="Home Phone" value={profile.phone_home} />
-        <InfoRow label="Address" value={profile.address} />
-      </Section>
-
-      {/* Education */}
-      <Section title="Education">
-        <InfoRow label="Current School" value={school} />
-        <InfoRow label="Previous School" value={profile.previous_school} />
-      </Section>
-
-      {/* Therapy */}
-      <Section title="Therapy">
-        <InfoRow label="Location" value={therapy} />
-        <InfoRow label="Weekly Target" value={profile.weekly_target_sessions ? `${profile.weekly_target_sessions} session${profile.weekly_target_sessions !== 1 ? 's' : ''}` : null} />
-      </Section>
-
-      {kids.length > 1 && (
-        <p className="text-xs text-gray-400 text-center px-2">
-          Switch children using the selector at the top right.
-        </p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {students.map((student) => {
+            const stats = statsByStudent.get(student.id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
+            const school = (Array.isArray(student.schools) ? student.schools[0]?.name : (student.schools as { name: string } | null)?.name) ?? null
+            return (
+              <li key={student.id}>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #FEF3E2 0%, #FCE4ED 100%)' }}
+                    >
+                      👶
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">
+                        {student.name}
+                        {student.nickname ? <span className="text-gray-400 font-normal ml-1">({student.nickname})</span> : null}
+                      </p>
+                      {school && <p className="text-xs text-gray-400">📍 {school}</p>}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-3 text-xs text-gray-500">
+                    <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">
+                      {stats.proposedThisWeek} proposed
+                    </span>
+                    <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">
+                      {stats.confirmedThisWeek} confirmed
+                    </span>
+                    <span className="bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full font-medium">
+                      {stats.completedTotal} done
+                    </span>
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </div>
   )

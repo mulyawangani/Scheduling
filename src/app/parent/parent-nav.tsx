@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation'
 
 const NAV = [
   { label: 'Profile', icon: '👤', href: '/parent/profile' },
-  { label: 'Therapy', icon: '🏥', href: '/parent' },
+  { label: 'Therapy', icon: '🏥', href: '/parent/therapy' },
   { label: 'Assessment', icon: '📋', href: '/parent/assessment' },
-  { label: 'Children', icon: '👶', href: '/parent/therapy' },
+  { label: 'Children', icon: '👶', href: '/parent/children' },
   { label: 'Reports', icon: '📊', href: '/parent/reports' },
   { label: 'Calendar', icon: '📅', href: '/parent/calendar' },
   { label: 'Pictures', icon: '🖼️', href: '/parent/pictures' },
@@ -21,9 +21,7 @@ export function ParentNav() {
       style={{ boxShadow: '0 -2px 12px rgba(0,0,0,0.06)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {NAV.map(({ label, icon, href }) => {
-        const active = href === '/parent'
-          ? pathname === '/parent'
-          : pathname.startsWith(href)
+        const active = pathname.startsWith(href)
         return (
           <Link
             key={href}
