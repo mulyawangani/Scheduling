@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 function FloatingInput({
@@ -42,10 +42,14 @@ function FloatingSelect({
   id, label, value, onChange, options,
 }: {
   id: string; label: string; value: string
-  onChange: (v: string) => void; options: string[]
+  onChange: (v: string) => void
+  options: string[] | { value: string; label: string }[]
 }) {
   const [focused, setFocused] = useState(false)
   const floated = focused || value.length > 0
+  const normalised = options.map(o =>
+    typeof o === 'string' ? { value: o, label: o } : o
+  )
   return (
     <div className="relative">
       <select
@@ -57,7 +61,7 @@ function FloatingSelect({
         style={{ borderColor: focused ? '#F59030' : '#E5E7EB', color: value ? '#111827' : 'transparent' }}
       >
         <option value="">Select…</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        {normalised.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       <label
         htmlFor={id}
@@ -82,7 +86,7 @@ const STEPS = [
   { title: 'Emergency Contact', icon: '🚨', subtitle: 'Step 4 of 4' },
 ]
 
-type ChildData = { fullName: string; nickname: string; dateOfBirth: string; gender: string; nationality: string; religion: string; address: string; phoneHome: string; previousSchool: string }
+type ChildData = { fullName: string; nickname: string; dateOfBirth: string; gender: string; nationality: string; religion: string; address: string; phoneHome: string; previousSchool: string; schoolId: string }
 type ParentData = { fullName: string; phoneMobile: string; phoneHome: string; email: string; dateOfBirth: string; employment: string }
 type EmergencyData = { fullName: string; phoneMobile: string; relationship: string }
 
@@ -90,10 +94,16 @@ export default function RegisterPage() {
   const [step, setStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [schools, setSchools] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    createClient().from('schools').select('id, name').order('name')
+      .then(({ data }) => { if (data) setSchools(data) })
+  }, [])
 
   const [child, setChild] = useState<ChildData>({
     fullName: '', nickname: '', dateOfBirth: '', gender: '',
-    nationality: '', religion: '', address: '', phoneHome: '', previousSchool: '',
+    nationality: '', religion: '', address: '', phoneHome: '', previousSchool: '', schoolId: '',
   })
   const [father, setFather] = useState<ParentData>({
     fullName: '', phoneMobile: '', phoneHome: '', email: '', dateOfBirth: '', employment: '',
@@ -143,6 +153,7 @@ export default function RegisterPage() {
         address: child.address || null,
         phone_home: child.phoneHome || null,
         previous_school: child.previousSchool || null,
+        school_id: child.schoolId || null,
         status: null,
       })
       .select('id')
@@ -240,6 +251,13 @@ export default function RegisterPage() {
               <FloatingInput id="childAddr" label="Home Address" value={child.address} onChange={setC('address')} />
               <FloatingInput id="childPhone" label="Home Phone" type="tel" value={child.phoneHome} onChange={setC('phoneHome')} />
               <FloatingInput id="childSchool" label="Previous School" value={child.previousSchool} onChange={setC('previousSchool')} />
+              <FloatingSelect
+                id="childSchoolId"
+                label="School Location *"
+                value={child.schoolId}
+                onChange={setC('schoolId')}
+                options={schools.map(s => ({ value: s.id, label: s.name }))}
+              />
             </>
           )}
 

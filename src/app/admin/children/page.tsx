@@ -10,16 +10,17 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
   const { student: highlightStudentId } = await searchParams
   const supabase = await createClient()
 
-  const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }] = await Promise.all([
+  const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }, { data: schools }] = await Promise.all([
     supabase
       .from('students')
       .select(
-        'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
+        'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
       )
       .order('name'),
     supabase.from('protocols').select('*').eq('is_active', true).order('title'),
     supabase.from('sub_protocols').select('*').eq('is_active', true).order('title'),
     supabase.from('profiles').select('id, name').eq('role', 'parent').order('name'),
+    supabase.from('schools').select('id, name').order('name'),
   ])
 
   const subProtocolsByProtocol: Record<string, SubProtocol[]> = {}
@@ -59,6 +60,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                 studentId={student.id}
                 name={student.name}
                 parentName={parentName}
+                schoolId={student.school_id ?? null}
                 schoolName={schoolName}
                 therapyLocationName={therapyLocationName}
                 dateOfBirth={student.date_of_birth}
@@ -66,6 +68,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                 priority={student.priority}
                 status={student.status}
                 weeklyTargetSessions={student.weekly_target_sessions}
+                schools={schools ?? []}
                 protocols={protocols ?? []}
                 subProtocolsByProtocol={subProtocolsByProtocol}
                 selectedNeeds={student.student_protocols.map((s) => ({

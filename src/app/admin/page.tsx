@@ -108,6 +108,9 @@ export default async function AdminDashboard() {
           <Link href="/admin/therapy-notes" className="text-blue-600 hover:underline">
             Therapy notes
           </Link>
+          <Link href="/admin/schools" className="text-blue-600 hover:underline">
+            Schools
+          </Link>
           <Link href="/admin/audit-log" className="text-blue-600 hover:underline">
             Audit log
           </Link>

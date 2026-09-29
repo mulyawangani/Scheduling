@@ -75,6 +75,7 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
   const priority = String(formData.get('priority') || '')
   const status = String(formData.get('status') || '') as StudentStatus | ''
   const weeklyTargetSessions = String(formData.get('weeklyTargetSessions') || '')
+  const schoolId = String(formData.get('schoolId') || '') || null
 
   if (!name) return { error: 'Name is required.' }
   if (weeklyTargetSessions !== '1' && weeklyTargetSessions !== '2' && weeklyTargetSessions !== '3') {
@@ -90,6 +91,7 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
       priority: priority ? Number(priority) : null,
       status: status || null,
       weekly_target_sessions: Number(weeklyTargetSessions),
+      school_id: schoolId,
     })
     .eq('id', studentId)
 

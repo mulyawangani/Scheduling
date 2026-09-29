@@ -10,6 +10,7 @@ export function ChildCard({
   studentId,
   name,
   parentName,
+  schoolId,
   schoolName,
   therapyLocationName,
   dateOfBirth,
@@ -17,6 +18,7 @@ export function ChildCard({
   priority,
   status,
   weeklyTargetSessions,
+  schools,
   protocols,
   subProtocolsByProtocol,
   selectedNeeds,
@@ -26,6 +28,7 @@ export function ChildCard({
   studentId: string
   name: string
   parentName: string | undefined
+  schoolId: string | null
   schoolName: string | undefined
   therapyLocationName: string | undefined
   dateOfBirth: string | null
@@ -33,12 +36,11 @@ export function ChildCard({
   priority: number | null
   status: StudentStatus | null
   weeklyTargetSessions: number
+  schools: { id: string; name: string }[]
   protocols: Protocol[]
   subProtocolsByProtocol: Record<string, SubProtocol[]>
   selectedNeeds: SelectedNeed[]
-  /** Set when a link elsewhere (e.g. Recommendation's "Edit protocols") sent the owner here for this specific child — expands the card and scrolls it into view on load, instead of leaving her to find it in the full list. */
   autoExpand?: boolean
-  /** Set when a protocol that has sub-protocols is assigned without one specified — e.g. the 2026-08-27 "Clear all" incident's needs were reconstructed at the protocol level only, since nothing recorded which specific sub-protocol was meant. */
   needsSubProtocolReview?: boolean
 }) {
   const [expanded, setExpanded] = useState(autoExpand)
@@ -99,6 +101,8 @@ export function ChildCard({
             priority={priority}
             status={status}
             weeklyTargetSessions={weeklyTargetSessions}
+            schoolId={schoolId}
+            schools={schools}
             onSaved={() => setExpanded(false)}
           />
 

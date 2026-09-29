@@ -25,6 +25,8 @@ export function ChildProfileEditor({
   priority,
   status,
   weeklyTargetSessions,
+  schoolId,
+  schools,
   onSaved,
 }: {
   studentId: string
@@ -34,6 +36,8 @@ export function ChildProfileEditor({
   priority: number | null
   status: StudentStatus | null
   weeklyTargetSessions: number
+  schoolId: string | null
+  schools: { id: string; name: string }[]
   onSaved?: () => void
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -125,6 +129,19 @@ export function ChildProfileEditor({
             <option value="1">High</option>
             <option value="2">Medium</option>
             <option value="3">Low</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-gray-500">
+          School
+          <select
+            name="schoolId"
+            defaultValue={schoolId ?? ''}
+            className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
+          >
+            <option value="">— None —</option>
+            {schools.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-500">
