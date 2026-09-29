@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
-import { LogoutButton } from '@/components/logout-button'
 import { getWeekStart } from '@/lib/week'
 
 export default async function ParentDashboard() {
@@ -13,21 +12,12 @@ export default async function ParentDashboard() {
   const [{ data: students }, { data: sessionRows }] = await Promise.all([
     supabase
       .from('students')
-      .select('id, name')
+      .select('id, name, nickname, schools(name)')
       .eq('parent_id', result!.user.id)
       .order('created_at', { ascending: true }),
-    // RLS ("session_plans parent reads own students") already scopes this to
-    // this parent's own students, same as everywhere else a parent reads
-    // session_plans directly.
     supabase.from('session_plans').select('student_id, status, recurrence_type, start_time'),
   ])
 
-  // A weekly-recurring session has no single date of its own (see the
-  // check constraint on session_plans) — while it's still pending
-  // confirmation it applies to every week including this one, so it always
-  // counts. A one-off session only counts if its date falls in the current
-  // week, bucketed the same way admin/page.tsx buckets one-off dates into
-  // weeks.
   const statsByStudent = new Map<string, { proposedThisWeek: number; confirmedThisWeek: number; completedTotal: number }>()
   for (const row of sessionRows ?? []) {
     const stats = statsByStudent.get(row.student_id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
@@ -39,40 +29,70 @@ export default async function ParentDashboard() {
   }
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+    <div className="p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Your children</h1>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/parent/students/new"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Add child
-          </Link>
-          <LogoutButton />
-        </div>
+        <h2 className="text-lg font-bold text-gray-800">Children</h2>
+        <Link
+          href="/parent/students/new"
+          className="text-sm font-semibold px-4 py-2 rounded-full text-white"
+          style={{ background: 'linear-gradient(135deg, #F59030 0%, #DC2870 100%)' }}
+        >
+          + Add child
+        </Link>
       </div>
 
       {!students || students.length === 0 ? (
-        <p className="text-sm text-gray-500">No students yet. Add one to get started.</p>
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-4xl mb-3">👶</p>
+          <p className="font-medium">No children yet</p>
+          <p className="text-sm mt-1">Add your first child to get started.</p>
+        </div>
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
+        <ul className="flex flex-col gap-3">
           {students.map((student) => {
             const stats = statsByStudent.get(student.id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
+            const schoolName = (Array.isArray(student.schools) ? student.schools[0]?.name : (student.schools as { name: string } | null)?.name) ?? null
             return (
-              <li key={student.id} className="p-3">
-                <Link href={`/parent/students/${student.id}`} className="font-medium hover:underline">
-                  {student.name}
+              <li key={student.id}>
+                <Link
+                  href={`/parent/students/${student.id}`}
+                  className="block bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #FEF3E2 0%, #FCE4ED 100%)' }}
+                    >
+                      👶
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">
+                        {student.name}
+                        {student.nickname ? <span className="text-gray-400 font-normal ml-1">({student.nickname})</span> : null}
+                      </p>
+                      {schoolName && (
+                        <p className="text-xs text-gray-400">📍 {schoolName}</p>
+                      )}
+                    </div>
+                    <span className="text-gray-300 text-lg">›</span>
+                  </div>
+                  <div className="mt-3 flex gap-3 text-xs text-gray-500">
+                    <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">
+                      {stats.proposedThisWeek} proposed
+                    </span>
+                    <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">
+                      {stats.confirmedThisWeek} confirmed
+                    </span>
+                    <span className="bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full font-medium">
+                      {stats.completedTotal} done
+                    </span>
+                  </div>
                 </Link>
-                <p className="text-sm text-gray-500">
-                  {stats.proposedThisWeek} proposed this week · {stats.confirmedThisWeek} confirmed this week ·{' '}
-                  {stats.completedTotal} session{stats.completedTotal === 1 ? '' : 's'} completed
-                </p>
               </li>
             )
           })}
         </ul>
       )}
-    </main>
+    </div>
   )
 }
