@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { getWeekStart } from '@/lib/week'
@@ -44,34 +45,37 @@ export default async function TherapyPage() {
             const school = (Array.isArray(student.schools) ? student.schools[0]?.name : (student.schools as { name: string } | null)?.name) ?? null
             return (
               <li key={student.id}>
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #FEF3E2 0%, #FCE4ED 100%)' }}
-                    >
-                      👶
+                <Link href={`/parent/therapy/${student.id}`} className="block">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 active:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0"
+                        style={{ background: 'linear-gradient(135deg, #FEF3E2 0%, #FCE4ED 100%)' }}
+                      >
+                        👶
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 truncate">
+                          {student.name}
+                          {student.nickname ? <span className="text-gray-400 font-normal ml-1">({student.nickname})</span> : null}
+                        </p>
+                        {school && <p className="text-xs text-gray-400">📍 {school}</p>}
+                      </div>
+                      <span className="text-gray-300 text-sm">›</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 truncate">
-                        {student.name}
-                        {student.nickname ? <span className="text-gray-400 font-normal ml-1">({student.nickname})</span> : null}
-                      </p>
-                      {school && <p className="text-xs text-gray-400">📍 {school}</p>}
+                    <div className="mt-3 flex gap-3 text-xs text-gray-500">
+                      <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">
+                        {stats.proposedThisWeek} proposed
+                      </span>
+                      <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">
+                        {stats.confirmedThisWeek} confirmed
+                      </span>
+                      <span className="bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full font-medium">
+                        {stats.completedTotal} done
+                      </span>
                     </div>
                   </div>
-                  <div className="mt-3 flex gap-3 text-xs text-gray-500">
-                    <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium">
-                      {stats.proposedThisWeek} proposed
-                    </span>
-                    <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">
-                      {stats.confirmedThisWeek} confirmed
-                    </span>
-                    <span className="bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full font-medium">
-                      {stats.completedTotal} done
-                    </span>
-                  </div>
-                </div>
+                </Link>
               </li>
             )
           })}
