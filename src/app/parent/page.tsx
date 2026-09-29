@@ -31,7 +31,7 @@ export default async function ParentDashboard() {
   return (
     <div className="p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-800">Children</h2>
+        <h2 className="text-lg font-bold text-gray-800">Therapy</h2>
         <Link
           href="/parent/students/new"
           className="text-sm font-semibold px-4 py-2 rounded-full text-white"

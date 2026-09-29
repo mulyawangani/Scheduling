@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation'
 
 const NAV = [
   { label: 'Profile', icon: '👤', href: '/parent/profile' },
-  { label: 'Children', icon: '👶', href: '/parent' },
+  { label: 'Therapy', icon: '🏥', href: '/parent' },
   { label: 'Assessment', icon: '📋', href: '/parent/assessment' },
-  { label: 'Therapy', icon: '🏥', href: '/parent/therapy' },
+  { label: 'Children', icon: '👶', href: '/parent/therapy' },
   { label: 'Reports', icon: '📊', href: '/parent/reports' },
   { label: 'Calendar', icon: '📅', href: '/parent/calendar' },
   { label: 'Pictures', icon: '🖼️', href: '/parent/pictures' },
