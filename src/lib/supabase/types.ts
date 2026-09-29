@@ -160,8 +160,8 @@ export interface Database {
           photo_url: string | null
           rate_per_session: number | null
           priority: number | null
-          school_id: string
-          therapy_location_id: string
+          school_id: string | null
+          therapy_location_id: string | null
           status: StudentStatus | null
           weekly_target_sessions: number
           created_at: string
@@ -181,8 +181,8 @@ export interface Database {
           photo_url?: string | null
           rate_per_session?: number | null
           priority?: number | null
-          school_id?: string
-          therapy_location_id?: string
+          school_id?: string | null
+          therapy_location_id?: string | null
           status?: StudentStatus | null
           weekly_target_sessions?: number
           created_at?: string
@@ -202,8 +202,8 @@ export interface Database {
           photo_url?: string | null
           rate_per_session?: number | null
           priority?: number | null
-          school_id?: string
-          therapy_location_id?: string
+          school_id?: string | null
+          therapy_location_id?: string | null
           status?: StudentStatus | null
           weekly_target_sessions?: number
           created_at?: string
