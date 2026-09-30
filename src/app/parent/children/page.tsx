@@ -26,6 +26,12 @@ type StudentProfile = {
   therapy_locations: { name: string } | { name: string }[] | null
 }
 
+type Extracurricular = {
+  id: string          // student_extracurriculars.id
+  activity_id: string
+  name: string
+}
+
 type Draft = {
   name: string
   nickname: string
@@ -191,33 +197,56 @@ export default function ChildrenPage() {
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
-  // load schools for dropdown
+  // extracurricular state
+  const [extracurriculars, setExtracurriculars] = useState<Extracurricular[]>([])
+  const [allActivities, setAllActivities] = useState<{ id: string; name: string }[]>([])
+  const [addingActivity, setAddingActivity] = useState('')
+  const [savingActivity, setSavingActivity] = useState(false)
+
+  // load schools + master activities once (no child dependency)
   useEffect(() => {
-    createClient()
-      .from('schools').select('id, name').order('name')
+    const supabase = createClient()
+    supabase.from('schools').select('id, name').order('name')
       .then(({ data }) => { if (data) setSchools(data) })
+    supabase.from('extracurricular_activities').select('id, name').eq('is_active', true).order('name')
+      .then(({ data }) => { if (data) setAllActivities(data) })
   }, [])
 
-  // load student/child record
+  // load student/child record + their extracurriculars
   useEffect(() => {
     if (!selectedChild) { setLoading(false); return }
     const supabase = createClient()
     setLoading(true)
     setEditing(false)
-    supabase
-      .from('students')
-      .select(`
-        id, name, nickname, date_of_birth, gender, nationality, religion,
-        address, phone_home, previous_school, photo_url,
-        weekly_target_sessions, status, school_id, therapy_location_id,
-        schools(name), therapy_locations(name)
-      `)
-      .eq('id', selectedChild.id)
-      .single()
-      .then(({ data }) => {
-        setProfile(data as StudentProfile | null)
-        setLoading(false)
-      })
+    setAddingActivity('')
+    Promise.all([
+      supabase
+        .from('students')
+        .select(`
+          id, name, nickname, date_of_birth, gender, nationality, religion,
+          address, phone_home, previous_school, photo_url,
+          weekly_target_sessions, status, school_id, therapy_location_id,
+          schools(name), therapy_locations(name)
+        `)
+        .eq('id', selectedChild.id)
+        .single(),
+      supabase
+        .from('student_extracurriculars')
+        .select('id, activity_id, extracurricular_activities(name)')
+        .eq('student_id', selectedChild.id),
+    ]).then(([{ data: profileData }, { data: extraData }]) => {
+      setProfile(profileData as StudentProfile | null)
+      setExtracurriculars(
+        (extraData ?? []).map(row => ({
+          id: row.id,
+          activity_id: row.activity_id,
+          name: (Array.isArray(row.extracurricular_activities)
+            ? row.extracurricular_activities[0]?.name
+            : (row.extracurricular_activities as { name: string } | null)?.name) ?? '',
+        }))
+      )
+      setLoading(false)
+    })
   }, [selectedChild?.id])
 
   function startEdit() {
@@ -289,6 +318,31 @@ export default function ChildrenPage() {
 
   function set(k: keyof Draft) {
     return (v: string) => setDraft(prev => ({ ...prev, [k]: v }))
+  }
+
+  async function addExtracurricular() {
+    if (!addingActivity || !profile) return
+    setSavingActivity(true)
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('student_extracurriculars')
+      .insert({ student_id: profile.id, activity_id: addingActivity })
+      .select('id, activity_id, extracurricular_activities(name)')
+      .single()
+    if (!error && data) {
+      const name = (Array.isArray(data.extracurricular_activities)
+        ? data.extracurricular_activities[0]?.name
+        : (data.extracurricular_activities as { name: string } | null)?.name) ?? ''
+      setExtracurriculars(prev => [...prev, { id: data.id, activity_id: data.activity_id, name }])
+      setAddingActivity('')
+    }
+    setSavingActivity(false)
+  }
+
+  async function removeExtracurricular(id: string) {
+    const supabase = createClient()
+    await supabase.from('student_extracurriculars').delete().eq('id', id)
+    setExtracurriculars(prev => prev.filter(e => e.id !== id))
   }
 
   async function setInactive() {
@@ -560,6 +614,73 @@ export default function ChildrenPage() {
           </div>
         )}
       </Section>
+
+      {/* ── Extracurricular Activities ── */}
+      {(() => {
+        const available = allActivities.filter(a => !extracurriculars.some(e => e.activity_id === a.id))
+        return (
+          <Section title="Extracurricular Activities">
+            {extracurriculars.length === 0 && (
+              <p className="text-sm py-1" style={{ color: '#D1D5DB' }}>No activities added yet</p>
+            )}
+            {extracurriculars.length > 0 && (
+              <div className="flex flex-wrap gap-2 py-1">
+                {extracurriculars.map(e => (
+                  <span
+                    key={e.id}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full"
+                    style={{ background: '#FEF3E2', color: '#F59030' }}
+                  >
+                    {e.name}
+                    <button
+                      onClick={() => removeExtracurricular(e.id)}
+                      className="leading-none font-bold ml-0.5"
+                      style={{ color: '#FCD34D' }}
+                      aria-label={`Remove ${e.name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {available.length > 0 && (
+              <div className="flex gap-2 pt-1">
+                <div className="relative flex-1">
+                  <select
+                    value={addingActivity}
+                    onChange={e => setAddingActivity(e.target.value)}
+                    className="w-full border-2 rounded-xl px-3 py-2.5 text-sm outline-none bg-white appearance-none"
+                    style={{
+                      borderColor: addingActivity ? '#F59030' : '#E5E7EB',
+                      color: addingActivity ? '#1F2937' : '#9CA3AF',
+                    }}
+                  >
+                    <option value="">Add activity…</option>
+                    {available.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs">▼</span>
+                </div>
+                <button
+                  onClick={addExtracurricular}
+                  disabled={!addingActivity || savingActivity}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold shrink-0"
+                  style={{
+                    background: !addingActivity || savingActivity
+                      ? '#F3F4F6' : 'linear-gradient(135deg, #F59030 0%, #DC2870 100%)',
+                    color: !addingActivity || savingActivity ? '#9CA3AF' : 'white',
+                  }}
+                >
+                  {savingActivity ? '…' : '+ Add'}
+                </button>
+              </div>
+            )}
+            {available.length === 0 && allActivities.length > 0 && (
+              <p className="text-xs text-gray-400 pt-1">All available activities added</p>
+            )}
+          </Section>
+        )
+      })()}
 
       {kids.length > 1 && (
         <p className="text-xs text-gray-400 text-center px-2">
