@@ -10,7 +10,10 @@ const NAV = [
   { label: 'Assessment', icon: '📋', href: '/parent/assessment' },
   { label: 'Reports', icon: '📊', href: '/parent/reports' },
   { label: 'Calendar', icon: '📅', href: '/parent/calendar' },
-  { label: 'Pictures', icon: '🖼️', href: '/parent/pictures' },
+  { label: 'Gallery', icon: '🖼️', href: '/parent/pictures' },
+  { label: 'Attendance', icon: '✅', href: '/parent/attendance' },
+  { label: 'Announce', icon: '📣', href: '/parent/announcements' },
+  { label: 'Message', icon: '💬', href: '/parent/messages' },
 ]
 
 export function ParentNav() {
