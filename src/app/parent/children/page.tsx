@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useParentContext } from '../parent-context'
 
@@ -176,14 +175,14 @@ function Section({
 
 export default function ChildrenPage() {
   const { kids, selectedChild } = useParentContext()
-  const router = useRouter()
   const [profile, setProfile] = useState<StudentProfile | null>(null)
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
 
   // edit state
   const [editing, setEditing] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
+  const [deactivatedAt, setDeactivatedAt] = useState<number | null>(null)
   const [draft, setDraft] = useState<Draft>({
     name: '', nickname: '', date_of_birth: '', gender: '',
     nationality: '', religion: '', address: '', phone_home: '',
@@ -292,14 +291,21 @@ export default function ChildrenPage() {
     return (v: string) => setDraft(prev => ({ ...prev, [k]: v }))
   }
 
-  async function deleteChild() {
+  async function setInactive() {
     if (!profile) return
-    if (!window.confirm(`Delete ${profile.name}? This cannot be undone.`)) return
-    setDeleting(true)
+    if (!window.confirm(`Set ${profile.name} as inactive? Scheduling will no longer consider them for sessions.`)) return
+    setDeactivating(true)
     const supabase = createClient()
-    await supabase.from('students').delete().eq('id', profile.id)
-    router.push('/parent/children')
-    router.refresh()
+    const { error } = await supabase
+      .from('students')
+      .update({ status: 'inactive' })
+      .eq('id', profile.id)
+    if (!error) {
+      setProfile(prev => prev ? { ...prev, status: 'inactive' } : prev)
+      setDeactivatedAt(Date.now())
+      setTimeout(() => setDeactivatedAt(null), 3000)
+    }
+    setDeactivating(false)
   }
 
   // ── Render guards ──────────────────────────────────────────────────────
@@ -524,21 +530,35 @@ export default function ChildrenPage() {
           </span>
           <span className="text-[10px] text-gray-300 font-medium shrink-0">Admin only</span>
         </div>
-        <div className="pt-1">
-          <button
-            onClick={deleteChild}
-            disabled={deleting}
-            className="w-full py-2.5 rounded-full text-sm font-semibold"
-            style={{
-              background: '#FEF2F2',
-              color: deleting ? '#9CA3AF' : '#DC2626',
-              border: '2px solid #FCA5A5',
-              opacity: deleting ? 0.7 : 1,
-            }}
-          >
-            {deleting ? 'Deleting…' : '🗑️ Delete Child Profile'}
-          </button>
-        </div>
+        {profile.status === 'inactive' ? (
+          <div className="pt-1 text-center">
+            <p className="text-xs text-gray-400 font-medium py-2">
+              ⚫ This child is currently inactive
+            </p>
+            {deactivatedAt && (
+              <p className="text-xs text-orange-500 font-semibold">✓ Set to inactive</p>
+            )}
+          </div>
+        ) : (
+          <div className="pt-1">
+            <button
+              onClick={setInactive}
+              disabled={deactivating}
+              className="w-full py-2.5 rounded-full text-sm font-semibold"
+              style={{
+                background: '#FFF7ED',
+                color: deactivating ? '#9CA3AF' : '#D97706',
+                border: '2px solid #FCD34D',
+                opacity: deactivating ? 0.7 : 1,
+              }}
+            >
+              {deactivating ? 'Updating…' : '⏸ Set as Inactive'}
+            </button>
+            {deactivatedAt && (
+              <p className="text-xs text-green-600 font-semibold mt-2 text-center">✓ Set to inactive</p>
+            )}
+          </div>
+        )}
       </Section>
 
       {kids.length > 1 && (
