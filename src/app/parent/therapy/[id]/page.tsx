@@ -5,7 +5,6 @@ import { BackLink } from '@/components/back-link'
 import { dateStringInBusinessTz, dayOfWeekInBusinessTz, formatTimeInBusinessTz } from '@/lib/timezone'
 import { StudentEditor } from './student-editor'
 import { SessionsList, type SessionRow } from './sessions-list'
-import { StudentNav } from './student-nav'
 
 export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -64,8 +63,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   return (
     <main className="mx-auto max-w-lg p-6">
       <BackLink href="/parent/therapy" label="Therapy" />
-      <h1 className="mb-1 text-xl font-semibold">{student.name}</h1>
-      <StudentNav studentId={id} active="overview" />
+      <h1 className="mb-4 text-xl font-semibold">{student.name}</h1>
 
       <section className="mb-8">
         <h2 className="mb-2 text-sm font-medium text-gray-700">Scheduled sessions</h2>
