@@ -27,9 +27,15 @@ type StudentProfile = {
 }
 
 type Extracurricular = {
-  id: string          // student_extracurriculars.id
+  id: string
   activity_id: string
   name: string
+}
+
+type ExtraRow = {
+  id: string
+  activity_id: string
+  extracurricular_activities: { name: string } | { name: string }[] | null
 }
 
 type Draft = {
@@ -208,11 +214,12 @@ export default function ChildrenPage() {
     const supabase = createClient()
     supabase.from('schools').select('id, name').order('name')
       .then(({ data }) => { if (data) setSchools(data) })
-    supabase.from('extracurricular_activities').select('id, name').eq('is_active', true).order('name')
-      .then(({ data }) => { if (data) setAllActivities(data) })
+    supabase.from('extracurricular_activities' as never).select('id, name').eq('is_active', true).order('name')
+      .then(({ data }) => { if (data) setAllActivities(data as unknown as { id: string; name: string }[]) })
   }, [])
 
   // load student/child record + their extracurriculars
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!selectedChild) { setLoading(false); return }
     const supabase = createClient()
@@ -231,13 +238,14 @@ export default function ChildrenPage() {
         .eq('id', selectedChild.id)
         .single(),
       supabase
-        .from('student_extracurriculars')
+        .from('student_extracurriculars' as never)
         .select('id, activity_id, extracurricular_activities(name)')
         .eq('student_id', selectedChild.id),
-    ]).then(([{ data: profileData }, { data: extraData }]) => {
+    ]).then(([{ data: profileData }, { data: rawExtra }]) => {
       setProfile(profileData as StudentProfile | null)
+      const extraData = (rawExtra as unknown as ExtraRow[]) ?? []
       setExtracurriculars(
-        (extraData ?? []).map(row => ({
+        extraData.map(row => ({
           id: row.id,
           activity_id: row.activity_id,
           name: (Array.isArray(row.extracurricular_activities)
@@ -324,11 +332,13 @@ export default function ChildrenPage() {
     if (!addingActivity || !profile) return
     setSavingActivity(true)
     const supabase = createClient()
-    const { data, error } = await supabase
-      .from('student_extracurriculars')
+    const result = await supabase
+      .from('student_extracurriculars' as never)
       .insert({ student_id: profile.id, activity_id: addingActivity })
       .select('id, activity_id, extracurricular_activities(name)')
       .single()
+    const { error } = result
+    const data = result.data as unknown as ExtraRow | null
     if (!error && data) {
       const name = (Array.isArray(data.extracurricular_activities)
         ? data.extracurricular_activities[0]?.name
@@ -341,7 +351,7 @@ export default function ChildrenPage() {
 
   async function removeExtracurricular(id: string) {
     const supabase = createClient()
-    await supabase.from('student_extracurriculars').delete().eq('id', id)
+    await supabase.from('student_extracurriculars' as never).delete().eq('id', id)
     setExtracurriculars(prev => prev.filter(e => e.id !== id))
   }
 
