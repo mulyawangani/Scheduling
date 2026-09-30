@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useParentContext } from '../parent-context'
 
@@ -175,12 +176,14 @@ function Section({
 
 export default function ChildrenPage() {
   const { kids, selectedChild } = useParentContext()
+  const router = useRouter()
   const [profile, setProfile] = useState<StudentProfile | null>(null)
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
 
   // edit state
   const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [draft, setDraft] = useState<Draft>({
     name: '', nickname: '', date_of_birth: '', gender: '',
     nationality: '', religion: '', address: '', phone_home: '',
@@ -287,6 +290,16 @@ export default function ChildrenPage() {
 
   function set(k: keyof Draft) {
     return (v: string) => setDraft(prev => ({ ...prev, [k]: v }))
+  }
+
+  async function deleteChild() {
+    if (!profile) return
+    if (!window.confirm(`Delete ${profile.name}? This cannot be undone.`)) return
+    setDeleting(true)
+    const supabase = createClient()
+    await supabase.from('students').delete().eq('id', profile.id)
+    router.push('/parent/children')
+    router.refresh()
   }
 
   // ── Render guards ──────────────────────────────────────────────────────
@@ -479,15 +492,53 @@ export default function ChildrenPage() {
         )}
       </Section>
 
-      {/* ── Therapy — always read-only (admin-set) ── */}
-      <Section title="Therapy" locked>
-        <InfoRow label="Location" value={therapy} />
-        <InfoRow
-          label="Weekly Target"
-          value={profile.weekly_target_sessions
-            ? `${profile.weekly_target_sessions} session${profile.weekly_target_sessions !== 1 ? 's' : ''}`
-            : null}
-        />
+      {/* ── Therapy ── */}
+      <Section title="Therapy">
+        <div className="flex items-start py-2.5 border-b border-gray-50 gap-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 w-28 shrink-0 mt-0.5">Status</span>
+          {profile.status ? (
+            <span
+              className="text-xs px-2.5 py-1 rounded-full font-semibold"
+              style={{
+                background: `${STATUS_COLOR[profile.status] ?? '#9CA3AF'}18`,
+                color: STATUS_COLOR[profile.status] ?? '#9CA3AF',
+              }}
+            >
+              {STATUS_LABEL[profile.status] ?? profile.status}
+            </span>
+          ) : (
+            <span className="text-sm" style={{ color: '#D1D5DB' }}>Not set</span>
+          )}
+        </div>
+        <div className="flex items-start py-2.5 border-b border-gray-50 gap-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 w-28 shrink-0 mt-0.5">Location</span>
+          <span className="text-sm flex-1" style={{ color: therapy ? '#1F2937' : '#D1D5DB' }}>{therapy ?? 'Not provided'}</span>
+          <span className="text-[10px] text-gray-300 font-medium shrink-0">Admin only</span>
+        </div>
+        <div className="flex items-start py-2.5 border-b border-gray-50 gap-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 w-28 shrink-0 mt-0.5">Weekly Target</span>
+          <span className="text-sm flex-1" style={{ color: profile.weekly_target_sessions ? '#1F2937' : '#D1D5DB' }}>
+            {profile.weekly_target_sessions
+              ? `${profile.weekly_target_sessions} session${profile.weekly_target_sessions !== 1 ? 's' : ''}`
+              : 'Not provided'}
+          </span>
+          <span className="text-[10px] text-gray-300 font-medium shrink-0">Admin only</span>
+        </div>
+        <div className="pt-1">
+          <button
+            onClick={deleteChild}
+            disabled={deleting}
+            className="w-full py-2.5 rounded-full text-sm font-semibold"
+            style={{
+              background: '#FEF2F2',
+              color: deleting ? '#9CA3AF' : '#DC2626',
+              border: '2px solid #FCA5A5',
+              opacity: deleting ? 0.7 : 1,
+            }}
+          >
+            {deleting ? 'Deleting…' : '🗑️ Delete Child Profile'}
+          </button>
+        </div>
       </Section>
 
       {kids.length > 1 && (

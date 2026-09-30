@@ -4,7 +4,6 @@ import type { SubProtocol } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'
 import { dateStringInBusinessTz, dayOfWeekInBusinessTz, formatTimeInBusinessTz } from '@/lib/timezone'
 import { StudentEditor } from './student-editor'
-import { ProfileEditor } from './profile-editor'
 import { SessionsList, type SessionRow } from './sessions-list'
 import { StudentNav } from './student-nav'
 
@@ -67,7 +66,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       <BackLink href="/parent/therapy" label="Therapy" />
       <h1 className="mb-1 text-xl font-semibold">{student.name}</h1>
       <StudentNav studentId={id} active="overview" />
-      <ProfileEditor studentId={id} name={student.name} status={student.status} />
 
       <section className="mb-8">
         <h2 className="mb-2 text-sm font-medium text-gray-700">Scheduled sessions</h2>
