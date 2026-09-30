@@ -212,10 +212,14 @@ export default function ChildrenPage() {
   // load schools + master activities once (no child dependency)
   useEffect(() => {
     const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any
     supabase.from('schools').select('id, name').order('name')
       .then(({ data }) => { if (data) setSchools(data) })
-    supabase.from('extracurricular_activities' as never).select('id, name').eq('is_active', true).order('name')
-      .then(({ data }) => { if (data) setAllActivities(data as unknown as { id: string; name: string }[]) })
+    db.from('extracurricular_activities').select('id, name').eq('is_active', true).order('name')
+      .then(({ data }: { data: { id: string; name: string }[] | null }) => {
+        if (data) setAllActivities(data)
+      })
   }, [])
 
   // load student/child record + their extracurriculars
@@ -223,38 +227,39 @@ export default function ChildrenPage() {
   useEffect(() => {
     if (!selectedChild) { setLoading(false); return }
     const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any
     setLoading(true)
     setEditing(false)
     setAddingActivity('')
-    Promise.all([
-      supabase
-        .from('students')
-        .select(`
-          id, name, nickname, date_of_birth, gender, nationality, religion,
-          address, phone_home, previous_school, photo_url,
-          weekly_target_sessions, status, school_id, therapy_location_id,
-          schools(name), therapy_locations(name)
-        `)
-        .eq('id', selectedChild.id)
-        .single(),
-      supabase
-        .from('student_extracurriculars' as never)
-        .select('id, activity_id, extracurricular_activities(name)')
-        .eq('student_id', selectedChild.id),
-    ]).then(([{ data: profileData }, { data: rawExtra }]) => {
-      setProfile(profileData as StudentProfile | null)
-      const extraData = (rawExtra as unknown as ExtraRow[]) ?? []
-      setExtracurriculars(
-        extraData.map(row => ({
-          id: row.id,
-          activity_id: row.activity_id,
-          name: (Array.isArray(row.extracurricular_activities)
-            ? row.extracurricular_activities[0]?.name
-            : (row.extracurricular_activities as { name: string } | null)?.name) ?? '',
-        }))
-      )
-      setLoading(false)
-    })
+    supabase
+      .from('students')
+      .select(`
+        id, name, nickname, date_of_birth, gender, nationality, religion,
+        address, phone_home, previous_school, photo_url,
+        weekly_target_sessions, status, school_id, therapy_location_id,
+        schools(name), therapy_locations(name)
+      `)
+      .eq('id', selectedChild.id)
+      .single()
+      .then(({ data }) => {
+        setProfile(data as StudentProfile | null)
+        setLoading(false)
+      })
+    db.from('student_extracurriculars')
+      .select('id, activity_id, extracurricular_activities(name)')
+      .eq('student_id', selectedChild.id)
+      .then(({ data }: { data: ExtraRow[] | null }) => {
+        setExtracurriculars(
+          (data ?? []).map((row: ExtraRow) => ({
+            id: row.id,
+            activity_id: row.activity_id,
+            name: (Array.isArray(row.extracurricular_activities)
+              ? row.extracurricular_activities[0]?.name
+              : (row.extracurricular_activities as { name: string } | null)?.name) ?? '',
+          }))
+        )
+      })
   }, [selectedChild?.id])
 
   function startEdit() {
@@ -331,14 +336,13 @@ export default function ChildrenPage() {
   async function addExtracurricular() {
     if (!addingActivity || !profile) return
     setSavingActivity(true)
-    const supabase = createClient()
-    const result = await supabase
-      .from('student_extracurriculars' as never)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = createClient() as any
+    const { data, error } = await db
+      .from('student_extracurriculars')
       .insert({ student_id: profile.id, activity_id: addingActivity })
       .select('id, activity_id, extracurricular_activities(name)')
-      .single()
-    const { error } = result
-    const data = result.data as unknown as ExtraRow | null
+      .single() as { data: ExtraRow | null; error: unknown }
     if (!error && data) {
       const name = (Array.isArray(data.extracurricular_activities)
         ? data.extracurricular_activities[0]?.name
@@ -350,8 +354,8 @@ export default function ChildrenPage() {
   }
 
   async function removeExtracurricular(id: string) {
-    const supabase = createClient()
-    await supabase.from('student_extracurriculars' as never).delete().eq('id', id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (createClient() as any).from('student_extracurriculars').delete().eq('id', id)
     setExtracurriculars(prev => prev.filter(e => e.id !== id))
   }
 
