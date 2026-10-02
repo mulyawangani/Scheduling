@@ -4,14 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV = [
-  { label: 'Profile', icon: '👤', href: '/parent/profile' },
+  { label: 'Home', icon: '🏠', href: '/parent/dashboard' },
   { label: 'Children', icon: '👶', href: '/parent/children' },
+  { label: 'Progress', icon: '📈', href: '/parent/progress' },
   { label: 'Therapy', icon: '🏥', href: '/parent/therapy' },
-  { label: 'Assessment', icon: '📋', href: '/parent/assessment' },
   { label: 'Reports', icon: '📊', href: '/parent/reports' },
   { label: 'Calendar', icon: '📅', href: '/parent/calendar' },
-  { label: 'Gallery', icon: '🖼️', href: '/parent/pictures' },
   { label: 'Attendance', icon: '✅', href: '/parent/attendance' },
+  { label: 'Gallery', icon: '🖼️', href: '/parent/pictures' },
   { label: 'Announce', icon: '📣', href: '/parent/announcements' },
   { label: 'Message', icon: '💬', href: '/parent/messages' },
 ]
