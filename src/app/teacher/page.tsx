@@ -100,6 +100,9 @@ export default async function TeacherDashboard() {
           <Link href="/teacher/commissions" className="text-sm text-blue-600 hover:underline">
             Commissions
           </Link>
+          <Link href="/teacher/profile" className="text-sm font-semibold" style={{ color: '#F59030' }}>
+            My profile
+          </Link>
           <LogoutButton />
         </div>
       </div>
