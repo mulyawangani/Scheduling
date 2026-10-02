@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
-import { LogoutButton } from '@/components/logout-button'
 
 const TABS = [
   { href: '/admin/suggestions', label: 'Simulations' },
@@ -50,11 +49,6 @@ export async function SuggestionsNav({ active }: { active: (typeof TABS)[number]
           </Link>
         ))}
       </div>
-      {isAdmin && (
-        <div className="pb-2">
-          <LogoutButton />
-        </div>
-      )}
     </div>
   )
 }

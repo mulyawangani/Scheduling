@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { LogoutButton } from '@/components/logout-button'
 import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
 import { generateSchedule } from '@/lib/matching/generate-schedule'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
@@ -84,39 +83,7 @@ export default async function AdminDashboard() {
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Owner dashboard</h1>
-        <div className="flex gap-4 text-sm">
-          <Link href="/admin/calendar" className="text-blue-600 hover:underline">
-            Calendar
-          </Link>
-          <Link href="/admin/suggestions" className="text-blue-600 hover:underline">
-            Scheduling
-          </Link>
-          <Link href="/admin/teachers" className="text-blue-600 hover:underline">
-            Teachers
-          </Link>
-          <Link href="/admin/protocols" className="text-blue-600 hover:underline">
-            Protocols
-          </Link>
-          <Link href="/admin/children" className="text-blue-600 hover:underline">
-            Children
-          </Link>
-          <Link href="/admin/parents" className="text-blue-600 hover:underline">
-            Parents
-          </Link>
-          <Link href="/admin/therapy-notes" className="text-blue-600 hover:underline">
-            Therapy notes
-          </Link>
-          <Link href="/admin/schools" className="text-blue-600 hover:underline">
-            Schools
-          </Link>
-          <Link href="/admin/audit-log" className="text-blue-600 hover:underline">
-            Audit log
-          </Link>
-          <LogoutButton />
-        </div>
-      </div>
+      <h1 className="text-xl font-semibold">Owner dashboard</h1>
 
       {reopenedCount > 0 && (
         <Link

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useParentContext } from './parent-context'
+import { logout } from '@/lib/auth/logout'
 
 export function ParentHeader() {
   const { kids, selectedChild, setSelectedId } = useParentContext()
@@ -12,20 +13,20 @@ export function ParentHeader() {
 
   return (
     <header
-      className="sticky top-0 z-40 flex items-center justify-between px-4 py-3"
+      className="sticky top-0 z-40 flex items-center gap-2 px-4 py-3"
       style={{
         background: 'linear-gradient(135deg, #F59030 0%, #DC2870 100%)',
         paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
       }}
     >
-      {/* Logo */}
-      <div className="text-white font-black tracking-[0.2em] text-base">PLAYTICS</div>
+      {/* Logo — left */}
+      <div className="text-white font-black tracking-[0.2em] text-base flex-shrink-0">PLAYTICS</div>
 
-      {/* Child + school selector */}
-      <div className="relative">
+      {/* Child selector — center, grows to fill */}
+      <div className="relative flex-1 flex justify-center">
         <button
           onClick={() => kids.length > 1 && setOpen(o => !o)}
-          className="flex items-center gap-1.5 text-right"
+          className="flex items-center gap-1.5 text-center"
           style={{ cursor: kids.length > 1 ? 'pointer' : 'default' }}
         >
           <div>
@@ -52,7 +53,7 @@ export function ParentHeader() {
               onClick={() => setOpen(false)}
             />
             <div
-              className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-xl overflow-hidden z-50 min-w-[160px]"
+              className="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-white rounded-2xl shadow-xl overflow-hidden z-50 min-w-[160px]"
               style={{ border: '1px solid rgba(0,0,0,0.08)' }}
             >
               {kids.map(k => (
@@ -72,6 +73,16 @@ export function ParentHeader() {
           </>
         )}
       </div>
+
+      {/* Logout — right */}
+      <form action={logout} className="flex-shrink-0">
+        <button
+          type="submit"
+          className="text-xs font-semibold text-white opacity-80 hover:opacity-100 transition-opacity"
+        >
+          Log out
+        </button>
+      </form>
     </header>
   )
 }

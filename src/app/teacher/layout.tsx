@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
+import { TeacherNav } from './teacher-nav'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,5 +15,10 @@ export default async function TeacherLayout({ children }: { children: React.Reac
     redirect('/')
   }
 
-  return <>{children}</>
+  return (
+    <>
+      <TeacherNav name={result.profile.name} />
+      {children}
+    </>
+  )
 }

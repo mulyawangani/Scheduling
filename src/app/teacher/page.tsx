@@ -1,7 +1,5 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
-import { LogoutButton } from '@/components/logout-button'
 import { dateStringInBusinessTz, dayOfWeekInBusinessTz, formatTimeInBusinessTz } from '@/lib/timezone'
 import { getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
 import { ScheduleCalendar, type TeacherSessionRow, type CompletedOccurrence } from './schedule-calendar'
@@ -81,31 +79,7 @@ export default async function TeacherDashboard() {
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Your sessions</h1>
-        <div className="flex items-center gap-4">
-          <div className="text-right text-sm">
-            <p className="font-medium text-gray-900">{result!.profile.name}</p>
-            <p className="text-gray-500">{result!.user.email}</p>
-          </div>
-          <Link href="/teacher/students" className="text-sm text-blue-600 hover:underline">
-            Your students
-          </Link>
-          <Link href="/teacher/availability" className="text-sm text-blue-600 hover:underline">
-            Manage availability
-          </Link>
-          <Link href="/teacher/therapy-notes" className="text-sm text-blue-600 hover:underline">
-            Therapy notes
-          </Link>
-          <Link href="/teacher/commissions" className="text-sm text-blue-600 hover:underline">
-            Commissions
-          </Link>
-          <Link href="/teacher/profile" className="text-sm font-semibold" style={{ color: '#F59030' }}>
-            My profile
-          </Link>
-          <LogoutButton />
-        </div>
-      </div>
+      <h1 className="text-xl font-semibold">Your sessions</h1>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-lg border border-gray-200 p-4 text-center">
