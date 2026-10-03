@@ -59,9 +59,11 @@ export default async function EnrollmentPage({
     : { data: [] }
 
   const protocolCountByStudent: Record<string, number> = {}
+  const seenProtocols: Record<string, Set<string>> = {}
   for (const row of protocolRows ?? []) {
-    const seen = protocolCountByStudent[row.student_id] ?? 0
-    protocolCountByStudent[row.student_id] = seen + 1
+    if (!seenProtocols[row.student_id]) seenProtocols[row.student_id] = new Set()
+    seenProtocols[row.student_id].add(row.protocol_id)
+    protocolCountByStudent[row.student_id] = seenProtocols[row.student_id].size
   }
 
   const students = thisMonth.map((e: any) => {
