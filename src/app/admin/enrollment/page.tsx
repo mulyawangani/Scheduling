@@ -48,6 +48,21 @@ export default async function EnrollmentPage({
   }
 
   const thisMonth = (enrollments ?? []).filter((e: any) => e.month === monthStart)
+  const thisMonthStudentIds = thisMonth.map((e: any) => e.student_id)
+
+  // Protocol count per student = number of distinct therapy sessions they need weekly
+  const { data: protocolRows } = thisMonthStudentIds.length > 0
+    ? await supabase
+        .from('student_protocols')
+        .select('student_id, protocol_id')
+        .in('student_id', thisMonthStudentIds)
+    : { data: [] }
+
+  const protocolCountByStudent: Record<string, number> = {}
+  for (const row of protocolRows ?? []) {
+    const seen = protocolCountByStudent[row.student_id] ?? 0
+    protocolCountByStudent[row.student_id] = seen + 1
+  }
 
   const students = thisMonth.map((e: any) => {
     const s = Array.isArray(e.students) ? e.students[0] : e.students
@@ -59,6 +74,7 @@ export default async function EnrollmentPage({
       name: s?.name ?? 'Unknown',
       classroom,
       months: (allMonthsByStudent[e.student_id] ?? []).sort(),
+      sessionCount: protocolCountByStudent[e.student_id] ?? 0,
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name))
 
@@ -120,6 +136,16 @@ export default async function EnrollmentPage({
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 text-sm">{s.name}</div>
                   {s.classroom && <div className="text-xs text-gray-400">{s.classroom}</div>}
+                </div>
+                <div className="flex-shrink-0 w-20 text-center">
+                  {s.sessionCount > 0 ? (
+                    <div>
+                      <span className="text-sm font-semibold text-gray-800">{s.sessionCount}</span>
+                      <span className="text-[10px] text-gray-400 ml-0.5">sessions/wk</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
                   {s.months.map((m: string) => {
