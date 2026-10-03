@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useParentContext } from '../parent-context'
 
@@ -187,6 +188,7 @@ function Section({
 
 export default function ChildrenPage() {
   const { kids, selectedChild } = useParentContext()
+  const router = useRouter()
   const [profile, setProfile] = useState<StudentProfile | null>(null)
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
@@ -195,6 +197,7 @@ export default function ChildrenPage() {
   const [editing, setEditing] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
   const [deactivatedAt, setDeactivatedAt] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [draft, setDraft] = useState<Draft>({
     name: '', nickname: '', date_of_birth: '', gender: '',
     nationality: '', religion: '', address: '', phone_home: '',
@@ -374,6 +377,19 @@ export default function ChildrenPage() {
       setTimeout(() => setDeactivatedAt(null), 3000)
     }
     setDeactivating(false)
+  }
+
+  async function deleteChild() {
+    if (!profile) return
+    if (!window.confirm(`Permanently delete ${profile.name}'s profile? This cannot be undone.`)) return
+    setDeleting(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('students').delete().eq('id', profile.id)
+    if (!error) {
+      try { localStorage.removeItem('parent_selected_child') } catch {}
+      router.refresh()
+    }
+    setDeleting(false)
   }
 
   // ── Render guards ──────────────────────────────────────────────────────
@@ -701,6 +717,31 @@ export default function ChildrenPage() {
           Switch children using the selector at the top right.
         </p>
       )}
+
+      {/* ── Danger Zone ── */}
+      <div className="bg-white rounded-2xl border border-red-100 overflow-hidden">
+        <div className="px-4 pt-3 pb-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-red-400">Danger Zone</p>
+        </div>
+        <div className="px-4 pb-4">
+          <button
+            onClick={deleteChild}
+            disabled={deleting}
+            className="w-full py-2.5 rounded-full text-sm font-semibold"
+            style={{
+              background: '#FEF2F2',
+              color: deleting ? '#9CA3AF' : '#DC2626',
+              border: '2px solid #FECACA',
+              opacity: deleting ? 0.7 : 1,
+            }}
+          >
+            {deleting ? 'Deleting…' : '🗑 Delete Child Profile'}
+          </button>
+          <p className="text-[10px] text-gray-400 text-center mt-2">
+            Permanently removes this child&apos;s record. Cannot be undone.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
