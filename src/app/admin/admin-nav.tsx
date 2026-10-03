@@ -6,7 +6,8 @@ import { LogoutButton } from '@/components/logout-button'
 
 const OWNER_LINKS = [
   { href: '/admin', label: 'Dashboard', exact: true },
-  { href: '/admin/calendar', label: 'Calendar', exact: false },
+  { href: '/admin/schedule', label: 'Schedule', exact: false },
+  { href: '/admin/calendar', label: 'Holidays', exact: false },
   { href: '/admin/suggestions', label: 'Scheduling', exact: false },
   { href: '/admin/teachers', label: 'Teachers', exact: false },
   { href: '/admin/protocols', label: 'Protocols', exact: false },
@@ -28,7 +29,7 @@ const ADMIN_LINKS = [
   { href: '/admin/billing', label: 'Billing', exact: false },
   { href: '/admin/announcements', label: 'Announcements', exact: false },
   { href: '/admin/suggestions', label: 'Scheduling', exact: false },
-  { href: '/admin/calendar', label: 'Calendar', exact: false },
+  { href: '/admin/schedule', label: 'Calendar', exact: false },
 ]
 
 export function AdminNav({ role }: { role: string }) {
