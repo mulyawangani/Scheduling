@@ -24,6 +24,7 @@ const ADMIN_LINKS = [
   { href: '/admin/parents', label: 'Parents', exact: false },
   { href: '/admin/teachers', label: 'Teachers', exact: false },
   { href: '/admin/enrollment', label: 'Enrollment', exact: false },
+  { href: '/admin/attendance', label: 'Attendance', exact: false },
   { href: '/admin/announcements', label: 'Announcements', exact: false },
   { href: '/admin/suggestions', label: 'Scheduling', exact: false },
   { href: '/admin/calendar', label: 'Calendar', exact: false },
