@@ -35,7 +35,7 @@ export default async function EnrollmentPage({
       student_id,
       month,
       status,
-      students!enrollments_student_id_fkey(id, name, status, classrooms(name))
+      students!enrollments_student_id_fkey(id, name, status, weekly_target_sessions, classrooms(name))
     `)
     .gte('month', `${year - 1}-01-01`)
     .lte('month', `${year + 1}-12-01`)
@@ -54,23 +54,6 @@ export default async function EnrollmentPage({
   }
 
   const thisMonth = activeEnrollments.filter((e: any) => e.month === monthStart)
-  const thisMonthStudentIds = thisMonth.map((e: any) => e.student_id)
-
-  // Protocol count per student = number of distinct therapy sessions they need weekly
-  const { data: protocolRows } = thisMonthStudentIds.length > 0
-    ? await supabase
-        .from('student_protocols')
-        .select('student_id, protocol_id')
-        .in('student_id', thisMonthStudentIds)
-    : { data: [] }
-
-  const protocolCountByStudent: Record<string, number> = {}
-  const seenProtocols: Record<string, Set<string>> = {}
-  for (const row of protocolRows ?? []) {
-    if (!seenProtocols[row.student_id]) seenProtocols[row.student_id] = new Set()
-    seenProtocols[row.student_id].add(row.protocol_id)
-    protocolCountByStudent[row.student_id] = seenProtocols[row.student_id].size
-  }
 
   const students = thisMonth.map((e: any) => {
     const s = Array.isArray(e.students) ? e.students[0] : e.students
@@ -82,7 +65,7 @@ export default async function EnrollmentPage({
       name: s?.name ?? 'Unknown',
       classroom,
       months: (allMonthsByStudent[e.student_id] ?? []).sort(),
-      sessionCount: protocolCountByStudent[e.student_id] ?? 0,
+      weeklyTarget: s?.weekly_target_sessions ?? null,
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name))
 
@@ -146,9 +129,9 @@ export default async function EnrollmentPage({
                   {s.classroom && <div className="text-xs text-gray-400">{s.classroom}</div>}
                 </div>
                 <div className="flex-shrink-0 w-20 text-center">
-                  {s.sessionCount > 0 ? (
+                  {s.weeklyTarget != null ? (
                     <div>
-                      <span className="text-sm font-semibold text-gray-800">{s.sessionCount}</span>
+                      <span className="text-sm font-semibold text-gray-800">{s.weeklyTarget}</span>
                       <span className="text-[10px] text-gray-400 ml-0.5">sessions/wk</span>
                     </div>
                   ) : (
