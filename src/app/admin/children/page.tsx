@@ -3,10 +3,10 @@ import type { SubProtocol } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'
 import { ChildCard } from './child-card'
 import { NewChildForm } from './new-child-form'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
 
 export default async function ChildrenPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
-  await requireOwner()
+  await requireAdminOrOwner()
   const { student: highlightStudentId } = await searchParams
   const supabase = await createClient()
 

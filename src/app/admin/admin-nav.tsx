@@ -18,7 +18,14 @@ const OWNER_LINKS = [
 ]
 
 const ADMIN_LINKS = [
+  { href: '/admin', label: 'Dashboard', exact: true },
+  { href: '/admin/classrooms', label: 'Classrooms', exact: false },
+  { href: '/admin/children', label: 'Students', exact: false },
+  { href: '/admin/parents', label: 'Parents', exact: false },
+  { href: '/admin/teachers', label: 'Teachers', exact: false },
+  { href: '/admin/announcements', label: 'Announcements', exact: false },
   { href: '/admin/suggestions', label: 'Scheduling', exact: false },
+  { href: '/admin/calendar', label: 'Calendar', exact: false },
 ]
 
 export function AdminNav({ role }: { role: string }) {

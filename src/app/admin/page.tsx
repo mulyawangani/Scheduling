@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getUserProfile } from '@/lib/auth/get-user-profile'
+import { redirect } from 'next/navigation'
 import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
 import { generateSchedule } from '@/lib/matching/generate-schedule'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
-import { requireOwner } from '@/lib/auth/require-owner'
 
 function percentColor(percent: number | null) {
   if (percent === null) return 'text-gray-400'
@@ -12,16 +13,109 @@ function percentColor(percent: number | null) {
   return 'text-red-600'
 }
 
-export default async function AdminDashboard() {
-  await requireOwner()
-  const supabase = await createClient()
+export const dynamic = 'force-dynamic'
 
+export default async function AdminDashboard() {
+  const result = await getUserProfile()
+  if (!result) redirect('/login')
+  if (result.profile.role !== 'owner' && result.profile.role !== 'admin') redirect('/')
+
+  const supabase = await createClient()
+  const firstName = result.profile.name?.split(' ')[0] ?? result.profile.role
+
+  if (result.profile.role === 'admin') {
+    const [{ data: students }, { data: teachers }, { data: classrooms }, { data: announcements }] = await Promise.all([
+      supabase.from('students').select('id, status').neq('status', 'inactive'),
+      supabase.from('profiles').select('id').eq('role', 'teacher'),
+      (supabase as any).from('classrooms').select('id, name, active').eq('active', true),
+      (supabase as any).from('announcements').select('id, title, status, created_at').eq('status', 'PUBLISHED').order('created_at', { ascending: false }).limit(5),
+    ])
+
+    const stats = [
+      { label: 'Active Students', value: students?.length ?? 0, href: '/admin/children', color: '#3B82F6' },
+      { label: 'Classrooms', value: classrooms?.length ?? 0, href: '/admin/classrooms', color: '#8B5CF6' },
+      { label: 'Teachers', value: teachers?.length ?? 0, href: '/admin/teachers', color: '#F59030' },
+    ]
+
+    const quickActions = [
+      { label: 'Manage Classrooms', href: '/admin/classrooms', color: '#8B5CF6' },
+      { label: 'Announcements', href: '/admin/announcements', color: '#F59030' },
+      { label: 'Scheduling', href: '/admin/suggestions', color: '#2FA56F' },
+      { label: 'Manage Students', href: '/admin/children', color: '#3B82F6' },
+    ]
+
+    return (
+      <main className="mx-auto max-w-4xl p-6 flex flex-col gap-8">
+        <div>
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Welcome, {firstName}</h1>
+          <p className="text-sm text-gray-500 mt-1">School admin dashboard</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          {stats.map((s) => (
+            <Link key={s.label} href={s.href} className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 text-lg font-bold"
+                style={{ background: `${s.color}18`, color: s.color }}
+              >
+                {s.value}
+              </div>
+              <div className="text-2xl font-bold text-gray-900">{s.value}</div>
+              <div className="text-xs font-medium text-gray-500 mt-1">{s.label}</div>
+            </Link>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-800">Recent Announcements</h2>
+              <Link href="/admin/announcements" className="text-xs font-semibold text-orange-500">View all →</Link>
+            </div>
+            {!announcements || announcements.length === 0 ? (
+              <div className="px-5 py-8 text-center text-xs text-gray-400">No published announcements yet.</div>
+            ) : (
+              <ul className="divide-y divide-gray-50">
+                {announcements.map((a: any) => (
+                  <li key={a.id} className="px-5 py-3">
+                    <div className="text-sm font-medium text-gray-800">{a.title}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-800 mb-4">Quick Actions</h2>
+            <div className="flex flex-col gap-2">
+              {quickActions.map((q) => (
+                <Link
+                  key={q.href}
+                  href={q.href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:shadow-sm transition-all"
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: q.color }} />
+                  <span className="text-sm font-medium text-gray-700">{q.label}</span>
+                  <svg className="ml-auto text-gray-300" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // Owner dashboard — scheduling stats
   const [{ data: allNeeds }, unmet, { data: allHistoryRows }] = await Promise.all([
     supabase.from('student_protocols').select('student_id, protocol_id, students(status)'),
     getUnmetNeeds(supabase, getUpcomingWeekStart()),
-    // Every status, newest first, to check whether each unmet need's most
-    // recent session outcome was a cancellation or a teacher decline — same
-    // "reopened" definition the Recommendation page uses.
     supabase.from('session_plans').select('student_id, protocol_id, status').order('created_at', { ascending: false }),
   ])
 
@@ -35,11 +129,6 @@ export default async function AdminDashboard() {
     return status === 'cancelled' || status === 'declined'
   }).length
 
-  // Grouped by (student, protocol) — a protocol with several needed
-  // sub-protocols (e.g. Reflex Repatterning) is one bookable session, so it
-  // counts as one need here too, matching how Scheduling groups them.
-  // Inactive students are excluded — they're never allocated, so counting
-  // their needs here would understate fulfillment for no actionable reason.
   const total = new Set(
     (allNeeds ?? [])
       .filter((n) => (Array.isArray(n.students) ? n.students[0]?.status : n.students?.status) !== 'inactive')
@@ -48,18 +137,8 @@ export default async function AdminDashboard() {
   const scheduled = Math.max(0, total - unmet.length)
   const percent = total > 0 ? Math.round((scheduled / total) * 100) : null
 
-  // Weeks worth breaking out individually: every week with a committed
-  // one-off session, plus every week a schedule was generated/saved as a
-  // version — no version is required, this is computed live from
-  // generateSchedule() the same way the Simulations page already does.
-  // Weekly-recurring sessions repeat indefinitely rather than belonging to
-  // one week, so they aren't attributed to a single row here.
   const [{ data: oneOffDates }, { data: versionWeeks }] = await Promise.all([
-    supabase
-      .from('session_plans')
-      .select('start_time')
-      .eq('recurrence_type', 'one_off')
-      .in('status', ['pending', 'accepted', 'completed']),
+    supabase.from('session_plans').select('start_time').eq('recurrence_type', 'one_off').in('status', ['pending', 'accepted', 'completed']),
     supabase.from('schedule_versions').select('week_start_date'),
   ])
 
