@@ -104,7 +104,7 @@ export default async function BillingPage({
   for (const p of therapyPayments ?? []) therapyPayMap.set(p.student_id, p)
 
   // Build therapy rows
-  let therapyRows = Array.from(byStudent.values()).map(({ student, sessions, rate }) => {
+  const therapyRows = Array.from(byStudent.values()).map(({ student, sessions, rate }) => {
     const payment = therapyPayMap.get(student.id)
     const classroom = student.classrooms
       ? (Array.isArray(student.classrooms) ? student.classrooms[0]?.name : student.classrooms?.name)
