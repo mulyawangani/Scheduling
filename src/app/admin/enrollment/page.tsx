@@ -28,26 +28,32 @@ export default async function EnrollmentPage({
   const supabase = await createClient()
   const db = supabase as any
 
-  // All enrollments in a ±1 year window to show future months per student
+  // All enrollments in a ±1 year window — filter to status='student' in JS
   const { data: enrollments } = await db
     .from('enrollments')
     .select(`
       student_id,
       month,
       status,
-      students!enrollments_student_id_fkey(id, name, classrooms(name))
+      students!enrollments_student_id_fkey(id, name, status, classrooms(name))
     `)
     .gte('month', `${year - 1}-01-01`)
     .lte('month', `${year + 1}-12-01`)
     .eq('status', 'active')
 
+  // Drop non_student / inactive kids (seed enrolled them but they shouldn't appear)
+  const activeEnrollments = (enrollments ?? []).filter((e: any) => {
+    const s = Array.isArray(e.students) ? e.students[0] : e.students
+    return s?.status === 'student'
+  })
+
   const allMonthsByStudent: Record<string, string[]> = {}
-  for (const e of enrollments ?? []) {
+  for (const e of activeEnrollments) {
     if (!allMonthsByStudent[e.student_id]) allMonthsByStudent[e.student_id] = []
     allMonthsByStudent[e.student_id].push(e.month)
   }
 
-  const thisMonth = (enrollments ?? []).filter((e: any) => e.month === monthStart)
+  const thisMonth = activeEnrollments.filter((e: any) => e.month === monthStart)
   const thisMonthStudentIds = thisMonth.map((e: any) => e.student_id)
 
   // Protocol count per student = number of distinct therapy sessions they need weekly
@@ -113,7 +119,7 @@ export default async function EnrollmentPage({
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="text-2xl font-bold text-gray-900">
-            {(enrollments ?? []).filter((e: any) => {
+            {activeEnrollments.filter((e: any) => {
               const m = e.month?.slice(0, 7)
               return m === nextMonth
             }).length}
