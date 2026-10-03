@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   start_time   time NOT NULL,
   end_time     time NOT NULL CHECK (end_time > start_time),
   classroom_id uuid REFERENCES classrooms(id) ON DELETE SET NULL,
-  school_id    uuid REFERENCES schools(id) ON DELETE CASCADE DEFAULT '00000000-0000-0000-0000-000000000001',
+  school_id    uuid REFERENCES schools(id) ON DELETE CASCADE,
   color        text,   -- optional hex override
   is_active    boolean NOT NULL DEFAULT true,
   created_at   timestamptz NOT NULL DEFAULT now()
@@ -30,17 +30,20 @@ CREATE POLICY "parent_read_calendar_events" ON calendar_events FOR SELECT USING 
 );
 
 -- Sample weekly schedule (edit or delete these to match the actual timetable)
-INSERT INTO calendar_events (type, title, day_of_week, start_time, end_time) VALUES
-  ('lesson_plan',    'Morning Circle',    1, '08:00', '08:30'),
-  ('lesson_plan',    'Morning Circle',    2, '08:00', '08:30'),
-  ('lesson_plan',    'Morning Circle',    3, '08:00', '08:30'),
-  ('lesson_plan',    'Morning Circle',    4, '08:00', '08:30'),
-  ('lesson_plan',    'Morning Circle',    5, '08:00', '08:30'),
-  ('lesson_plan',    'Montessori Work',   1, '08:30', '11:00'),
-  ('lesson_plan',    'Montessori Work',   2, '08:30', '11:00'),
-  ('lesson_plan',    'Montessori Work',   3, '08:30', '11:00'),
-  ('lesson_plan',    'Montessori Work',   4, '08:30', '11:00'),
-  ('lesson_plan',    'Montessori Work',   5, '08:30', '11:00'),
-  ('extracurricular','Art & Craft',       1, '14:00', '15:00'),
-  ('extracurricular','Music',             3, '14:00', '15:00'),
-  ('extracurricular','Sport & Games',     5, '13:00', '14:00');
+INSERT INTO calendar_events (type, title, day_of_week, start_time, end_time)
+SELECT type, title, day_of_week, start_time::time, end_time::time
+FROM (VALUES
+  ('lesson_plan',    'Morning Circle',  1, '08:00', '08:30'),
+  ('lesson_plan',    'Morning Circle',  2, '08:00', '08:30'),
+  ('lesson_plan',    'Morning Circle',  3, '08:00', '08:30'),
+  ('lesson_plan',    'Morning Circle',  4, '08:00', '08:30'),
+  ('lesson_plan',    'Morning Circle',  5, '08:00', '08:30'),
+  ('lesson_plan',    'Montessori Work', 1, '08:30', '11:00'),
+  ('lesson_plan',    'Montessori Work', 2, '08:30', '11:00'),
+  ('lesson_plan',    'Montessori Work', 3, '08:30', '11:00'),
+  ('lesson_plan',    'Montessori Work', 4, '08:30', '11:00'),
+  ('lesson_plan',    'Montessori Work', 5, '08:30', '11:00'),
+  ('extracurricular','Art & Craft',     1, '14:00', '15:00'),
+  ('extracurricular','Music',           3, '14:00', '15:00'),
+  ('extracurricular','Sport & Games',   5, '13:00', '14:00')
+) AS v(type, title, day_of_week, start_time, end_time);
