@@ -40,7 +40,7 @@ export default async function BillingPage({
 
   // ── Therapy reconciliation ──────────────────────────────────────────────────
   // Fetch therapy notes for the month (submitted or approved — not draft)
-  const { data: therapyNotes } = await supabase
+  const { data: therapyNotes } = await db
     .from('therapy_notes')
     .select('id, session_plan_id, teacher_id, session_date, status, session_plans(student_id, students(id, name, status, school_id, rate_per_session, classrooms(name), profiles!students_parent_id_fkey(name, phone)))')
     .gte('session_date', monthStart)
@@ -48,7 +48,7 @@ export default async function BillingPage({
     .neq('status', 'draft')
 
   // Billing rates: fetch all and build lookup (student+teacher → rate, student+null → default)
-  const { data: billingRates } = await supabase
+  const { data: billingRates } = await db
     .from('billing_rates')
     .select('student_id, teacher_id, billing_rate')
 
