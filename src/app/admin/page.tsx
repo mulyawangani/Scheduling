@@ -41,9 +41,10 @@ export default async function AdminDashboard() {
     ]
 
     const quickActions = [
+      { label: 'Enrollment & Attendance', href: '/admin/enrollment', color: '#2FA56F' },
       { label: 'Manage Classrooms', href: '/admin/classrooms', color: '#8B5CF6' },
       { label: 'Announcements', href: '/admin/announcements', color: '#F59030' },
-      { label: 'Scheduling', href: '/admin/suggestions', color: '#2FA56F' },
+      { label: 'Scheduling', href: '/admin/suggestions', color: '#EC4899' },
       { label: 'Manage Students', href: '/admin/children', color: '#3B82F6' },
     ]
 
