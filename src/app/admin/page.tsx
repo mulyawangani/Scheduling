@@ -24,11 +24,13 @@ export default async function AdminDashboard() {
   const firstName = result.profile.name?.split(' ')[0] ?? result.profile.role
 
   if (result.profile.role === 'admin') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any
     const [{ data: students }, { data: teachers }, { data: classrooms }, { data: announcements }] = await Promise.all([
       supabase.from('students').select('id, status').neq('status', 'inactive'),
       supabase.from('profiles').select('id').eq('role', 'teacher'),
-      (supabase as any).from('classrooms').select('id, name, active').eq('active', true),
-      (supabase as any).from('announcements').select('id, title, status, created_at').eq('status', 'PUBLISHED').order('created_at', { ascending: false }).limit(5),
+      db.from('classrooms').select('id, name, active').eq('active', true),
+      db.from('announcements').select('id, title, status, created_at').eq('status', 'PUBLISHED').order('created_at', { ascending: false }).limit(5),
     ])
 
     const stats = [

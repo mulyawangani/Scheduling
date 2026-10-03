@@ -11,6 +11,7 @@ export default async function ClassroomDetailPage({ params }: { params: Promise<
   await requireAdminOrOwner()
   const { id } = await params
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const [classroomResult, teachersResult, enrolledResult, unassignedResult] = await Promise.all([
@@ -28,7 +29,9 @@ export default async function ClassroomDetailPage({ params }: { params: Promise<
 
   const classroom = classroomResult.data
   const teachers: { id: string; name: string }[] = teachersResult.data ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const enrolled: any[] = enrolledResult.data ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const unassigned: any[] = unassignedResult.data ?? []
 
   const primaryName = Array.isArray(classroom.primary_teacher)

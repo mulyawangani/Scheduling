@@ -15,6 +15,7 @@ export async function createAnnouncement({
 }) {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')

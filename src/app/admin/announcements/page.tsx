@@ -14,6 +14,7 @@ const STATUS_STYLES: Record<string, { text: string; bg: string; label: string }>
 export default async function AnnouncementsPage() {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const { data: announcements } = await db
@@ -46,6 +47,7 @@ export default async function AnnouncementsPage() {
         <p className="text-sm text-gray-500">No announcements yet.</p>
       ) : (
         <ul className="flex flex-col gap-3">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {announcements.map((a: any) => {
             const style = STATUS_STYLES[a.status] ?? STATUS_STYLES.DRAFT
             const authorName = Array.isArray(a.author) ? a.author[0]?.name : a.author?.name

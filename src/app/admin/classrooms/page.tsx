@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 export default async function ClassroomsPage() {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const [classroomsResult, teachersResult] = await Promise.all([
@@ -20,11 +21,13 @@ export default async function ClassroomsPage() {
     supabase.from('profiles').select('id, name').eq('role', 'teacher').order('name'),
   ])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const classrooms: any[] = classroomsResult.data ?? []
   const teachers: { id: string; name: string }[] = teachersResult.data ?? []
 
   const studentCounts: Record<string, number> = {}
   if (classrooms.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ids = classrooms.map((c: any) => c.id)
     const { data: students } = await db.from('students').select('classroom_id').in('classroom_id', ids)
     for (const s of students ?? []) {
@@ -44,6 +47,7 @@ export default async function ClassroomsPage() {
         <p className="text-sm text-gray-500">No classrooms yet. Create one above.</p>
       ) : (
         <ul className="flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {classrooms.map((c: any) => {
             const primaryName = Array.isArray(c.primary_teacher) ? c.primary_teacher[0]?.name : c.primary_teacher?.name
             const secondaryName = Array.isArray(c.secondary_teacher) ? c.secondary_teacher[0]?.name : c.secondary_teacher?.name

@@ -14,6 +14,7 @@ export async function createClassroom({
 }) {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const { error } = await db.from('classrooms').insert({
@@ -33,6 +34,7 @@ export async function updateClassroom(
 ) {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const { error } = await db.from('classrooms').update({
@@ -50,6 +52,7 @@ export async function updateClassroom(
 export async function assignStudentToClassroom(studentId: string, classroomId: string) {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const { error } = await db.from('students').update({ classroom_id: classroomId }).eq('id', studentId)
@@ -60,6 +63,7 @@ export async function assignStudentToClassroom(studentId: string, classroomId: s
 export async function removeStudentFromClassroom(studentId: string, classroomId: string) {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const { error } = await db.from('students').update({ classroom_id: null }).eq('id', studentId)

@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 export default async function NewAnnouncementPage() {
   await requireAdminOrOwner()
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const { data: classrooms } = await db
