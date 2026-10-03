@@ -95,10 +95,16 @@ export default async function EnrollmentPage({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="text-2xl font-bold text-gray-900">{students.length}</div>
           <div className="text-xs font-medium text-gray-500 mt-1">Enrolled this month</div>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="text-2xl font-bold text-gray-900">
+            {students.reduce((sum: number, s: any) => sum + (s.weeklyTarget ?? 0), 0)}
+          </div>
+          <div className="text-xs font-medium text-gray-500 mt-1">Weekly therapy sessions total</div>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="text-2xl font-bold text-gray-900">
