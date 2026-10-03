@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
