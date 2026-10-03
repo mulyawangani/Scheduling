@@ -43,25 +43,31 @@ export default async function AttendancePage({
   const supabase = await createClient()
   const db = supabase as any
 
-  // Enrollments in a ±1 year window for badge display
+  // Enrollments in a ±1 year window — active students only
   const { data: enrollments } = await db
     .from('enrollments')
     .select(`
       student_id,
       month,
-      students!enrollments_student_id_fkey(id, name, classrooms(name))
+      students!enrollments_student_id_fkey(id, name, status, classrooms(name))
     `)
     .gte('month', `${year - 1}-01-01`)
     .lte('month', `${year + 1}-12-01`)
     .eq('status', 'active')
 
+  // Only enrolled students with status='student' (same rule as enrollment page)
+  const activeEnrollments = (enrollments ?? []).filter((e: any) => {
+    const s = Array.isArray(e.students) ? e.students[0] : e.students
+    return s?.status === 'student'
+  })
+
   const allMonthsByStudent: Record<string, string[]> = {}
-  for (const e of enrollments ?? []) {
+  for (const e of activeEnrollments) {
     if (!allMonthsByStudent[e.student_id]) allMonthsByStudent[e.student_id] = []
     allMonthsByStudent[e.student_id].push(e.month)
   }
 
-  const thisMonth = (enrollments ?? []).filter((e: any) => e.month === monthStart)
+  const thisMonth = activeEnrollments.filter((e: any) => e.month === monthStart)
   const studentIds = thisMonth.map((e: any) => e.student_id)
   const monthEnd = `${currentMonthStr}-${String(daysInMonth.length).padStart(2, '0')}`
 
