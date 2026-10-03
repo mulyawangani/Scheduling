@@ -25,8 +25,9 @@ function parseTime(t: string) {
 }
 
 function slotOf(hour: number, minute: number): number {
+  void minute
   if (hour < 8 || hour >= 17) return -1
-  return (hour - 8) * 2 + (minute >= 30 ? 1 : 0)
+  return hour - 8
 }
 
 function dayCol(dow: number): number { return dow - 1 } // 1(Mon)→0 … 5(Fri)→4
@@ -40,14 +41,13 @@ function getMondayOf(d: Date): Date {
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10) }
 
-const SLOTS = Array.from({ length: 18 }, (_, i) => {
-  const h = 8 + Math.floor(i / 2)
-  const m = i % 2 === 0 ? 0 : 30
+const SLOTS = Array.from({ length: 9 }, (_, i) => {
+  const h = 8 + i
   return {
-    label: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+    label: `${String(h).padStart(2, '0')}:00`,
     hour: h,
-    minute: m,
-    isHour: m === 0,
+    minute: 0,
+    isHour: true,
   }
 })
 
@@ -240,17 +240,17 @@ export default async function SchedulePage({
           <tbody>
             {SLOTS.map((slot, si) => (
               <tr key={slot.label}
-                style={{ background: slot.isHour ? '#FFFFFF' : '#FAFAFA' }}>
+                style={{ background: '#FFFFFF' }}>
                 {/* Time label */}
                 <td className="w-14 border-r border-gray-100 text-right pr-2 align-top"
                   style={{
                     color: '#9CA3AF',
-                    paddingTop: '5px',
-                    paddingBottom: '3px',
-                    borderTop: slot.isHour ? '1px solid #E5E7EB' : '1px solid #F3F4F6',
+                    paddingTop: '6px',
+                    paddingBottom: '4px',
+                    borderTop: '1px solid #E5E7EB',
                     fontSize: '10px',
                   }}>
-                  {slot.isHour && <span className="font-semibold">{slot.label}</span>}
+                  <span className="font-semibold">{slot.label}</span>
                 </td>
 
                 {weekDates.map((d, di) => {
@@ -260,9 +260,9 @@ export default async function SchedulePage({
                       className="border-r last:border-r-0 border-gray-100 align-top"
                       style={{
                         background: d.isToday ? 'rgba(245,144,48,0.025)' : undefined,
-                        borderTop: slot.isHour ? '1px solid #E5E7EB' : '1px solid #F3F4F6',
-                        padding: events.length ? '3px' : '3px 3px 0',
-                        minHeight: '22px',
+                        borderTop: '1px solid #E5E7EB',
+                        padding: '4px',
+                        minHeight: '52px',
                         verticalAlign: 'top',
                       }}>
                       {events.map((ev, ei) => {
