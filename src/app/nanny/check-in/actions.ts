@@ -13,7 +13,11 @@ function todayWIB(): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function db() { return (await createClient()) as any }
 
-export async function checkInStudent(studentId: string, temperature?: number | null) {
+export async function checkInStudent(
+  studentId: string,
+  temperature?: number | null,
+  physicalNote?: string | null,
+) {
   const { user } = await requireNanny()
   const supabase = await db()
   const today = todayWIB()
@@ -27,6 +31,7 @@ export async function checkInStudent(studentId: string, temperature?: number | n
       check_in_at: now,
       recorded_by: user.id,
       ...(temperature != null ? { temperature } : {}),
+      ...(physicalNote ? { physical_note: physicalNote } : {}),
     },
     { onConflict: 'student_id,date', ignoreDuplicates: false }
   )

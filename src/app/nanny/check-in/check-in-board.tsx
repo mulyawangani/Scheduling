@@ -3,11 +3,26 @@
 import { useTransition, useState } from 'react'
 import { checkInStudent, checkOutStudent, markAbsent } from './actions'
 
+const PALETTE = ['#2FA56F', '#3B82F6', '#E0567E', '#8B6CE6', '#E0930B', '#14B8A6', '#F59E0B', '#EF4444']
+function studentColor(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return PALETTE[h % PALETTE.length]
+}
+function initials(name: string) {
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+}
+function fmtTime(utcStr: string): string {
+  const wib = new Date(new Date(utcStr).getTime() + 7 * 3600000)
+  return `${String(wib.getUTCHours()).padStart(2, '0')}:${String(wib.getUTCMinutes()).padStart(2, '0')}`
+}
+
 type AttendanceRecord = {
   status: string
   check_in_at: string | null
   check_out_at: string | null
   temperature: number | null
+  physical_note: string | null
 }
 
 type Student = {
@@ -19,133 +34,145 @@ type Student = {
 type Classroom = {
   id: string
   name: string
+  ageGroup: string | null
   students: Student[]
-}
-
-const WIB_OFFSET = 7 * 60 * 60 * 1000
-
-function toWIBTime(utcStr: string): string {
-  const wib = new Date(new Date(utcStr).getTime() + WIB_OFFSET)
-  return `${String(wib.getUTCHours()).padStart(2, '0')}:${String(wib.getUTCMinutes()).padStart(2, '0')}`
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, { bg: string; text: string; label: string }> = {
-    present: { bg: '#DCFCE7', text: '#15803D', label: 'Present' },
-    absent:  { bg: '#FEE2E2', text: '#DC2626', label: 'Absent' },
-    late:    { bg: '#FEF9C3', text: '#CA8A04', label: 'Late' },
-  }
-  const s = styles[status] ?? { bg: '#F3F4F6', text: '#9CA3AF', label: 'Not checked in' }
-  return (
-    <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-      style={{ background: s.bg, color: s.text }}>
-      {s.label}
-    </span>
-  )
 }
 
 function StudentRow({ student }: { student: Student }) {
   const [pending, startTransition] = useTransition()
-  const [showTemp, setShowTemp] = useState(false)
+  const [showInputs, setShowInputs] = useState(false)
   const [temp, setTemp] = useState('')
+  const [note, setNote] = useState('')
 
   const att = student.attendance
-  const isCheckedIn = att?.status === 'present'
+  const isIn = att?.status === 'present'
   const isAbsent = att?.status === 'absent'
-  const hasCheckOut = !!att?.check_out_at
+  const isOut = !!att?.check_out_at
+
+  const color = studentColor(student.name)
 
   function handleCheckIn() {
-    if (showTemp) {
+    if (showInputs) {
       const t = parseFloat(temp)
-      startTransition(() => checkInStudent(student.id, isNaN(t) ? null : t))
-      setShowTemp(false)
+      startTransition(() => checkInStudent(student.id, isNaN(t) ? null : t, note || null))
+      setShowInputs(false)
       setTemp('')
+      setNote('')
     } else {
-      setShowTemp(true)
+      setShowInputs(true)
     }
   }
 
-  function handleSkipTemp() {
-    startTransition(() => checkInStudent(student.id, null))
-    setShowTemp(false)
-    setTemp('')
+  function handleSkip() {
+    startTransition(() => checkInStudent(student.id, null, null))
+    setShowInputs(false)
   }
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-3 border-b last:border-0 border-gray-50">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">
-            {student.name.slice(0, 2).toUpperCase()}
+    <div className="px-5 py-3" style={{ borderBottom: '1px solid #F9FAFB' }}>
+      <div className="flex items-center gap-3">
+        {/* Avatar with status dot */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: 13, color: '#fff',
+          }}>
+            {initials(student.name)}
           </div>
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-gray-800 truncate">{student.name}</div>
-            {att && (
-              <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5">
-                {att.check_in_at && <span>In {toWIBTime(att.check_in_at)}</span>}
-                {att.check_out_at && <span>· Out {toWIBTime(att.check_out_at)}</span>}
-                {att.temperature && <span>· {att.temperature}°C</span>}
-              </div>
-            )}
-          </div>
+          <span style={{
+            position: 'absolute', bottom: -2, right: -2,
+            width: 10, height: 10, borderRadius: '50%',
+            border: '2px solid #fff',
+            background: isIn && !isOut ? '#22c55e' : isOut ? '#d1d5db' : isAbsent ? '#ef4444' : '#e5e7eb',
+          }} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-gray-800 truncate">{student.name}</div>
+          {att && (
+            <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5">
+              {att.check_in_at && <span>In {fmtTime(att.check_in_at)}</span>}
+              {att.check_out_at && <span>· Out {fmtTime(att.check_out_at)}</span>}
+              {att.temperature && <span>· {att.temperature}°C</span>}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <StatusBadge status={att?.status ?? 'none'} />
-
-          {!isCheckedIn && !isAbsent && (
+          {!isIn && !isAbsent && (
             <>
               <button
                 onClick={handleCheckIn}
                 disabled={pending}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
                 style={{ background: '#DCFCE7', color: '#15803D' }}
               >
-                {pending ? '...' : showTemp ? 'Confirm' : 'Check In'}
+                {pending ? '…' : showInputs ? 'Confirm' : 'Check In'}
               </button>
               <button
                 onClick={() => startTransition(() => markAbsent(student.id))}
                 disabled={pending}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
                 style={{ background: '#FEE2E2', color: '#DC2626' }}
               >
                 Absent
               </button>
             </>
           )}
-
-          {isCheckedIn && !hasCheckOut && (
+          {isIn && !isOut && (
             <button
               onClick={() => startTransition(() => checkOutStudent(student.id))}
               disabled={pending}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
               style={{ background: '#FEF3C7', color: '#D97706' }}
             >
-              {pending ? '...' : 'Check Out'}
+              {pending ? '…' : 'Check Out'}
             </button>
+          )}
+          {isAbsent && (
+            <span className="text-xs text-red-400 bg-red-50 px-3 py-1 rounded-lg">Absent</span>
+          )}
+          {isOut && (
+            <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-lg">Done</span>
           )}
         </div>
       </div>
 
-      {showTemp && !isCheckedIn && (
-        <div className="flex items-center gap-2 ml-11">
+      {/* Temperature + note inputs */}
+      {showInputs && !isIn && (
+        <div className="mt-2 flex gap-2" style={{ paddingLeft: 48 }}>
           <input
             type="number"
             step="0.1"
             min="35"
             max="42"
-            placeholder="Temperature °C (optional)"
+            placeholder="Temp °C"
             value={temp}
             onChange={e => setTemp(e.target.value)}
-            className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+            className="border border-gray-200 rounded-lg px-2 py-1 text-xs w-24 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+          />
+          <input
+            type="text"
+            placeholder="Physical note (optional)"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-emerald-400"
           />
           <button
-            onClick={handleSkipTemp}
-            className="text-xs text-gray-400 hover:text-gray-600 underline"
+            onClick={handleSkip}
+            className="text-xs text-gray-400 hover:text-gray-600 underline whitespace-nowrap"
           >
             Skip
           </button>
         </div>
+      )}
+
+      {att?.physical_note && (
+        <p className="mt-1 text-xs text-amber-600" style={{ paddingLeft: 48 }}>
+          📋 {att.physical_note}
+        </p>
       )}
     </div>
   )
@@ -162,21 +189,29 @@ export function CheckInBoard({ classrooms }: { classrooms: Classroom[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {classrooms.map(c => (
-        <div key={c.id} className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-700">{c.name}</h3>
-            <span className="text-xs text-gray-400">
-              {c.students.filter(s => s.attendance?.status === 'present').length}/{c.students.length} present
-            </span>
+      {classrooms.map(c => {
+        const checked = c.students.filter(s => s.attendance?.status === 'present').length
+        return (
+          <div key={c.id} className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <div className="font-bold text-gray-800">{c.name}</div>
+                {c.ageGroup && (
+                  <div className="text-sm text-gray-500">{c.ageGroup}</div>
+                )}
+              </div>
+              <span className="text-sm font-medium text-gray-500">
+                {checked}/{c.students.length} present
+              </span>
+            </div>
+            {c.students.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">No students in this classroom.</p>
+            ) : (
+              c.students.map(s => <StudentRow key={s.id} student={s} />)
+            )}
           </div>
-          {c.students.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">No students in this classroom.</p>
-          ) : (
-            c.students.map(s => <StudentRow key={s.id} student={s} />)
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

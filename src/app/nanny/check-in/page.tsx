@@ -14,17 +14,15 @@ export default async function NannyCheckInPage() {
   const todayStr = new Date(Date.now() + WIB_OFFSET).toISOString().slice(0, 10)
 
   const [{ data: classrooms }, { data: students }, { data: todayAttendance }] = await Promise.all([
-    db.from('classrooms').select('id, name').eq('active', true).order('name'),
+    db.from('classrooms').select('id, name, age_group').eq('active', true).order('name'),
     db.from('students').select('id, name, classroom_id').eq('status', 'student').order('name'),
     db.from('attendance_records')
-      .select('student_id, status, check_in_at, check_out_at, temperature')
+      .select('student_id, status, check_in_at, check_out_at, temperature, physical_note')
       .eq('date', todayStr),
   ])
 
   const attMap = new Map<string, any>()
-  for (const rec of todayAttendance ?? []) {
-    attMap.set(rec.student_id, rec)
-  }
+  for (const rec of todayAttendance ?? []) attMap.set(rec.student_id, rec)
 
   const studentsByClassroom = new Map<string, any[]>()
   for (const s of students ?? []) {
@@ -36,6 +34,7 @@ export default async function NannyCheckInPage() {
   const serialized = (classrooms ?? []).map((c: any) => ({
     id: c.id,
     name: c.name,
+    ageGroup: c.age_group ?? null,
     students: (studentsByClassroom.get(c.id) ?? []).map((s: any) => {
       const att = attMap.get(s.id) ?? null
       return {
@@ -46,21 +45,21 @@ export default async function NannyCheckInPage() {
           check_in_at: att.check_in_at ?? null,
           check_out_at: att.check_out_at ?? null,
           temperature: att.temperature ?? null,
+          physical_note: att.physical_note ?? null,
         } : null,
       }
     }),
   }))
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
+    <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+      <div style={{ paddingTop: 4, paddingBottom: 28 }}>
         <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">Classroom</p>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">Student Check-In</h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Today&apos;s arrival status · {new Date(todayStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
       </div>
-
       <CheckInBoard classrooms={serialized} />
     </div>
   )

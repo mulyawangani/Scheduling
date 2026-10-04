@@ -16,18 +16,24 @@ export default async function NannyDashboardPage() {
   const greetingHour = nowWIB.getUTCHours()
   const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 18 ? 'Good afternoon' : 'Good evening'
 
-  const [{ data: checkedIn }, { data: logsToday }, { data: classrooms }] = await Promise.all([
+  const [{ data: checkedIn }, { data: logsToday }, { data: classrooms }, { data: allStudents }] = await Promise.all([
     db.from('attendance_records').select('id').eq('date', todayStr).eq('status', 'present'),
     db.from('behavior_logs').select('id').eq('date', todayStr),
-    db.from('classrooms').select('id, name').eq('active', true).order('name'),
+    db.from('classrooms').select('id, name, age_group').eq('active', true).order('name'),
+    db.from('students').select('classroom_id').eq('status', 'student').not('classroom_id', 'is', null),
   ])
+
+  const countByClassroom = new Map<string, number>()
+  for (const s of allStudents ?? []) {
+    countByClassroom.set(s.classroom_id, (countByClassroom.get(s.classroom_id) ?? 0) + 1)
+  }
 
   const checkedInCount = (checkedIn ?? []).length
   const logCount = (logsToday ?? []).length
-  const classroomList = (classrooms ?? []) as Array<{ id: string; name: string }>
+  const classroomList = (classrooms ?? []) as Array<{ id: string; name: string; age_group: string | null }>
 
   const stats = [
-    { label: 'Students Present', value: checkedInCount, color: '#16ABE3', href: '/nanny/check-in' },
+    { label: 'Students Checked In', value: checkedInCount, color: '#16ABE3', href: '/nanny/check-in' },
     { label: 'Behavior Logs Today', value: logCount, color: '#E0930B', href: '/nanny/behavior-log' },
     { label: 'Classrooms', value: classroomList.length, color: '#2FA56F', href: '/nanny/check-in' },
   ]
@@ -39,7 +45,7 @@ export default async function NannyDashboardPage() {
       desc: 'Mark arrivals and departures',
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" /><path d="M8.2 12.2l2.6 2.6 5-5.6" />
+          <circle cx="12" cy="12" r="9"/><path d="M8.2 12.2l2.6 2.6 5-5.6"/>
         </svg>
       ),
     },
@@ -49,7 +55,7 @@ export default async function NannyDashboardPage() {
       desc: 'Record behavioral observations',
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" />
+          <circle cx="12" cy="12" r="9"/><path d="M8.5 14.5s1.4 1.8 3.5 1.8 3.5-1.8 3.5-1.8"/><path d="M9 9.5h.01M15 9.5h.01"/>
         </svg>
       ),
     },
@@ -59,46 +65,46 @@ export default async function NannyDashboardPage() {
       desc: 'Share classroom moments',
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
         </svg>
       ),
     },
   ]
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ paddingTop: 4, paddingBottom: 28 }}>
         <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">Nanny Workspace</p>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">{greeting} 👋</h1>
         <p className="text-sm text-gray-500 mt-0.5">Here&apos;s a quick snapshot of today at Playtics.</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 28 }}>
         {stats.map(s => (
-          <Link key={s.label} href={s.href} className="no-underline">
+          <Link key={s.label} href={s.href} style={{ textDecoration: 'none' }}>
             <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="text-3xl font-extrabold leading-none" style={{ color: s.color }}>{s.value}</div>
-              <div className="text-xs text-gray-400 mt-1.5">{s.label}</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 13, color: '#6B7280', marginTop: 5 }}>{s.label}</div>
             </div>
           </Link>
         ))}
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-3">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 28 }}>
         {quickActions.map(a => (
-          <Link key={a.href} href={a.href} className="no-underline">
+          <Link key={a.href} href={a.href} style={{ textDecoration: 'none' }}>
             <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-4 flex flex-col gap-2 hover:shadow-md transition-shadow cursor-pointer">
               <div style={{ color: '#16ABE3' }}>{a.icon}</div>
-              <div className="font-semibold text-sm text-gray-800">{a.label}</div>
-              <div className="text-xs text-gray-400">{a.desc}</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>{a.label}</div>
+              <div style={{ fontSize: 12, color: '#9CA3AF' }}>{a.desc}</div>
             </div>
           </Link>
         ))}
       </div>
 
-      {/* Classrooms */}
+      {/* Classrooms overview */}
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-sm text-gray-800">Classrooms</h2>
@@ -111,7 +117,15 @@ export default async function NannyDashboardPage() {
               <div key={c.id}
                 className="flex items-center justify-between px-5 py-3"
                 style={{ borderBottom: i < classroomList.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
-                <span className="text-sm font-medium text-gray-800">{c.name}</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>{c.name}</div>
+                  {c.age_group && (
+                    <div style={{ fontSize: 12, color: '#9CA3AF' }}>{c.age_group}</div>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: '#6B7280' }}>
+                  {countByClassroom.get(c.id) ?? 0} students
+                </div>
               </div>
             ))}
           </div>
