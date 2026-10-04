@@ -5,7 +5,7 @@ import { useState } from 'react'
 const TERMS = [
   {
     title: 'School Fees & Payment Policy',
-    subtitle: 'Terms of Condition 1 of 3',
+    subtitle: 'Terms of Condition 1 of 4',
     icon: '💳',
     content: [
       {
@@ -28,7 +28,7 @@ const TERMS = [
   },
   {
     title: 'Photo & Video Consent',
-    subtitle: 'Terms of Condition 2 of 3',
+    subtitle: 'Terms of Condition 2 of 4',
     icon: '📸',
     content: [
       {
@@ -51,7 +51,7 @@ const TERMS = [
   },
   {
     title: 'Liability Waiver',
-    subtitle: 'Terms of Condition 3 of 3',
+    subtitle: 'Terms of Condition 3 of 4',
     icon: '📋',
     content: [
       {
@@ -69,6 +69,33 @@ const TERMS = [
       {
         heading: 'Acknowledgement',
         text: 'By agreeing, I acknowledge that I have read, understood, and agreed to all terms stated above. I confirm that all information I provide during registration is accurate and truthful.',
+      },
+    ],
+  },
+  {
+    title: 'Therapy Terms & Conditions',
+    subtitle: 'Terms of Condition 4 of 4',
+    icon: '🩺',
+    content: [
+      {
+        heading: 'Session Time',
+        text: 'Session Time is the allotted time for your therapy session. In general, each session is 50 minutes. Should you come late, there is a chance that your session will be cut shorter.',
+      },
+      {
+        heading: 'Cancellation & Rescheduling',
+        text: 'Please contact Playtics Admin for any cancellation or rescheduling. We will need to find the therapist and the availability that matches your protocol needs.',
+      },
+      {
+        heading: 'Billing',
+        text: 'Therapy billing will be issued at the end of the month. You will not be billed for cancelled sessions.',
+      },
+      {
+        heading: 'Late Payment Penalty',
+        text: 'Payments passed the 10th of each month will be considered late and will incur a 10% penalty. Continued non-payment may result in the suspension of sessions.',
+      },
+      {
+        heading: 'Refund Policy',
+        text: 'No refund will be issued after therapy service has been rendered.',
       },
     ],
   },
