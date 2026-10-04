@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 
-type Params = { params: { id: string } }
-
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const profile = await getUserProfile()
   if (!profile || !['nanny', 'owner', 'admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -24,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       status,
       published_at: status === 'PUBLISHED' ? new Date().toISOString() : null,
     })
-    .eq('id', params.id)
+    .eq('id', id)
     .select(`
       id, photo_url, caption, status, created_at, published_at, classroom_id,
       classrooms!classroom_photos_classroom_id_fkey(name),
@@ -47,7 +49,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   })
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const profile = await getUserProfile()
   if (!profile || !['nanny', 'owner', 'admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -59,13 +65,12 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { data: photo } = await db
     .from('classroom_photos')
     .select('photo_url')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
-  const { error } = await db.from('classroom_photos').delete().eq('id', params.id)
+  const { error } = await db.from('classroom_photos').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Delete from storage (best-effort)
   if (photo?.photo_url) {
     const url = new URL(photo.photo_url)
     const storagePath = url.pathname.split('/object/public/classroom-photos/')[1]
