@@ -7,8 +7,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const profile = await getUserProfile()
-  if (!profile || !['nanny', 'owner', 'admin'].includes(profile.role)) {
+  const result = await getUserProfile()
+  if (!result || !['nanny', 'owner', 'admin'].includes(result.profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -54,8 +54,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const profile = await getUserProfile()
-  if (!profile || !['nanny', 'owner', 'admin'].includes(profile.role)) {
+  const result = await getUserProfile()
+  if (!result || !['nanny', 'owner', 'admin'].includes(result.profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

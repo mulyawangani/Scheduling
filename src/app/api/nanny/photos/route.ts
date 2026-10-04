@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 
 export async function POST(req: NextRequest) {
-  const profile = await getUserProfile()
-  if (!profile || profile.role !== 'nanny') {
+  const result = await getUserProfile()
+  if (!result || result.profile.role !== 'nanny') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const profile = result.profile
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = (await createClient()) as any
@@ -77,8 +78,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const profile = await getUserProfile()
-  if (!profile || !['nanny', 'owner', 'admin'].includes(profile.role)) {
+  const result = await getUserProfile()
+  if (!result || !['nanny', 'owner', 'admin'].includes(result.profile.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
