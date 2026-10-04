@@ -21,7 +21,8 @@ export async function createStudent(formData: FormData) {
 
   const name = String(formData.get('name') || '').trim()
   const protocolIds = formData.getAll('protocolIds').map(String)
-  const status = String(formData.get('status') || '') as StudentStatus | ''
+  // Status is always 'trial' on creation — only admin/owner can promote
+  const status: StudentStatus = 'trial'
   const day = formData.get('day')
   const specificDate = String(formData.get('specificDate') || '')
   const startTime = String(formData.get('startTime') || '')
@@ -33,7 +34,7 @@ export async function createStudent(formData: FormData) {
 
   const { data: student, error: studentError } = await supabase
     .from('students')
-    .insert({ parent_id: user.id, name, status: status || null })
+    .insert({ parent_id: user.id, name, status })
     .select('id')
     .single()
 
