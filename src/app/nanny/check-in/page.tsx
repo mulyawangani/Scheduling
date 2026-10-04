@@ -1,0 +1,67 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { createClient } from '@/lib/supabase/server'
+import { requireNanny } from '@/lib/auth/require-nanny'
+import { CheckInBoard } from './check-in-board'
+
+export const dynamic = 'force-dynamic'
+
+const WIB_OFFSET = 7 * 60 * 60 * 1000
+
+export default async function NannyCheckInPage() {
+  await requireNanny()
+  const db = (await createClient()) as any
+
+  const todayStr = new Date(Date.now() + WIB_OFFSET).toISOString().slice(0, 10)
+
+  const [{ data: classrooms }, { data: students }, { data: todayAttendance }] = await Promise.all([
+    db.from('classrooms').select('id, name').eq('active', true).order('name'),
+    db.from('students').select('id, name, classroom_id').eq('status', 'student').order('name'),
+    db.from('attendance_records')
+      .select('student_id, status, check_in_at, check_out_at, temperature')
+      .eq('date', todayStr),
+  ])
+
+  const attMap = new Map<string, any>()
+  for (const rec of todayAttendance ?? []) {
+    attMap.set(rec.student_id, rec)
+  }
+
+  const studentsByClassroom = new Map<string, any[]>()
+  for (const s of students ?? []) {
+    if (!s.classroom_id) continue
+    if (!studentsByClassroom.has(s.classroom_id)) studentsByClassroom.set(s.classroom_id, [])
+    studentsByClassroom.get(s.classroom_id)!.push(s)
+  }
+
+  const serialized = (classrooms ?? []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    students: (studentsByClassroom.get(c.id) ?? []).map((s: any) => {
+      const att = attMap.get(s.id) ?? null
+      return {
+        id: s.id,
+        name: s.name,
+        attendance: att ? {
+          status: att.status,
+          check_in_at: att.check_in_at ?? null,
+          check_out_at: att.check_out_at ?? null,
+          temperature: att.temperature ?? null,
+        } : null,
+      }
+    }),
+  }))
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">Classroom</p>
+        <h1 className="text-2xl font-bold text-gray-900 mt-1">Student Check-In</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Today&apos;s arrival status · {new Date(todayStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+      </div>
+
+      <CheckInBoard classrooms={serialized} />
+    </div>
+  )
+}

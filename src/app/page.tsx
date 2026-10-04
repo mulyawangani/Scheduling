@@ -19,5 +19,7 @@ export default async function Home() {
       redirect('/teacher')
     case 'parent':
       redirect('/parent')
+    case 'nanny':
+      redirect('/nanny')
   }
 }
