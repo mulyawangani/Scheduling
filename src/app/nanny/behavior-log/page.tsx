@@ -24,11 +24,21 @@ export default async function NannyBehaviorLogPage() {
 
   const todayStr = new Date(Date.now() + WIB_OFFSET).toISOString().slice(0, 10)
 
+  const { data: checkedInToday } = await db
+    .from('attendance_records')
+    .select('student_id')
+    .eq('date', todayStr)
+    .neq('status', 'absent')
+
+  const checkedInIds = (checkedInToday ?? []).map((a: any) => a.student_id as string)
+
   const [{ data: students }, { data: recentLogs }] = await Promise.all([
-    db.from('students')
-      .select('id, name, classroom_id, classrooms!students_classroom_id_fkey(name)')
-      .eq('status', 'student')
-      .order('name'),
+    checkedInIds.length > 0
+      ? db.from('students')
+          .select('id, name, classroom_id, classrooms!students_classroom_id_fkey(name)')
+          .in('id', checkedInIds)
+          .order('name')
+      : Promise.resolve({ data: [] }),
 
     db.from('behavior_logs')
       .select('id, date, type, severity, description, students!behavior_logs_student_id_fkey(name)')
