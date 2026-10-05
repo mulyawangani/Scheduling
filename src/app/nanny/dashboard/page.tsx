@@ -39,6 +39,7 @@ export default async function NannyDashboardPage() {
   const stats = [
     { label: 'Students Checked In', value: `${checkedInCount}/${totalStudents}`, color: '#16ABE3', href: '/nanny/checked-in' },
     { label: 'Absent', value: absentCount, color: '#EF4444', href: '/nanny/absent' },
+    { label: 'Enrollment', value: (allStudents ?? []).length, color: '#8B5CF6', href: '/nanny/check-in' },
     { label: 'Behavior Logs Today', value: logCount, color: '#E0930B', href: '/nanny/behavior-log' },
     { label: 'Classrooms', value: classroomList.length, color: '#2FA56F', href: '/nanny/check-in' },
   ]
@@ -88,7 +89,7 @@ export default async function NannyDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 28 }}>
         {stats.map(s => (
           <Link key={s.label} href={s.href} style={{ textDecoration: 'none' }}>
-            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer">
+            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer" style={{ height: '100%' }}>
               <div style={{ fontSize: typeof s.value === 'string' ? 26 : 32, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 13, color: '#6B7280', marginTop: 5 }}>{s.label}</div>
             </div>
