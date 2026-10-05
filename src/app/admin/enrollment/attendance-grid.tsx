@@ -20,6 +20,7 @@ const STATUS_CYCLE: Record<string, 'present' | 'absent' | 'late' | 'excused'> = 
 interface AttendanceDay {
   date: string   // YYYY-MM-DD
   status: string | null
+  temperature: number | null   // °C keyed in by the nanny at check-in
 }
 
 interface Student {
@@ -76,7 +77,8 @@ export function AttendanceGrid({
         <tbody>
           {students.map((student, i) => {
             const dayMap: Record<string, string | null> = {}
-            student.days.forEach(d => { dayMap[d.date] = d.status })
+            const tempMap: Record<string, number | null> = {}
+            student.days.forEach(d => { dayMap[d.date] = d.status; tempMap[d.date] = d.temperature })
 
             // Count this month attendance
             const presentCount = student.days.filter(d => d.status === 'present').length
@@ -115,6 +117,7 @@ export function AttendanceGrid({
                 </td>
                 {daysInMonth.map(d => {
                   const status = dayMap[d.date] ?? null
+                  const temperature = status === 'present' ? (tempMap[d.date] ?? null) : null
                   const isFuture = d.date > today
                   const isToday = d.date === today
 
@@ -126,15 +129,21 @@ export function AttendanceGrid({
                         <button
                           disabled={isFuture || pending}
                           onClick={() => toggle(student.id, d.date, status)}
-                          title={status ?? 'Not marked'}
-                          className={`w-5 h-5 rounded-full mx-auto flex items-center justify-center transition-all ${
-                            isFuture ? 'cursor-default' : 'hover:scale-110 cursor-pointer'
-                          } ${isToday ? 'ring-2 ring-offset-1 ring-orange-300' : ''}`}
+                          title={temperature !== null ? `Present · ${temperature}°C` : (status ?? 'Not marked')}
+                          className={`h-5 rounded-full mx-auto flex items-center justify-center transition-all ${
+                            temperature !== null ? 'min-w-[20px] px-1' : 'w-5'
+                          } ${isFuture ? 'cursor-default' : 'hover:scale-110 cursor-pointer'} ${
+                            isToday ? 'ring-2 ring-offset-1 ring-orange-300' : ''
+                          }`}
                           style={{
                             background: status ? STATUS_COLOR[status] : isFuture ? 'transparent' : '#E5E7EB',
                           }}
                         >
-                          {status === 'present' && <span className="text-white text-[9px] font-bold">✓</span>}
+                          {status === 'present' && (
+                            <span className="text-white text-[9px] font-bold tabular-nums">
+                              {temperature !== null ? temperature.toFixed(1) : '✓'}
+                            </span>
+                          )}
                           {status === 'absent'  && <span className="text-white text-[9px] font-bold">✗</span>}
                           {status === 'late'    && <span className="text-white text-[9px] font-bold">L</span>}
                           {status === 'excused' && <span className="text-white text-[9px] font-bold">E</span>}
@@ -149,7 +158,7 @@ export function AttendanceGrid({
         </tbody>
       </table>
       <div className="flex items-center gap-4 px-4 py-3 border-t border-gray-50 text-[10px] text-gray-400">
-        <span>Click a cell to toggle.</span>
+        <span>Click a cell to toggle. A number is the temperature (°C) the nanny recorded at check-in.</span>
         {Object.entries(STATUS_COLOR).map(([s, c]) => (
           <span key={s} className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full inline-block" style={{ background: c }} />

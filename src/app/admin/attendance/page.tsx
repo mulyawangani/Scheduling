@@ -74,16 +74,21 @@ export default async function AttendancePage({
   const { data: attendance } = studentIds.length > 0
     ? await db
         .from('attendance_records')
-        .select('student_id, date, status')
+        .select('student_id, date, status, temperature')
         .in('student_id', studentIds)
         .gte('date', monthStart)
         .lte('date', monthEnd)
     : { data: [] }
 
   const attendanceByStudent: Record<string, Record<string, string>> = {}
+  const temperatureByStudent: Record<string, Record<string, number>> = {}
   for (const rec of attendance ?? []) {
     if (!attendanceByStudent[rec.student_id]) attendanceByStudent[rec.student_id] = {}
     attendanceByStudent[rec.student_id][rec.date] = rec.status
+    if (rec.temperature != null) {
+      if (!temperatureByStudent[rec.student_id]) temperatureByStudent[rec.student_id] = {}
+      temperatureByStudent[rec.student_id][rec.date] = Number(rec.temperature)
+    }
   }
 
   const students = thisMonth.map((e: any) => {
@@ -99,6 +104,7 @@ export default async function AttendancePage({
       days: daysInMonth.map(d => ({
         date: d.date,
         status: attendanceByStudent[e.student_id]?.[d.date] ?? null,
+        temperature: temperatureByStudent[e.student_id]?.[d.date] ?? null,
       })),
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name))
