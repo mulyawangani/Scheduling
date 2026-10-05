@@ -4,10 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import type { StudentStatus } from '@/lib/supabase/types'
 
-const SCHOOL_HOURS_WEEKDAYS = [1, 2, 3, 4, 5]
-const SCHOOL_HOURS_START = '08:00:00'
-const SCHOOL_HOURS_END = '12:00:00'
-
 export async function createStudent(formData: FormData) {
   const supabase = await createClient()
 
