@@ -16,14 +16,11 @@ export default async function NannyDashboardPage() {
   const greetingHour = nowWIB.getUTCHours()
   const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 18 ? 'Good afternoon' : 'Good evening'
 
-  const monthStart = `${nowWIB.getUTCFullYear()}-${String(nowWIB.getUTCMonth() + 1).padStart(2, '0')}-01`
-
-  const [{ data: checkedIn }, { data: logsToday }, { data: classrooms }, { data: allStudents }, { data: enrolled }] = await Promise.all([
+  const [{ data: checkedIn }, { data: logsToday }, { data: classrooms }, { data: allStudents }] = await Promise.all([
     db.from('attendance_records').select('id').eq('date', todayStr).eq('status', 'present'),
     db.from('behavior_logs').select('id').eq('date', todayStr),
     db.from('classrooms').select('id, name, age_group').eq('active', true).order('name'),
-    db.from('students').select('classroom_id').eq('status', 'student').not('classroom_id', 'is', null),
-    db.from('enrollments').select('id').eq('month', monthStart).eq('status', 'active'),
+    db.from('students').select('id, classroom_id').eq('status', 'student'),
   ])
 
   const countByClassroom = new Map<string, number>()
@@ -32,7 +29,7 @@ export default async function NannyDashboardPage() {
   }
 
   const checkedInCount = (checkedIn ?? []).length
-  const totalStudents = (enrolled ?? []).length || (allStudents ?? []).length
+  const totalStudents = (allStudents ?? []).length
   const logCount = (logsToday ?? []).length
   const classroomList = (classrooms ?? []) as Array<{ id: string; name: string; age_group: string | null }>
 
