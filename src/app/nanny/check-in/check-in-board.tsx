@@ -43,6 +43,7 @@ function StudentRow({ student }: { student: Student }) {
   const [showInputs, setShowInputs] = useState(false)
   const [temp, setTemp] = useState('')
   const [note, setNote] = useState('')
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const att = student.attendance
   const isIn = att?.status === 'present'
@@ -54,7 +55,11 @@ function StudentRow({ student }: { student: Student }) {
   function handleCheckIn() {
     if (showInputs) {
       const t = parseFloat(temp)
-      startTransition(() => checkInStudent(student.id, isNaN(t) ? null : t, note || null))
+      setActionError(null)
+      startTransition(async () => {
+        const result = await checkInStudent(student.id, isNaN(t) ? null : t, note || null)
+        if (result?.error) setActionError(result.error)
+      })
       setShowInputs(false)
       setTemp('')
       setNote('')
@@ -64,7 +69,11 @@ function StudentRow({ student }: { student: Student }) {
   }
 
   function handleSkip() {
-    startTransition(() => checkInStudent(student.id, null, null))
+    setActionError(null)
+    startTransition(async () => {
+      const result = await checkInStudent(student.id, null, null)
+      if (result?.error) setActionError(result.error)
+    })
     setShowInputs(false)
   }
 
@@ -112,7 +121,13 @@ function StudentRow({ student }: { student: Student }) {
                 {pending ? '…' : showInputs ? 'Confirm' : 'Check In'}
               </button>
               <button
-                onClick={() => startTransition(() => markAbsent(student.id))}
+                onClick={() => {
+                  setActionError(null)
+                  startTransition(async () => {
+                    const result = await markAbsent(student.id)
+                    if (result?.error) setActionError(result.error)
+                  })
+                }}
                 disabled={pending}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
                 style={{ background: '#FEE2E2', color: '#DC2626' }}
@@ -123,7 +138,13 @@ function StudentRow({ student }: { student: Student }) {
           )}
           {isIn && !isOut && (
             <button
-              onClick={() => startTransition(() => checkOutStudent(student.id))}
+              onClick={() => {
+                setActionError(null)
+                startTransition(async () => {
+                  const result = await checkOutStudent(student.id)
+                  if (result?.error) setActionError(result.error)
+                })
+              }}
               disabled={pending}
               className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
               style={{ background: '#FEF3C7', color: '#D97706' }}
@@ -172,6 +193,11 @@ function StudentRow({ student }: { student: Student }) {
       {att?.physical_note && (
         <p className="mt-1 text-xs text-amber-600" style={{ paddingLeft: 48 }}>
           📋 {att.physical_note}
+        </p>
+      )}
+      {actionError && (
+        <p className="mt-1 text-xs text-red-500" style={{ paddingLeft: 48 }}>
+          ⚠️ {actionError}
         </p>
       )}
     </div>
