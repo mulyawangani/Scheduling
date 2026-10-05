@@ -76,8 +76,8 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <Link href="/admin/children" className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-4">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <Link href="/admin/children" className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0"
                 style={{ background: '#3B82F618', color: '#3B82F6' }}
@@ -88,13 +88,12 @@ export default async function AdminDashboard() {
                 <div className="text-2xl font-bold text-gray-900">{totalChildren}</div>
                 <div className="text-xs font-medium text-gray-500">Children</div>
               </div>
-            </div>
+            </Link>
             <div className="grid grid-cols-5 gap-2">
               {statusBreakdown.map((s) => (
                 <Link
                   key={s.label}
                   href={`/admin/children?status=${s.param}`}
-                  onClick={(e) => e.stopPropagation()}
                   className="rounded-xl p-2.5 text-center hover:opacity-80 transition-opacity"
                   style={{ background: s.bg }}
                 >
@@ -103,7 +102,7 @@ export default async function AdminDashboard() {
                 </Link>
               ))}
             </div>
-          </Link>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             {sideStats.map((s) => (
