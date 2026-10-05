@@ -68,7 +68,7 @@ export default async function CheckedInPage() {
         </div>
       ) : (
         <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-          {rows.map((r, i) => (
+          {rows.map((r: typeof rows[0], i: number) => (
             <div
               key={r.studentId}
               className="px-5 py-4"
