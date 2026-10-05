@@ -18,7 +18,7 @@ export default async function NannyDashboardPage() {
 
   const [{ data: checkedIn }, { data: absentToday }, { data: logsToday }, { data: classrooms }, { data: allStudents }] = await Promise.all([
     db.from('attendance_records').select('id').eq('date', todayStr).eq('status', 'present'),
-    db.from('attendance_records').select('id').eq('date', todayStr).eq('status', 'absent'),
+    db.from('attendance_records').select('student_id').eq('date', todayStr).eq('status', 'absent'),
     db.from('behavior_logs').select('id').eq('date', todayStr),
     db.from('classrooms').select('id, name, age_group').eq('active', true).order('name'),
     db.from('students').select('id, classroom_id').eq('status', 'student'),
@@ -30,8 +30,8 @@ export default async function NannyDashboardPage() {
   }
 
   const checkedInCount = (checkedIn ?? []).length
-  const absentCount = (absentToday ?? []).length
-  const totalStudents = (allStudents ?? []).length - absentCount
+  const absentIds = new Set((absentToday ?? []).map((a: { student_id: string }) => a.student_id))
+  const totalStudents = (allStudents ?? []).filter((s: { id: string }) => !absentIds.has(s.id)).length
   const logCount = (logsToday ?? []).length
   const classroomList = (classrooms ?? []) as Array<{ id: string; name: string; age_group: string | null }>
 
