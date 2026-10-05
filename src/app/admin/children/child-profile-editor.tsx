@@ -98,6 +98,7 @@ export function ChildProfileEditor({
             className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
           >
             <option value="">None</option>
+            <option value="trial">Trial</option>
             <option value="student">Student</option>
             <option value="non_student">Non-student</option>
             <option value="inactive">Inactive</option>

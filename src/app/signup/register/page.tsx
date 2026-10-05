@@ -154,7 +154,7 @@ export default function RegisterPage() {
         phone_home: child.phoneHome || null,
         previous_school: child.previousSchool || null,
         school_id: child.schoolId || null,
-        status: null,
+        status: 'trial' as const,
       })
       .select('id')
       .single()
