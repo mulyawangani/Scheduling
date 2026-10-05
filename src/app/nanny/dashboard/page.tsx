@@ -33,7 +33,7 @@ export default async function NannyDashboardPage() {
   const classroomList = (classrooms ?? []) as Array<{ id: string; name: string; age_group: string | null }>
 
   const stats = [
-    { label: 'Students Checked In', value: checkedInCount, color: '#16ABE3', href: '/nanny/check-in' },
+    { label: 'Students Checked In', value: checkedInCount, color: '#16ABE3', href: '/nanny/checked-in' },
     { label: 'Behavior Logs Today', value: logCount, color: '#E0930B', href: '/nanny/behavior-log' },
     { label: 'Classrooms', value: classroomList.length, color: '#2FA56F', href: '/nanny/check-in' },
   ]
