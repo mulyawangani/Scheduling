@@ -16,8 +16,9 @@ export default async function NannyDashboardPage() {
   const greetingHour = nowWIB.getUTCHours()
   const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 18 ? 'Good afternoon' : 'Good evening'
 
-  const [{ data: checkedIn }, { data: logsToday }, { data: classrooms }, { data: allStudents }] = await Promise.all([
+  const [{ data: checkedIn }, { data: absentToday }, { data: logsToday }, { data: classrooms }, { data: allStudents }] = await Promise.all([
     db.from('attendance_records').select('id').eq('date', todayStr).eq('status', 'present'),
+    db.from('attendance_records').select('id').eq('date', todayStr).eq('status', 'absent'),
     db.from('behavior_logs').select('id').eq('date', todayStr),
     db.from('classrooms').select('id, name, age_group').eq('active', true).order('name'),
     db.from('students').select('id, classroom_id').eq('status', 'student'),
@@ -29,7 +30,8 @@ export default async function NannyDashboardPage() {
   }
 
   const checkedInCount = (checkedIn ?? []).length
-  const totalStudents = (allStudents ?? []).length
+  const absentCount = (absentToday ?? []).length
+  const totalStudents = (allStudents ?? []).length - absentCount
   const logCount = (logsToday ?? []).length
   const classroomList = (classrooms ?? []) as Array<{ id: string; name: string; age_group: string | null }>
 
