@@ -82,7 +82,7 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
     return { error: 'Weekly target sessions must be 1, 2, or 3.' }
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('students')
     .update({
       name,
@@ -94,8 +94,10 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
       school_id: schoolId,
     })
     .eq('id', studentId)
+    .select('id')
 
   if (error) return { error: 'Could not update profile.' }
+  if (!updated || updated.length === 0) return { error: 'Not saved: your account is not allowed to edit this child.' }
 
   if (status === 'student') {
     await supabase.from('student_availability').delete().eq('student_id', studentId)
@@ -133,9 +135,10 @@ export async function createChild(formData: FormData) {
 export async function deleteChild(studentId: string) {
   const supabase = await createClient()
 
-  const { error } = await supabase.from('students').delete().eq('id', studentId)
+  const { data: deleted, error } = await supabase.from('students').delete().eq('id', studentId).select('id')
 
   if (error) return { error: 'Could not delete child.' }
+  if (!deleted || deleted.length === 0) return { error: 'Not deleted: your account is not allowed to delete this child.' }
 
   revalidatePath('/admin/children')
   return { error: null }
