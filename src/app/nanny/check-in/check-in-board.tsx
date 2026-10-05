@@ -1,7 +1,7 @@
 'use client'
 
 import { useTransition, useState } from 'react'
-import { checkInStudent, checkOutStudent, markAbsent } from './actions'
+import { checkInStudent, checkOutStudent, markAbsent, undoAttendance } from './actions'
 
 const PALETTE = ['#2FA56F', '#3B82F6', '#E0567E', '#8B6CE6', '#E0930B', '#14B8A6', '#F59E0B', '#EF4444']
 function studentColor(name: string) {
@@ -75,6 +75,14 @@ function StudentRow({ student }: { student: Student }) {
       if (result?.error) setActionError(result.error)
     })
     setShowInputs(false)
+  }
+
+  function handleUndo() {
+    setActionError(null)
+    startTransition(async () => {
+      const result = await undoAttendance(student.id)
+      if (result?.error) setActionError(result.error)
+    })
   }
 
   return (
@@ -157,6 +165,16 @@ function StudentRow({ student }: { student: Student }) {
           )}
           {isOut && (
             <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-lg">Done</span>
+          )}
+          {(isIn || isAbsent) && (
+            <button
+              onClick={handleUndo}
+              disabled={pending}
+              title={isOut ? 'Undo check-out' : isIn ? 'Undo check-in (removes temperature and note)' : 'Undo absent'}
+              className="text-xs text-gray-400 hover:text-gray-600 underline whitespace-nowrap disabled:opacity-50"
+            >
+              Undo
+            </button>
           )}
         </div>
       </div>
