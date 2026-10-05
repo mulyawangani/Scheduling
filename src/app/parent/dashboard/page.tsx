@@ -124,10 +124,6 @@ export default async function DashboardPage() {
     }
   }
 
-  // Current month for stats
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-
   return (
     <div className="flex flex-col gap-4 p-4 pb-8">
 
@@ -173,10 +169,6 @@ export default async function DashboardPage() {
 
         const childSessions = sessions.filter(s => s.student_id === child.id)
         const upcoming = childSessions.filter(s => s.status === 'pending' || s.status === 'accepted')
-        const completed = childSessions.filter(s => s.status === 'completed')
-
-        // Completed this month via session_date mapping — approximate using created_at for now
-        const completedThisMonth = completed.length // simplified; therapy_notes date filter on progress page
 
         // Next session to show
         const nextSession = upcoming[0] ?? null
