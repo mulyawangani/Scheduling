@@ -13,11 +13,11 @@ export default async function NannyCheckInPage() {
 
   const todayStr = new Date(Date.now() + WIB_OFFSET).toISOString().slice(0, 10)
 
-  const [{ data: classrooms }, { data: students }, { data: todayAttendance }] = await Promise.all([
+  const [{ data: classrooms }, { data: students }, { data: todayAttendance, error: attendanceError }] = await Promise.all([
     db.from('classrooms').select('id, name, age_group').eq('active', true).order('name'),
     db.from('students').select('id, name, classroom_id').eq('status', 'student').order('name'),
     db.from('attendance_records')
-      .select('student_id, status, check_in_at, check_out_at, temperature, physical_note')
+      .select('student_id, status, check_in_at, check_out_at, temperature, physical_note, absence_reason')
       .eq('date', todayStr),
   ])
 
@@ -46,6 +46,7 @@ export default async function NannyCheckInPage() {
           check_out_at: att.check_out_at ?? null,
           temperature: att.temperature ?? null,
           physical_note: att.physical_note ?? null,
+          absence_reason: att.absence_reason ?? null,
         } : null,
       }
     }),
@@ -60,6 +61,13 @@ export default async function NannyCheckInPage() {
           Today&apos;s arrival status · {new Date(todayStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
       </div>
+      {attendanceError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Couldn&apos;t load today&apos;s attendance: {attendanceError.message}
+          {/absence_reason/.test(attendanceError.message) &&
+            ' Run supabase/add_absence_reason.sql in the Supabase SQL editor.'}
+        </div>
+      )}
       <CheckInBoard classrooms={serialized} />
     </div>
   )

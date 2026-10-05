@@ -17,12 +17,41 @@ function fmtTime(utcStr: string): string {
   return `${String(wib.getUTCHours()).padStart(2, '0')}:${String(wib.getUTCMinutes()).padStart(2, '0')}`
 }
 
+const ABSENCE_REASONS = [
+  { value: 'sick', label: 'Sick' },
+  { value: 'vacation', label: 'Vacation' },
+] as const
+type AbsenceReason = (typeof ABSENCE_REASONS)[number]['value']
+
+function reasonLabel(reason: string | null): string | null {
+  return ABSENCE_REASONS.find(r => r.value === reason)?.label ?? null
+}
+
+function ReasonButtons({ onPick, disabled }: { onPick: (reason: AbsenceReason) => void; disabled: boolean }) {
+  return (
+    <>
+      {ABSENCE_REASONS.map(r => (
+        <button
+          key={r.value}
+          onClick={() => onPick(r.value)}
+          disabled={disabled}
+          className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
+          style={{ background: '#FEE2E2', color: '#DC2626' }}
+        >
+          {r.label}
+        </button>
+      ))}
+    </>
+  )
+}
+
 type AttendanceRecord = {
   status: string
   check_in_at: string | null
   check_out_at: string | null
   temperature: number | null
   physical_note: string | null
+  absence_reason: string | null
 }
 
 type Student = {
@@ -41,6 +70,7 @@ type Classroom = {
 function StudentRow({ student }: { student: Student }) {
   const [pending, startTransition] = useTransition()
   const [showInputs, setShowInputs] = useState(false)
+  const [showReasons, setShowReasons] = useState(false)
   const [temp, setTemp] = useState('')
   const [note, setNote] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
@@ -65,7 +95,17 @@ function StudentRow({ student }: { student: Student }) {
       setNote('')
     } else {
       setShowInputs(true)
+      setShowReasons(false)
     }
+  }
+
+  function handleAbsent(reason: AbsenceReason) {
+    setActionError(null)
+    startTransition(async () => {
+      const result = await markAbsent(student.id, reason)
+      if (result?.error) setActionError(result.error)
+    })
+    setShowReasons(false)
   }
 
   function handleSkip() {
@@ -130,11 +170,8 @@ function StudentRow({ student }: { student: Student }) {
               </button>
               <button
                 onClick={() => {
-                  setActionError(null)
-                  startTransition(async () => {
-                    const result = await markAbsent(student.id)
-                    if (result?.error) setActionError(result.error)
-                  })
+                  setShowReasons(v => !v)
+                  setShowInputs(false)
                 }}
                 disabled={pending}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-50"
@@ -161,7 +198,9 @@ function StudentRow({ student }: { student: Student }) {
             </button>
           )}
           {isAbsent && (
-            <span className="text-xs text-red-400 bg-red-50 px-3 py-1 rounded-lg">Absent</span>
+            <span className="text-xs text-red-400 bg-red-50 px-3 py-1 rounded-lg">
+              Absent{att?.absence_reason ? ` · ${reasonLabel(att.absence_reason)}` : ''}
+            </span>
           )}
           {isOut && (
             <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-lg">Done</span>
@@ -205,6 +244,28 @@ function StudentRow({ student }: { student: Student }) {
           >
             Skip
           </button>
+        </div>
+      )}
+
+      {/* Pick why a child is absent */}
+      {showReasons && !isIn && !isAbsent && (
+        <div className="mt-2 flex flex-wrap items-center gap-2" style={{ paddingLeft: 48 }}>
+          <span className="text-xs text-gray-500">Why is {student.name.split(' ')[0]} absent?</span>
+          <ReasonButtons onPick={handleAbsent} disabled={pending} />
+          <button
+            onClick={() => setShowReasons(false)}
+            className="text-xs text-gray-400 hover:text-gray-600 underline whitespace-nowrap"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Already absent but no reason recorded yet */}
+      {isAbsent && !att?.absence_reason && (
+        <div className="mt-2 flex flex-wrap items-center gap-2" style={{ paddingLeft: 48 }}>
+          <span className="text-xs text-amber-600">Pick a reason:</span>
+          <ReasonButtons onPick={handleAbsent} disabled={pending} />
         </div>
       )}
 

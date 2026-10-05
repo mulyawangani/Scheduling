@@ -62,8 +62,12 @@ export async function checkOutStudent(studentId: string): Promise<{ error?: stri
   return {}
 }
 
-export async function markAbsent(studentId: string): Promise<{ error?: string }> {
+export async function markAbsent(
+  studentId: string,
+  reason: 'sick' | 'vacation',
+): Promise<{ error?: string }> {
   const { user } = await requireNanny()
+  if (reason !== 'sick' && reason !== 'vacation') return { error: 'Pick Sick or Vacation.' }
   const supabase = await db()
   const today = todayWIB()
 
@@ -72,6 +76,7 @@ export async function markAbsent(studentId: string): Promise<{ error?: string }>
       student_id: studentId,
       date: today,
       status: 'absent',
+      absence_reason: reason,
       recorded_by: user.id,
     },
     { onConflict: 'student_id,date', ignoreDuplicates: false }
