@@ -169,6 +169,7 @@ export default async function DashboardPage() {
 
         const childSessions = sessions.filter(s => s.student_id === child.id)
         const upcoming = childSessions.filter(s => s.status === 'pending' || s.status === 'accepted')
+        const completed = childSessions.filter(s => s.status === 'completed')
 
         // Next session to show
         const nextSession = upcoming[0] ?? null

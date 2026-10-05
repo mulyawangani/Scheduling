@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import type { SubProtocol } from '@/lib/supabase/types'
+import type { SubProtocol, StudentStatus } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'
 import { ChildCard } from './child-card'
 import { NewChildForm } from './new-child-form'
@@ -29,7 +29,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
   if (statusFilter === 'none') {
     studentsQuery = studentsQuery.is('status', null)
   } else if (statusFilter && STATUS_LABELS[statusFilter]) {
-    studentsQuery = studentsQuery.eq('status', statusFilter)
+    studentsQuery = studentsQuery.eq('status', statusFilter as StudentStatus)
   }
 
   const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }, { data: schools }] = await Promise.all([
