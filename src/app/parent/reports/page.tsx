@@ -144,12 +144,11 @@ export default function ReportsPage() {
   function toggle(key: SectionKey) {
     setOpen(prev => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) { next.delete(key) } else { next.add(key) }
       return next
     })
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!selectedChild) return
     setLoadingTherapy(true)

@@ -91,7 +91,6 @@ export default function ProgressPage() {
   const [notes, setNotes] = useState<TherapyNote[]>([])
   const [loading, setLoading] = useState(false)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!selectedChild) return
     setLoading(true)
