@@ -605,7 +605,7 @@ export default function ChildrenPage() {
           <span className="text-sm flex-1" style={{ color: therapy ? '#1F2937' : '#D1D5DB' }}>{therapy ?? 'Not provided'}</span>
           <span className="text-[10px] text-gray-300 font-medium shrink-0">Admin only</span>
         </div>
-        <div className="flex items-start py-2.5 border-b border-gray-50 gap-3">
+        <div className="flex items-start py-2.5 border-b border-gray-50 last:border-0 gap-3">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 w-28 shrink-0 mt-0.5">Weekly Target</span>
           <span className="text-sm flex-1" style={{ color: profile.weekly_target_sessions ? '#1F2937' : '#D1D5DB' }}>
             {profile.weekly_target_sessions
@@ -614,35 +614,6 @@ export default function ChildrenPage() {
           </span>
           <span className="text-[10px] text-gray-300 font-medium shrink-0">Admin only</span>
         </div>
-        {profile.status === 'inactive' ? (
-          <div className="pt-1 text-center">
-            <p className="text-xs text-gray-400 font-medium py-2">
-              ⚫ This child is currently inactive
-            </p>
-            {deactivatedAt && (
-              <p className="text-xs text-orange-500 font-semibold">✓ Set to inactive</p>
-            )}
-          </div>
-        ) : (
-          <div className="pt-1">
-            <button
-              onClick={setInactive}
-              disabled={deactivating}
-              className="w-full py-2.5 rounded-full text-sm font-semibold"
-              style={{
-                background: '#FFF7ED',
-                color: deactivating ? '#9CA3AF' : '#D97706',
-                border: '2px solid #FCD34D',
-                opacity: deactivating ? 0.7 : 1,
-              }}
-            >
-              {deactivating ? 'Updating…' : '⏸ Set as Inactive'}
-            </button>
-            {deactivatedAt && (
-              <p className="text-xs text-green-600 font-semibold mt-2 text-center">✓ Set to inactive</p>
-            )}
-          </div>
-        )}
       </Section>
 
       {/* ── Extracurricular Activities ── */}
@@ -723,23 +694,54 @@ export default function ChildrenPage() {
         <div className="px-4 pt-3 pb-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-red-400">Danger Zone</p>
         </div>
-        <div className="px-4 pb-4">
-          <button
-            onClick={deleteChild}
-            disabled={deleting}
-            className="w-full py-2.5 rounded-full text-sm font-semibold"
-            style={{
-              background: '#FEF2F2',
-              color: deleting ? '#9CA3AF' : '#DC2626',
-              border: '2px solid #FECACA',
-              opacity: deleting ? 0.7 : 1,
-            }}
-          >
-            {deleting ? 'Deleting…' : '🗑 Delete Child Profile'}
-          </button>
-          <p className="text-[10px] text-gray-400 text-center mt-2">
-            Permanently removes this child&apos;s record. Cannot be undone.
-          </p>
+        <div className="px-4 pb-4 flex flex-col gap-4">
+          {profile.status === 'inactive' ? (
+            <div className="text-center">
+              <p className="text-xs text-gray-400 font-medium py-2">
+                ⚫ This child is currently inactive
+              </p>
+              {deactivatedAt && (
+                <p className="text-xs text-orange-500 font-semibold">✓ Set to inactive</p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <button
+                onClick={setInactive}
+                disabled={deactivating}
+                className="w-full py-2.5 rounded-full text-sm font-semibold"
+                style={{
+                  background: '#FFF7ED',
+                  color: deactivating ? '#9CA3AF' : '#D97706',
+                  border: '2px solid #FCD34D',
+                  opacity: deactivating ? 0.7 : 1,
+                }}
+              >
+                {deactivating ? 'Updating…' : '⏸ Set as Inactive'}
+              </button>
+              {deactivatedAt && (
+                <p className="text-xs text-green-600 font-semibold mt-2 text-center">✓ Set to inactive</p>
+              )}
+            </div>
+          )}
+          <div>
+            <button
+              onClick={deleteChild}
+              disabled={deleting}
+              className="w-full py-2.5 rounded-full text-sm font-semibold"
+              style={{
+                background: '#FEF2F2',
+                color: deleting ? '#9CA3AF' : '#DC2626',
+                border: '2px solid #FECACA',
+                opacity: deleting ? 0.7 : 1,
+              }}
+            >
+              {deleting ? 'Deleting…' : '🗑 Delete Child Profile'}
+            </button>
+            <p className="text-[10px] text-gray-400 text-center mt-2">
+              Permanently removes this child&apos;s record. Cannot be undone.
+            </p>
+          </div>
         </div>
       </div>
     </div>
