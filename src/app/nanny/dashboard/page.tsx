@@ -20,7 +20,7 @@ export default async function NannyDashboardPage() {
     db.from('attendance_records').select('id').eq('date', todayStr).eq('status', 'present'),
     db.from('behavior_logs').select('id').eq('date', todayStr),
     db.from('classrooms').select('id, name, age_group').eq('active', true).order('name'),
-    db.from('students').select('classroom_id').eq('status', 'student').not('classroom_id', 'is', null),
+    db.from('students').select('id, classroom_id').eq('status', 'student').not('classroom_id', 'is', null),
   ])
 
   const countByClassroom = new Map<string, number>()
@@ -29,11 +29,12 @@ export default async function NannyDashboardPage() {
   }
 
   const checkedInCount = (checkedIn ?? []).length
+  const totalStudents = (allStudents ?? []).length
   const logCount = (logsToday ?? []).length
   const classroomList = (classrooms ?? []) as Array<{ id: string; name: string; age_group: string | null }>
 
   const stats = [
-    { label: 'Students Checked In', value: checkedInCount, color: '#16ABE3', href: '/nanny/checked-in' },
+    { label: 'Students Checked In', value: `${checkedInCount}/${totalStudents}`, color: '#16ABE3', href: '/nanny/checked-in' },
     { label: 'Behavior Logs Today', value: logCount, color: '#E0930B', href: '/nanny/behavior-log' },
     { label: 'Classrooms', value: classroomList.length, color: '#2FA56F', href: '/nanny/check-in' },
   ]
@@ -84,7 +85,7 @@ export default async function NannyDashboardPage() {
         {stats.map(s => (
           <Link key={s.label} href={s.href} style={{ textDecoration: 'none' }}>
             <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer">
-              <div style={{ fontSize: 32, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: typeof s.value === 'string' ? 26 : 32, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 13, color: '#6B7280', marginTop: 5 }}>{s.label}</div>
             </div>
           </Link>
