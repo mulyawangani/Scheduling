@@ -7,6 +7,13 @@ import { NewClassroomForm } from './new-classroom-form'
 
 export const dynamic = 'force-dynamic'
 
+const STATUS_TAG: Record<string, string> = {
+  trial: 'Trial',
+  non_student: 'Non-student',
+  inactive: 'Inactive',
+  none: 'No status',
+}
+
 export default async function ClassroomsPage() {
   await requireAdminOrOwner()
   const supabase = await createClient()
@@ -26,13 +33,18 @@ export default async function ClassroomsPage() {
   const classrooms: any[] = classroomsResult.data ?? []
   const teachers: { id: string; name: string }[] = teachersResult.data ?? []
 
-  const studentCounts: Record<string, number> = {}
+  const studentsByClassroom: Record<string, { id: string; name: string; status: string | null }[]> = {}
   if (classrooms.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ids = classrooms.map((c: any) => c.id)
-    const { data: students } = await db.from('students').select('classroom_id').in('classroom_id', ids)
+    const { data: students } = await db
+      .from('students')
+      .select('id, name, status, classroom_id')
+      .in('classroom_id', ids)
+      .order('name')
     for (const s of students ?? []) {
-      studentCounts[s.classroom_id] = (studentCounts[s.classroom_id] ?? 0) + 1
+      if (!studentsByClassroom[s.classroom_id]) studentsByClassroom[s.classroom_id] = []
+      studentsByClassroom[s.classroom_id].push(s)
     }
   }
 
@@ -52,9 +64,10 @@ export default async function ClassroomsPage() {
           {classrooms.map((c: any) => {
             const primaryName = Array.isArray(c.primary_teacher) ? c.primary_teacher[0]?.name : c.primary_teacher?.name
             const secondaryName = Array.isArray(c.secondary_teacher) ? c.secondary_teacher[0]?.name : c.secondary_teacher?.name
-            const count = studentCounts[c.id] ?? 0
+            const roster = studentsByClassroom[c.id] ?? []
+            const count = roster.length
             return (
-              <li key={c.id} className="flex items-center justify-between px-4 py-3 gap-3">
+              <li key={c.id} className="flex items-start justify-between px-4 py-3 gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-gray-900">{c.name}</span>
@@ -75,10 +88,25 @@ export default async function ClassroomsPage() {
                     {' · '}
                     <span className="font-medium text-gray-500">{count} student{count !== 1 ? 's' : ''}</span>
                   </div>
+                  {roster.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {roster.map(s => (
+                        <span
+                          key={s.id}
+                          className="inline-flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 px-2.5 py-0.5 text-xs text-gray-700"
+                        >
+                          {s.name}
+                          {s.status !== 'student' && (
+                            <span className="text-[10px] text-gray-400">· {STATUS_TAG[s.status ?? 'none']}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <Link
                   href={`/admin/classrooms/${c.id}`}
-                  className="text-xs font-semibold text-orange-500 hover:text-orange-600 flex-shrink-0"
+                  className="mt-0.5 text-xs font-semibold text-orange-500 hover:text-orange-600 flex-shrink-0"
                 >
                   Manage →
                 </Link>
