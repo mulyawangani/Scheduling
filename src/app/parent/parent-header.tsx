@@ -5,7 +5,7 @@ import { useParentContext } from './parent-context'
 import { logout } from '@/lib/auth/logout'
 
 export function ParentHeader() {
-  const { kids, selectedChild, setSelectedId } = useParentContext()
+  const { kids, selectedChild, setSelectedId, parentName } = useParentContext()
   const [open, setOpen] = useState(false)
 
   const displayName = selectedChild?.nickname ?? selectedChild?.name ?? null
@@ -74,15 +74,20 @@ export function ParentHeader() {
         )}
       </div>
 
-      {/* Logout — right */}
-      <form action={logout} className="flex-shrink-0">
-        <button
-          type="submit"
-          className="text-xs font-semibold text-white opacity-80 hover:opacity-100 transition-opacity"
-        >
-          Log out
-        </button>
-      </form>
+      {/* Name + Logout — right */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {parentName && (
+          <span className="text-xs font-medium text-orange-100 hidden sm:block">{parentName}</span>
+        )}
+        <form action={logout}>
+          <button
+            type="submit"
+            className="text-xs font-semibold text-white opacity-80 hover:opacity-100 transition-opacity"
+          >
+            Log out
+          </button>
+        </form>
+      </div>
     </header>
   )
 }

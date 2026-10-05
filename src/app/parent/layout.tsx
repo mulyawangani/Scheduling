@@ -27,7 +27,7 @@ export default async function ParentLayout({ children }: { children: React.React
   }))
 
   return (
-    <ParentProvider kids={kids}>
+    <ParentProvider kids={kids} parentName={result.profile.name}>
       <div className="flex flex-col min-h-screen bg-gray-50">
         <ParentHeader />
         <main className="flex-1 overflow-y-auto" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>

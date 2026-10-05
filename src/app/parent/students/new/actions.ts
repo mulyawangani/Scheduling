@@ -54,19 +54,7 @@ export async function createStudent(formData: FormData) {
     }
   }
 
-  if (status === 'student') {
-    const { error: availabilityError } = await supabase.from('student_availability').insert(
-      SCHOOL_HOURS_WEEKDAYS.map((day_of_week) => ({
-        student_id: student.id,
-        day_of_week,
-        start_time: SCHOOL_HOURS_START,
-        end_time: SCHOOL_HOURS_END,
-      }))
-    )
-    if (availabilityError) {
-      return { error: 'Student created, but could not set school-hours availability.' }
-    }
-  } else if (((day !== null && day !== '') || specificDate) && startTime && endTime) {
+  if (((day !== null && day !== '') || specificDate) && startTime && endTime) {
     const hasDay = day !== null && day !== ''
     const { error: availabilityError } = await supabase.from('student_availability').insert({
       student_id: student.id,

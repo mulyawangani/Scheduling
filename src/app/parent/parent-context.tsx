@@ -14,6 +14,7 @@ type ParentCtx = {
   selectedId: string | null
   selectedChild: ChildInfo | null
   setSelectedId: (id: string) => void
+  parentName: string
 }
 
 const ParentContext = createContext<ParentCtx>({
@@ -21,14 +22,17 @@ const ParentContext = createContext<ParentCtx>({
   selectedId: null,
   selectedChild: null,
   setSelectedId: () => {},
+  parentName: '',
 })
 
 export function ParentProvider({
   children,
   kids,
+  parentName,
 }: {
   children: ReactNode
   kids: ChildInfo[]
+  parentName: string
 }) {
   const [selectedId, setSelectedIdState] = useState<string | null>(() => {
     if (typeof window === 'undefined') return kids[0]?.id ?? null
@@ -47,7 +51,7 @@ export function ParentProvider({
   const selectedChild = kids.find(k => k.id === selectedId) ?? kids[0] ?? null
 
   return (
-    <ParentContext.Provider value={{ kids, selectedId, selectedChild, setSelectedId }}>
+    <ParentContext.Provider value={{ kids, selectedId, selectedChild, setSelectedId, parentName }}>
       {children}
     </ParentContext.Provider>
   )

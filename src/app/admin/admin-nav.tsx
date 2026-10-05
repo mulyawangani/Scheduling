@@ -32,7 +32,7 @@ const ADMIN_LINKS = [
   { href: '/admin/schedule', label: 'Calendar', exact: false },
 ]
 
-export function AdminNav({ role }: { role: string }) {
+export function AdminNav({ role, name }: { role: string; name: string }) {
   const pathname = usePathname()
   const links = role === 'owner' ? OWNER_LINKS : ADMIN_LINKS
 
@@ -60,7 +60,8 @@ export function AdminNav({ role }: { role: string }) {
           </Link>
         )
       })}
-      <div className="ml-auto flex-shrink-0">
+      <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+        <span className="text-xs text-gray-400 hidden sm:block">{name}</span>
         <LogoutButton />
       </div>
     </nav>
