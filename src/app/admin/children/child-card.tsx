@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { Protocol, StudentStatus, SubProtocol } from '@/lib/supabase/types'
+import type { StudentStatus } from '@/lib/supabase/types'
 import { priorityLabel } from '@/lib/priority'
 import { ChildProfileEditor, computeAge } from './child-profile-editor'
-import { NeedsEditor, type SelectedNeed } from './needs-editor'
 
 export function ChildCard({
   studentId,
@@ -19,11 +18,7 @@ export function ChildCard({
   status,
   weeklyTargetSessions,
   schools,
-  protocols,
-  subProtocolsByProtocol,
-  selectedNeeds,
   autoExpand = false,
-  needsSubProtocolReview = false,
 }: {
   studentId: string
   name: string
@@ -37,11 +32,7 @@ export function ChildCard({
   status: StudentStatus | null
   weeklyTargetSessions: number
   schools: { id: string; name: string }[]
-  protocols: Protocol[]
-  subProtocolsByProtocol: Record<string, SubProtocol[]>
-  selectedNeeds: SelectedNeed[]
   autoExpand?: boolean
-  needsSubProtocolReview?: boolean
 }) {
   const [expanded, setExpanded] = useState(autoExpand)
   const liRef = useRef<HTMLLIElement>(null)
@@ -56,14 +47,7 @@ export function ChildCard({
     <li ref={liRef} className={`flex flex-col gap-3 p-3 ${autoExpand ? 'bg-blue-50' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-medium">
-            {name}
-            {needsSubProtocolReview && (
-              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                ⚠ Needs sub-protocol review
-              </span>
-            )}
-          </p>
+          <p className="font-medium">{name}</p>
           <p className="text-sm text-gray-500">Parent: {parentName}</p>
           <p className="text-xs text-gray-400">
             School: {schoolName ?? '—'} · Location: {therapyLocationName ?? '—'}
@@ -79,7 +63,7 @@ export function ChildCard({
                   : status === 'inactive'
                     ? 'Inactive'
                     : 'No status'}{' '}
-              · {selectedNeeds.length} protocol{selectedNeeds.length === 1 ? '' : 's'} needed · {weeklyTargetSessions}/week target
+              · {weeklyTargetSessions}/week target
             </p>
           )}
         </div>
@@ -92,37 +76,18 @@ export function ChildCard({
       </div>
 
       {expanded && (
-        <>
-          <ChildProfileEditor
-            studentId={studentId}
-            name={name}
-            dateOfBirth={dateOfBirth}
-            ratePerSession={ratePerSession}
-            priority={priority}
-            status={status}
-            weeklyTargetSessions={weeklyTargetSessions}
-            schoolId={schoolId}
-            schools={schools}
-            onSaved={() => setExpanded(false)}
-          />
-
-          <div>
-            <p className="mb-1 text-xs font-medium text-gray-500">Protocols needed</p>
-            {needsSubProtocolReview && (
-              <p className="mb-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
-                This child has a Reflex Repatterning need on file, but which specific sub-protocols isn&apos;t
-                recorded — none of the checkboxes below reflect it yet. Please check the correct sub-protocols for
-                this child below.
-              </p>
-            )}
-            <NeedsEditor
-              studentId={studentId}
-              protocols={protocols}
-              subProtocolsByProtocol={subProtocolsByProtocol}
-              selectedNeeds={selectedNeeds}
-            />
-          </div>
-        </>
+        <ChildProfileEditor
+          studentId={studentId}
+          name={name}
+          dateOfBirth={dateOfBirth}
+          ratePerSession={ratePerSession}
+          priority={priority}
+          status={status}
+          weeklyTargetSessions={weeklyTargetSessions}
+          schoolId={schoolId}
+          schools={schools}
+          onSaved={() => setExpanded(false)}
+        />
       )}
     </li>
   )

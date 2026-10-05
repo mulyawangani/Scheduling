@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import type { SubProtocol, StudentStatus } from '@/lib/supabase/types'
+import type { StudentStatus } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'
 import { ChildCard } from './child-card'
 import { NewChildForm } from './new-child-form'
@@ -22,7 +22,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
   let studentsQuery = supabase
     .from('students')
     .select(
-      'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
+      'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name)'
     )
     .order('name')
 
@@ -32,18 +32,11 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
     studentsQuery = studentsQuery.eq('status', statusFilter as StudentStatus)
   }
 
-  const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }, { data: schools }] = await Promise.all([
+  const [{ data: students }, { data: parents }, { data: schools }] = await Promise.all([
     studentsQuery,
-    supabase.from('protocols').select('*').eq('is_active', true).order('title'),
-    supabase.from('sub_protocols').select('*').eq('is_active', true).order('title'),
     supabase.from('profiles').select('id, name').eq('role', 'parent').order('name'),
     supabase.from('schools').select('id, name').order('name'),
   ])
-
-  const subProtocolsByProtocol: Record<string, SubProtocol[]> = {}
-  for (const sp of subProtocols ?? []) {
-    ;(subProtocolsByProtocol[sp.protocol_id] ??= []).push(sp)
-  }
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -70,15 +63,6 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
             const therapyLocationName = Array.isArray(student.therapy_locations)
               ? student.therapy_locations[0]?.name
               : student.therapy_locations?.name
-            // A protocol-level row (sub_protocol_id null) for a protocol that
-            // actually has sub-protocols means the specific sub-protocol was
-            // never recorded (or, for the 2026-08-27 data-loss incident, was
-            // lost and reconstructed at the protocol level only) — flag it so
-            // it doesn't sit unnoticed next to the deliberately-general rows
-            // for protocols with no sub-protocols at all.
-            const needsSubProtocolReview = student.student_protocols.some(
-              (s) => s.sub_protocol_id === null && (subProtocolsByProtocol[s.protocol_id]?.length ?? 0) > 0
-            )
             return (
               <ChildCard
                 key={student.id}
@@ -94,14 +78,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                 status={student.status}
                 weeklyTargetSessions={student.weekly_target_sessions}
                 schools={schools ?? []}
-                protocols={protocols ?? []}
-                subProtocolsByProtocol={subProtocolsByProtocol}
-                selectedNeeds={student.student_protocols.map((s) => ({
-                  protocolId: s.protocol_id,
-                  subProtocolId: s.sub_protocol_id,
-                }))}
                 autoExpand={student.id === highlightStudentId}
-                needsSubProtocolReview={needsSubProtocolReview}
               />
             )
           })}
