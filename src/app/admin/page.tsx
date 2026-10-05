@@ -60,6 +60,7 @@ export default async function AdminDashboard() {
       { label: 'Attendance', href: '/admin/attendance', color: '#14B8A6' },
       { label: 'Billing', href: '/admin/billing', color: '#8B5CF6' },
       { label: 'Manage Classrooms', href: '/admin/classrooms', color: '#8B5CF6' },
+      { label: 'Extracurricular Activities', href: '/admin/extracurricular', color: '#06B6D4' },
       { label: 'Announcements', href: '/admin/announcements', color: '#F59030' },
       { label: 'Scheduling', href: '/admin/suggestions', color: '#EC4899' },
       { label: 'Manage Students', href: '/admin/children', color: '#3B82F6' },
