@@ -28,16 +28,31 @@ export default async function AdminDashboard() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = supabase as any
     const [{ data: students }, { data: teachers }, { data: classrooms }, { data: announcements }] = await Promise.all([
-      supabase.from('students').select('id, status').neq('status', 'inactive'),
+      supabase.from('students').select('id, status'),
       supabase.from('profiles').select('id').eq('role', 'teacher'),
       db.from('classrooms').select('id, name, active').eq('active', true),
       db.from('announcements').select('id, title, status, created_at').eq('status', 'PUBLISHED').order('created_at', { ascending: false }).limit(5),
     ])
 
-    const stats = [
-      { label: 'Active Students', value: students?.length ?? 0, href: '/admin/children', color: '#3B82F6' },
+    const totalChildren = students?.length ?? 0
+    const statusCounts = {
+      none:        students?.filter(s => s.status === null).length ?? 0,
+      trial:       students?.filter(s => s.status === 'trial').length ?? 0,
+      student:     students?.filter(s => s.status === 'student').length ?? 0,
+      non_student: students?.filter(s => s.status === 'non_student').length ?? 0,
+      inactive:    students?.filter(s => s.status === 'inactive').length ?? 0,
+    }
+    const statusBreakdown = [
+      { label: 'None',        count: statusCounts.none,        color: '#9CA3AF', bg: '#F3F4F6' },
+      { label: 'Trial',       count: statusCounts.trial,       color: '#6366F1', bg: '#EEF2FF' },
+      { label: 'Student',     count: statusCounts.student,     color: '#10B981', bg: '#ECFDF5' },
+      { label: 'Non-student', count: statusCounts.non_student, color: '#F59030', bg: '#FFF7ED' },
+      { label: 'Inactive',    count: statusCounts.inactive,    color: '#EF4444', bg: '#FEF2F2' },
+    ]
+
+    const sideStats = [
       { label: 'Classrooms', value: classrooms?.length ?? 0, href: '/admin/classrooms', color: '#8B5CF6' },
-      { label: 'Teachers', value: teachers?.length ?? 0, href: '/admin/teachers', color: '#F59030' },
+      { label: 'Teachers',   value: teachers?.length ?? 0,   href: '/admin/teachers',   color: '#F59030' },
     ]
 
     const quickActions = [
@@ -60,19 +75,44 @@ export default async function AdminDashboard() {
           <p className="text-sm text-gray-500 mt-1">School admin dashboard</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          {stats.map((s) => (
-            <Link key={s.label} href={s.href} className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex flex-col gap-4">
+          <Link href="/admin/children" className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-4">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 text-lg font-bold"
-                style={{ background: `${s.color}18`, color: s.color }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0"
+                style={{ background: '#3B82F618', color: '#3B82F6' }}
               >
-                {s.value}
+                {totalChildren}
               </div>
-              <div className="text-2xl font-bold text-gray-900">{s.value}</div>
-              <div className="text-xs font-medium text-gray-500 mt-1">{s.label}</div>
-            </Link>
-          ))}
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{totalChildren}</div>
+                <div className="text-xs font-medium text-gray-500">Children</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {statusBreakdown.map((s) => (
+                <div key={s.label} className="rounded-xl p-2.5 text-center" style={{ background: s.bg }}>
+                  <div className="text-base font-bold" style={{ color: s.color }}>{s.count}</div>
+                  <div className="text-[10px] font-medium mt-0.5 leading-tight" style={{ color: s.color }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </Link>
+
+          <div className="grid grid-cols-2 gap-4">
+            {sideStats.map((s) => (
+              <Link key={s.label} href={s.href} className="block rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 text-lg font-bold"
+                  style={{ background: `${s.color}18`, color: s.color }}
+                >
+                  {s.value}
+                </div>
+                <div className="text-2xl font-bold text-gray-900">{s.value}</div>
+                <div className="text-xs font-medium text-gray-500 mt-1">{s.label}</div>
+              </Link>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-6">

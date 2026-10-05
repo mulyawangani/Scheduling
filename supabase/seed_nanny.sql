@@ -43,11 +43,16 @@ BEGIN
 
   -- 4. Classrooms (skip if already exist for this school)
   IF NOT EXISTS (SELECT 1 FROM classrooms WHERE school_id = v_school_id AND active = true) THEN
-    INSERT INTO classrooms (school_id, name, age_group, active)
+    INSERT INTO classrooms (school_id, name, active)
     VALUES
-      (v_school_id, 'Sunflower Room', 'Ages 3–4', true),
-      (v_school_id, 'Butterfly Room', 'Ages 4–5', true),
-      (v_school_id, 'Rainbow Room',   'Ages 5–6', true);
+      (v_school_id, 'Confidence',           true),
+      (v_school_id, 'Confidence extension', true),
+      (v_school_id, 'Growth',               true),
+      (v_school_id, 'Growth extension',     true),
+      (v_school_id, 'Integrity',            true),
+      (v_school_id, 'Kindness',             true),
+      (v_school_id, 'Resilience',           true),
+      (v_school_id, 'Resilience extension', true);
   END IF;
 
   -- 5. Assign students evenly across classrooms (only unassigned students)
