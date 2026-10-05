@@ -55,6 +55,25 @@ export default async function EnrollmentPage({
 
   const thisMonth = activeEnrollments.filter((e: any) => e.month === monthStart)
 
+  // Extracurricular sign-ups are standing (not per month): show each enrolled child's current ones.
+  const enrolledIds = thisMonth.map((e: any) => e.student_id)
+  const { data: signups, error: signupsError } = enrolledIds.length > 0
+    ? await db
+        .from('student_extracurriculars')
+        .select('student_id, extracurricular_activities(name)')
+        .in('student_id', enrolledIds)
+    : { data: [], error: null }
+
+  const activitiesByStudent: Record<string, string[]> = {}
+  for (const row of signups ?? []) {
+    const activity = Array.isArray(row.extracurricular_activities)
+      ? row.extracurricular_activities[0]
+      : row.extracurricular_activities
+    if (!activity?.name) continue
+    if (!activitiesByStudent[row.student_id]) activitiesByStudent[row.student_id] = []
+    activitiesByStudent[row.student_id].push(activity.name)
+  }
+
   const students = thisMonth.map((e: any) => {
     const s = Array.isArray(e.students) ? e.students[0] : e.students
     const classroom = s?.classrooms
@@ -66,6 +85,7 @@ export default async function EnrollmentPage({
       classroom,
       months: (allMonthsByStudent[e.student_id] ?? []).sort(),
       weeklyTarget: s?.weekly_target_sessions ?? null,
+      activities: (activitiesByStudent[e.student_id] ?? []).sort((a: string, b: string) => a.localeCompare(b)),
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name))
 
@@ -92,7 +112,7 @@ export default async function EnrollmentPage({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="text-2xl font-bold text-gray-900">{students.length}</div>
           <div className="text-xs font-medium text-gray-500 mt-1">Enrolled this month</div>
@@ -112,6 +132,15 @@ export default async function EnrollmentPage({
           </div>
           <div className="text-xs font-medium text-gray-500 mt-1">Pre-enrolled next month</div>
         </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="text-2xl font-bold text-gray-900">
+            {signupsError ? '—' : students.reduce((sum: number, s: any) => sum + s.activities.length, 0)}
+          </div>
+          <div className="text-xs font-medium text-gray-500 mt-1">Extracurricular sign-ups</div>
+          {signupsError && (
+            <div className="mt-1 text-[10px] text-red-500">Couldn&apos;t load: {signupsError.message}</div>
+          )}
+        </div>
       </div>
 
       {/* Roster */}
@@ -130,6 +159,19 @@ export default async function EnrollmentPage({
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 text-sm">{s.name}</div>
                   {s.classroom && <div className="text-xs text-gray-400">{s.classroom}</div>}
+                  {s.activities.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {s.activities.map((a: string) => (
+                        <span
+                          key={a}
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{ background: '#ECFEFF', color: '#0E7490' }}
+                        >
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-shrink-0 w-20 text-center">
                   {s.weeklyTarget != null ? (

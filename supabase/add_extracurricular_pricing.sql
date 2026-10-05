@@ -35,3 +35,11 @@ CREATE POLICY "extracurricular_activities staff manage" ON extracurricular_activ
   FOR ALL TO authenticated
   USING (has_role('owner') OR has_role('admin'))
   WITH CHECK (has_role('owner') OR has_role('admin'));
+
+-- 3. Let owner/admin read every sign-up (the Enrollment page lists them per child).
+--    Read-only and additive: parents' existing access to their own children's rows
+--    is not touched, and row level security on this table is left as it is.
+DROP POLICY IF EXISTS "student_extracurriculars staff read" ON student_extracurriculars;
+CREATE POLICY "student_extracurriculars staff read" ON student_extracurriculars
+  FOR SELECT TO authenticated
+  USING (has_role('owner') OR has_role('admin'));
