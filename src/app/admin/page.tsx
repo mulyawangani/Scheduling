@@ -43,11 +43,11 @@ export default async function AdminDashboard() {
       inactive:    students?.filter(s => s.status === 'inactive').length ?? 0,
     }
     const statusBreakdown = [
-      { label: 'None',        count: statusCounts.none,        color: '#9CA3AF', bg: '#F3F4F6' },
-      { label: 'Trial',       count: statusCounts.trial,       color: '#6366F1', bg: '#EEF2FF' },
-      { label: 'Student',     count: statusCounts.student,     color: '#10B981', bg: '#ECFDF5' },
-      { label: 'Non-student', count: statusCounts.non_student, color: '#F59030', bg: '#FFF7ED' },
-      { label: 'Inactive',    count: statusCounts.inactive,    color: '#EF4444', bg: '#FEF2F2' },
+      { label: 'None',        count: statusCounts.none,        color: '#9CA3AF', bg: '#F3F4F6', param: 'none' },
+      { label: 'Trial',       count: statusCounts.trial,       color: '#6366F1', bg: '#EEF2FF', param: 'trial' },
+      { label: 'Student',     count: statusCounts.student,     color: '#10B981', bg: '#ECFDF5', param: 'student' },
+      { label: 'Non-student', count: statusCounts.non_student, color: '#F59030', bg: '#FFF7ED', param: 'non_student' },
+      { label: 'Inactive',    count: statusCounts.inactive,    color: '#EF4444', bg: '#FEF2F2', param: 'inactive' },
     ]
 
     const sideStats = [
@@ -91,10 +91,16 @@ export default async function AdminDashboard() {
             </div>
             <div className="grid grid-cols-5 gap-2">
               {statusBreakdown.map((s) => (
-                <div key={s.label} className="rounded-xl p-2.5 text-center" style={{ background: s.bg }}>
+                <Link
+                  key={s.label}
+                  href={`/admin/children?status=${s.param}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded-xl p-2.5 text-center hover:opacity-80 transition-opacity"
+                  style={{ background: s.bg }}
+                >
                   <div className="text-base font-bold" style={{ color: s.color }}>{s.count}</div>
                   <div className="text-[10px] font-medium mt-0.5 leading-tight" style={{ color: s.color }}>{s.label}</div>
-                </div>
+                </Link>
               ))}
             </div>
           </Link>

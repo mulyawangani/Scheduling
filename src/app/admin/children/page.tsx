@@ -5,18 +5,34 @@ import { ChildCard } from './child-card'
 import { NewChildForm } from './new-child-form'
 import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
 
-export default async function ChildrenPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
+const STATUS_LABELS: Record<string, string> = {
+  none: 'None',
+  trial: 'Trial',
+  student: 'Student',
+  non_student: 'Non-student',
+  inactive: 'Inactive',
+}
+
+export default async function ChildrenPage({ searchParams }: { searchParams: Promise<{ student?: string; status?: string }> }) {
   await requireAdminOrOwner()
-  const { student: highlightStudentId } = await searchParams
+  const { student: highlightStudentId, status: statusFilter } = await searchParams
   const supabase = await createClient()
 
+  let studentsQuery = supabase
+    .from('students')
+    .select(
+      'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
+    )
+    .order('name')
+
+  if (statusFilter === 'none') {
+    studentsQuery = studentsQuery.is('status', null)
+  } else if (statusFilter && STATUS_LABELS[statusFilter]) {
+    studentsQuery = studentsQuery.eq('status', statusFilter)
+  }
+
   const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }, { data: schools }] = await Promise.all([
-    supabase
-      .from('students')
-      .select(
-        'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
-      )
-      .order('name'),
+    studentsQuery,
     supabase.from('protocols').select('*').eq('is_active', true).order('title'),
     supabase.from('sub_protocols').select('*').eq('is_active', true).order('title'),
     supabase.from('profiles').select('id, name').eq('role', 'parent').order('name'),
@@ -31,7 +47,15 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
   return (
     <main className="mx-auto max-w-2xl p-6">
       <BackLink href="/admin" label="Dashboard" />
-      <h1 className="mb-6 text-xl font-semibold">Children</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-xl font-semibold">Children</h1>
+        {statusFilter && STATUS_LABELS[statusFilter] && (
+          <span className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+            {STATUS_LABELS[statusFilter]}
+            <Link href="/admin/children" className="ml-1 text-gray-400 hover:text-gray-700">✕</Link>
+          </span>
+        )}
+      </div>
 
       <NewChildForm parents={parents ?? []} />
 
