@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { SubProtocol } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'

@@ -69,9 +69,6 @@ export default async function EnrollmentPage({
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name))
 
-  // Count how many students are enrolled in future months (for summary)
-  const nextMonthCount = (enrollments ?? []).filter((e: any) => e.month === `${nextMonth}-01` || e.month === `${nextMonth.split('-')[0]}-${nextMonth.split('-')[1]}-01`).length
-
   return (
     <main className="mx-auto max-w-4xl p-6 flex flex-col gap-6">
       <div>

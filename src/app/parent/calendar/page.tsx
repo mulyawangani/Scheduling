@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useParentContext } from '../parent-context'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
-import { dateStringInBusinessTz, formatTimeInBusinessTz, dayOfWeekInBusinessTz } from '@/lib/timezone'
+import { dateStringInBusinessTz, formatTimeInBusinessTz } from '@/lib/timezone'
 
 // ── Layout constants ───────────────────────────────────────────────────────
 
