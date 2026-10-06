@@ -27,6 +27,7 @@ export function BehaviorLogForm({ students, teachers }: { students: Student[]; t
   const [note, setNote]                   = useState('')
   const [saving, setSaving]               = useState(false)
   const [saved, setSaved]                 = useState(false)
+  const [error, setError]                 = useState<string | null>(null)
 
   const types = [...new Set(BEHAVIOR_CATEGORIES.map(c => c.type))]
   const activitiesForType = BEHAVIOR_CATEGORIES.filter(c => c.type === selectedType)
@@ -41,19 +42,29 @@ export function BehaviorLogForm({ students, teachers }: { students: Student[]; t
     e.preventDefault()
     if (!studentId || !selectedType || !selectedActivity) return
     setSaving(true)
-    await addBehaviorLog({
-      studentId,
-      type: selectedType,
-      activity: selectedActivity,
-      subActivity: selectedSub || undefined,
-      otherStudentId: otherStudentId || undefined,
-      otherTeacherId: otherTeacherId || undefined,
-      note: note || undefined,
-    })
-    setSaving(false)
-    setSaved(true)
-    reset()
-    setTimeout(() => setSaved(false), 1500)
+    setError(null)
+    try {
+      const result = await addBehaviorLog({
+        studentId,
+        type: selectedType,
+        activity: selectedActivity,
+        subActivity: selectedSub || undefined,
+        otherStudentId: otherStudentId || undefined,
+        otherTeacherId: otherTeacherId || undefined,
+        note: note || undefined,
+      })
+      if (result?.error) {
+        setError(result.error)
+        return
+      }
+      setSaved(true)
+      reset()
+      setTimeout(() => setSaved(false), 1500)
+    } catch {
+      setError('Something went wrong. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -266,6 +277,12 @@ export function BehaviorLogForm({ students, teachers }: { students: Student[]; t
               style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 12, padding: '8px 12px', fontSize: 13, resize: 'none', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
+
+          {error && (
+            <p style={{ margin: 0, fontSize: 13, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '10px 14px' }}>
+              Couldn&apos;t save: {error}
+            </p>
+          )}
 
           <button
             type="submit"
