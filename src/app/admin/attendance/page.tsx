@@ -71,23 +71,28 @@ export default async function AttendancePage({
   const studentIds = thisMonth.map((e: any) => e.student_id)
   const monthEnd = `${currentMonthStr}-${String(daysInMonth.length).padStart(2, '0')}`
 
-  const { data: attendance } = studentIds.length > 0
+  const { data: attendance, error: attendanceError } = studentIds.length > 0
     ? await db
         .from('attendance_records')
-        .select('student_id, date, status, temperature')
+        .select('student_id, date, status, temperature, absence_reason')
         .in('student_id', studentIds)
         .gte('date', monthStart)
         .lte('date', monthEnd)
-    : { data: [] }
+    : { data: [], error: null }
 
   const attendanceByStudent: Record<string, Record<string, string>> = {}
   const temperatureByStudent: Record<string, Record<string, number>> = {}
+  const reasonByStudent: Record<string, Record<string, string>> = {}
   for (const rec of attendance ?? []) {
     if (!attendanceByStudent[rec.student_id]) attendanceByStudent[rec.student_id] = {}
     attendanceByStudent[rec.student_id][rec.date] = rec.status
     if (rec.temperature != null) {
       if (!temperatureByStudent[rec.student_id]) temperatureByStudent[rec.student_id] = {}
       temperatureByStudent[rec.student_id][rec.date] = Number(rec.temperature)
+    }
+    if (rec.absence_reason) {
+      if (!reasonByStudent[rec.student_id]) reasonByStudent[rec.student_id] = {}
+      reasonByStudent[rec.student_id][rec.date] = rec.absence_reason
     }
   }
 
@@ -105,6 +110,7 @@ export default async function AttendancePage({
         date: d.date,
         status: attendanceByStudent[e.student_id]?.[d.date] ?? null,
         temperature: temperatureByStudent[e.student_id]?.[d.date] ?? null,
+        absenceReason: reasonByStudent[e.student_id]?.[d.date] ?? null,
       })),
     }
   }).sort((a: any, b: any) => a.name.localeCompare(b.name))
@@ -156,6 +162,12 @@ export default async function AttendancePage({
           </div>
         ))}
       </div>
+
+      {attendanceError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Couldn&apos;t load attendance: {attendanceError.message}
+        </div>
+      )}
 
       {/* Grid */}
       {students.length === 0 ? (
