@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
 import { BackLink } from '@/components/back-link'
 import Link from 'next/link'
+import { EnrollPicker, UnenrollButton } from './enroll-controls'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +58,17 @@ export default async function EnrollmentPage({
 
   // Extracurricular sign-ups are standing (not per month): show each enrolled child's current ones.
   const enrolledIds = thisMonth.map((e: any) => e.student_id)
+
+  // Children with status Student who are not enrolled for this month yet
+  const { data: activeStudents, error: candidatesError } = await db
+    .from('students')
+    .select('id, name')
+    .eq('status', 'student')
+    .order('name')
+  const candidates = (activeStudents ?? []).filter(
+    (s: { id: string; name: string }) => !enrolledIds.includes(s.id),
+  )
+
   const { data: signups, error: signupsError } = enrolledIds.length > 0
     ? await db
         .from('student_extracurriculars')
@@ -143,6 +155,13 @@ export default async function EnrollmentPage({
         </div>
       </div>
 
+      <EnrollPicker
+        month={monthStart}
+        monthLabel={monthLabel}
+        candidates={candidates}
+        loadError={candidatesError?.message}
+      />
+
       {/* Roster */}
       {students.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 p-12 text-center text-sm text-gray-400">
@@ -198,6 +217,7 @@ export default async function EnrollmentPage({
                     )
                   })}
                 </div>
+                <UnenrollButton studentId={s.id} name={s.name} month={monthStart} monthLabel={monthLabel} />
               </li>
             ))}
           </ul>
