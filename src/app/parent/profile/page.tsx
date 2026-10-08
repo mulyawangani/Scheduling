@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useParentContext } from '../parent-context'
 
@@ -436,7 +437,10 @@ export default function ProfilePage() {
           />
         </>
       ) : (
-        <p className="text-sm text-gray-400 text-center py-4">Add a child first to manage contacts.</p>
+        <p className="text-sm text-gray-400 text-center py-4">
+          Add a child first to manage contacts.{' '}
+          <Link href="/parent/children/new" className="font-semibold" style={{ color: '#F59030' }}>+ Add child</Link>
+        </p>
       )}
 
       {/* ── Logout ── */}

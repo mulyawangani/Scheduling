@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useParentContext } from '../parent-context'
@@ -399,7 +400,14 @@ export default function ChildrenPage() {
       <div className="p-5 text-center py-16 text-gray-400">
         <p className="text-4xl mb-3">👶</p>
         <p className="font-medium text-gray-600">No children linked</p>
-        <p className="text-sm mt-1">Children will appear here once enrolled.</p>
+        <p className="text-sm mt-1">Add your child to get started.</p>
+        <Link
+          href="/parent/children/new"
+          className="inline-block mt-5 px-6 py-2.5 rounded-full text-sm font-semibold text-white"
+          style={{ background: 'linear-gradient(135deg, #F59030 0%, #DC2870 100%)' }}
+        >
+          + Add child
+        </Link>
       </div>
     )
   }
@@ -417,15 +425,24 @@ export default function ChildrenPage() {
   const therapy = pickName(profile.therapy_locations)
 
   const STATUS_COLOR: Record<string, string> = {
-    student: '#059669', non_student: '#F59030', inactive: '#9CA3AF',
+    student: '#059669', non_student: '#F59030', trial: '#6366F1', inactive: '#9CA3AF',
   }
   const STATUS_LABEL: Record<string, string> = {
-    student: 'Active', non_student: 'Non-student', inactive: 'Inactive',
+    student: 'Active', non_student: 'Non-student', trial: 'Trial', inactive: 'Inactive',
   }
 
   return (
     <div className="p-5 flex flex-col gap-4 pb-8">
-      <h2 className="text-lg font-bold text-gray-800">Children Profiles</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-gray-800">Children Profiles</h2>
+        <Link
+          href="/parent/children/new"
+          className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border-2"
+          style={{ borderColor: '#F59030', color: '#F59030' }}
+        >
+          + Add child
+        </Link>
+      </div>
 
       {/* ── Avatar card ── */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
