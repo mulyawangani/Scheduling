@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation'
 import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
 import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { generateSchedule } from '@/lib/matching/generate-schedule'
+import { buildNoSessionReport } from '@/lib/matching/no-session-report'
+import { NoSessionPanel } from './no-session-panel'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
 
 function percentColor(percent: number | null) {
@@ -171,7 +173,11 @@ export default async function AdminDashboard() {
       supabase.from('student_protocols').select('student_id, protocol_id, students(status)').order('id').range(from, to)
     ),
     getUnmetNeeds(supabase, getUpcomingWeekStart()),
-    supabase.from('session_plans').select('student_id, protocol_id, status').order('created_at', { ascending: false }),
+    // Full history (newest first, id breaks ties so pages are stable) — paged
+    // because a plain query silently stops at 1,000 rows.
+    fetchAllRows((from, to) =>
+      supabase.from('session_plans').select('student_id, protocol_id, status').order('created_at', { ascending: false }).order('id').range(from, to)
+    ),
   ])
 
   const mostRecentStatusByNeed = new Map<string, string>()
@@ -192,10 +198,45 @@ export default async function AdminDashboard() {
   const scheduled = Math.max(0, total - unmet.length)
   const percent = total > 0 ? Math.round((scheduled / total) * 100) : null
 
-  const [{ data: oneOffDates }, { data: versionWeeks }] = await Promise.all([
-    supabase.from('session_plans').select('start_time').eq('recurrence_type', 'one_off').in('status', ['pending', 'accepted', 'completed']),
+  const upcomingWeek = getUpcomingWeekStart()
+  const [{ data: oneOffDates }, { data: versionWeeks }, upcomingSchedule, { data: studentRows }, { data: availabilityRows }] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select('start_time')
+        .eq('recurrence_type', 'one_off')
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+    ),
     supabase.from('schedule_versions').select('week_start_date'),
+    generateSchedule(supabase, upcomingWeek),
+    fetchAllRows((from, to) =>
+      supabase.from('students').select('id, name, status, profiles!students_parent_id_fkey(name)').order('id').range(from, to)
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from('student_availability').select('student_id, day_of_week, specific_date').order('id').range(from, to)
+    ),
   ])
+
+  const availabilityByStudent = new Map<string, { dayOfWeek: number | null; specificDate: string | null }[]>()
+  for (const a of availabilityRows ?? []) {
+    const list = availabilityByStudent.get(a.student_id) ?? []
+    list.push({ dayOfWeek: a.day_of_week, specificDate: a.specific_date })
+    availabilityByStudent.set(a.student_id, list)
+  }
+
+  // Every active child with nothing booked next week, and why — so nobody can
+  // silently go a whole week without a session (or be invisible to scheduling).
+  const noSessionReport = buildNoSessionReport({
+    students: (studentRows ?? []).map((s) => {
+      const parent = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
+      return { id: s.id, name: s.name, status: s.status, parentName: parent?.name ?? null }
+    }),
+    studentIdsWithNeeds: new Set((allNeeds ?? []).map((n) => n.student_id)),
+    availabilityByStudent,
+    schedule: upcomingSchedule,
+  })
 
   const weekSet = new Set<string>()
   for (const row of oneOffDates ?? []) {
@@ -208,7 +249,7 @@ export default async function AdminDashboard() {
 
   const weekBreakdown = await Promise.all(
     weeks.map(async (weekStartDate) => {
-      const weekSchedule = await generateSchedule(supabase, weekStartDate)
+      const weekSchedule = weekStartDate === upcomingWeek ? upcomingSchedule : await generateSchedule(supabase, weekStartDate)
       const weekTotal = weekSchedule.existing.length + weekSchedule.unscheduled.length
       const weekPercent = weekTotal > 0 ? Math.round((weekSchedule.existing.length / weekTotal) * 100) : null
       return { weekStartDate, scheduled: weekSchedule.existing.length, total: weekTotal, percent: weekPercent }
@@ -228,6 +269,8 @@ export default async function AdminDashboard() {
           reopened on Recommendation
         </Link>
       )}
+
+      <NoSessionPanel report={noSessionReport} weekStartDate={upcomingWeek} />
 
       <div className="rounded-lg border border-gray-200 p-6 text-center">
         <h2 className="mb-2 text-sm font-medium text-gray-700">Active schedule</h2>

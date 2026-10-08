@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 import { conflictWindow, type ConflictWindow } from './suggest'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 
 function timeToMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number)
@@ -39,10 +40,16 @@ export async function checkCapacity(
   const newStart = timeToMinutes(proposed.startTime)
   const newEnd = timeToMinutes(proposed.endTime)
 
-  const { data: existing } = await supabase
-    .from('session_plans')
-    .select('recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end')
-    .in('status', ['pending', 'accepted', 'completed'])
+  // Full history, so paged — a silently truncated read here would undercount
+  // concurrent sessions and let a booking slip past the center capacity cap.
+  const { data: existing } = await fetchAllRows((from, to) =>
+    supabase
+      .from('session_plans')
+      .select('recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end')
+      .in('status', ['pending', 'accepted', 'completed'])
+      .order('id')
+      .range(from, to)
+  )
 
   const sameDayWindows = (existing ?? []).flatMap((row) => {
     const w = conflictWindow(row)

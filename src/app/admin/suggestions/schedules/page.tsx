@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { BUSINESS_TIMEZONE, dateStringInBusinessTz, dayOfWeekInBusinessTz, formatTimeInBusinessTz } from '@/lib/timezone'
 import { dateForDayOfWeek } from '@/lib/week'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { SuggestionsNav } from '../suggestions-nav'
 import { SchedulesList, type ScheduleBatchWithSessions } from './schedules-list'
 import type { GridSession } from './actual-sessions-grid'
@@ -15,22 +16,32 @@ export default async function SchedulesPage() {
 
   const [{ data: batches }, { data: sessionRows }, { data: activeSessions }] = await Promise.all([
     supabase.from('schedule_batches').select('*').order('created_at', { ascending: false }),
-    supabase
-      .from('session_plans')
-      .select(
-        'id, schedule_batch_id, recurrence_type, start_time, day_of_week, time_of_day_start, students(name, profiles!students_parent_id_fkey(phone)), profiles!session_plans_teacher_id_fkey(name), protocols(title)'
-      )
-      .not('schedule_batch_id', 'is', null)
-      .in('status', ['pending', 'accepted']),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select(
+          'id, schedule_batch_id, recurrence_type, start_time, day_of_week, time_of_day_start, students(name, profiles!students_parent_id_fkey(phone)), profiles!session_plans_teacher_id_fkey(name), protocols(title)'
+        )
+        .not('schedule_batch_id', 'is', null)
+        .in('status', ['pending', 'accepted'])
+        .order('id')
+        .range(from, to)
+    ),
     // Every real booked session, batch-tagged or not — used to show what's
     // actually on the calendar for a batch's week, since a batch's own
-    // "sessions" count only reflects what's tagged into it.
-    supabase
-      .from('session_plans')
-      .select(
-        'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, status, students(name), profiles!session_plans_teacher_id_fkey(name), protocols(title)'
-      )
-      .in('status', ['pending', 'accepted', 'completed']),
+    // "sessions" count only reflects what's tagged into it. Whole history and
+    // it drives the S-numbering, so it must be paged: a silently truncated
+    // read would renumber every session after the cut.
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select(
+          'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, status, students(name), profiles!session_plans_teacher_id_fkey(name), protocols(title)'
+        )
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+    ),
   ])
 
   const toMinutes = (hhmmss: string) => {

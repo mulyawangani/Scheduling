@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { lookupBillingRate } from '@/lib/billing'
 import { getWeekStart, addWeeks, formatWeekLabel, getUpcomingWeekStart, dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { BackLink } from '@/components/back-link'
 import { CollapsibleSection } from '@/components/collapsible-section'
 import { SuggestionsNav } from '../suggestions-nav'
@@ -28,12 +29,18 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     await Promise.all([
       supabase.from('students').select('id, name, status').order('name'),
       supabase.from('profiles').select('id, name').eq('role', 'teacher').order('name'),
-      supabase.from('billing_rates').select('*'),
-      supabase
-        .from('session_plans')
-        .select(
-          'id, teacher_id, student_id, recurrence_type, start_time, status, students(name), protocols(title), profiles!session_plans_teacher_id_fkey(name)'
-        ),
+      fetchAllRows((from, to) => supabase.from('billing_rates').select('*').order('id').range(from, to)),
+      // Whole history (billing looks back across weeks), so paged — a silent
+      // 1,000-row cut here would quietly drop sessions from what's billed.
+      fetchAllRows((from, to) =>
+        supabase
+          .from('session_plans')
+          .select(
+            'id, teacher_id, student_id, recurrence_type, start_time, status, students(name), protocols(title), profiles!session_plans_teacher_id_fkey(name)'
+          )
+          .order('id')
+          .range(from, to)
+      ),
       supabase.from('session_occurrences').select('session_plan_id').eq('week_start_date', weekStartDate),
     ])
 

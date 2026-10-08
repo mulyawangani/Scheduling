@@ -5,6 +5,7 @@ import { conflictWindow, matchScorePercent, groupTeacherProtocolRows, coverageQu
 import { getRankingContext, rankNeeds, needKey, coverageRatioForRanking, type BestMatchInfo } from './rank-needs'
 import { dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 
 const WEEKDAYS = [1, 2, 3, 4, 5] // Monday–Friday
 const HOURS = Array.from({ length: 9 }, (_, i) => 8 + i) // 8:00 through 16:00 (last block ends 17:00)
@@ -127,25 +128,42 @@ export async function generateSchedule(
     { data: holidayRows },
     { data: allStudentRows },
   ] = await Promise.all([
-    supabase
-      .from('teacher_protocols')
-      .select('teacher_id, protocol_id, sub_protocol_id, rating, profiles!teacher_protocols_teacher_id_fkey(name)'),
+    // The tables below all grow with the number of children/teachers/sessions
+    // and are read whole — a plain query silently stops at 1,000 rows, so
+    // each is paged (see fetch-all.ts).
+    fetchAllRows((from, to) =>
+      supabase
+        .from('teacher_protocols')
+        .select('teacher_id, protocol_id, sub_protocol_id, rating, profiles!teacher_protocols_teacher_id_fkey(name)')
+        .order('id')
+        .range(from, to)
+    ),
     supabase
       .from('teacher_availability')
       .select('teacher_id, day_of_week, start_time, end_time')
       .eq('week_start_date', weekStartDate),
-    supabase
-      .from('session_plans')
-      .select(
-        'id, teacher_id, student_id, protocol_id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, students(name), profiles!session_plans_teacher_id_fkey(name), protocols(title)'
-      )
-      .in('status', ['pending', 'accepted', 'completed']),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select(
+          'id, teacher_id, student_id, protocol_id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, students(name), profiles!session_plans_teacher_id_fkey(name), protocols(title)'
+        )
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+    ),
     supabase.from('capacity_rules').select('*'),
     supabase.from('teacher_concurrency_rules').select('*'),
     supabase.from('profiles').select('id, name, weekly_quota, daily_quota, status, serves_scope').eq('role', 'teacher'),
-    supabase.from('student_availability').select('student_id, day_of_week, specific_date, start_time, end_time'),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('student_availability')
+        .select('student_id, day_of_week, specific_date, start_time, end_time')
+        .order('id')
+        .range(from, to)
+    ),
     supabase.from('holidays').select('date, name, type').gte('date', weekStartDate).lte('date', fridayDate),
-    supabase.from('students').select('id, name, weekly_target_sessions'),
+    fetchAllRows((from, to) => supabase.from('students').select('id, name, weekly_target_sessions').order('id').range(from, to)),
   ])
 
   const teacherStatusById = new Map<string, TeacherStatus | null>((teacherProfileRows ?? []).map((t) => [t.id, t.status]))

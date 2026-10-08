@@ -5,6 +5,7 @@ import { getUnmetNeeds } from './unmet-needs'
 import { getRankingContext, rankNeeds, needKey, coverageRatioForRanking, type BestMatchInfo } from './rank-needs'
 import { groupTeacherProtocolRows, coverageQualificationsFromGroup } from './suggest'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 
 const cancelledDateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
 
@@ -29,18 +30,27 @@ export async function getRankedNeeds(supabase: SupabaseClient<Database>, weekSta
   const [rawNeeds, { rules, studentInfoById }, { data: sessionHistoryRows }, { data: allHistoryRows }] = await Promise.all([
     getUnmetNeeds(supabase, weekStartDate),
     getRankingContext(supabase),
-    supabase
-      .from('session_plans')
-      .select('student_id, protocol_id, recurrence_type, start_time')
-      .in('status', ['pending', 'accepted', 'completed']),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select('student_id, protocol_id, recurrence_type, start_time')
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+    ),
     // Every status, to find the most recent session_plans row per (student,
     // protocol) regardless of outcome — used below to detect "this need is
     // unmet because it was just cancelled or declined," as opposed to never
     // having been scheduled or simply rolling over into a new month.
-    supabase
-      .from('session_plans')
-      .select('id, student_id, protocol_id, teacher_id, status, responded_at, created_at')
-      .order('created_at', { ascending: false }),
+    // Full history, so it's paged; id breaks created_at ties so pages are stable.
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select('id, student_id, protocol_id, teacher_id, status, responded_at, created_at')
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to)
+    ),
   ])
 
   // First row seen per key wins, since allHistoryRows is already newest-first.
@@ -84,10 +94,14 @@ export async function getRankedNeeds(supabase: SupabaseClient<Database>, weekSta
   const protocolIds = Array.from(new Set(rawNeeds.map((n) => n.protocolId)))
   const { data: teacherProtocolRows } =
     protocolIds.length > 0
-      ? await supabase
-          .from('teacher_protocols')
-          .select('teacher_id, protocol_id, sub_protocol_id, rating, profiles!teacher_protocols_teacher_id_fkey(name)')
-          .in('protocol_id', protocolIds)
+      ? await fetchAllRows((from, to) =>
+          supabase
+            .from('teacher_protocols')
+            .select('teacher_id, protocol_id, sub_protocol_id, rating, profiles!teacher_protocols_teacher_id_fkey(name)')
+            .in('protocol_id', protocolIds)
+            .order('id')
+            .range(from, to)
+        )
       : { data: [] }
   const teacherRowsByProtocol = groupTeacherProtocolRows(
     (teacherProtocolRows ?? []).map((row) => ({

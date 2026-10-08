@@ -74,10 +74,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     fetchAllRows((from, to) =>
       supabase.from('student_protocols').select('student_id, protocol_id, protocols(title)').order('id').range(from, to)
     ),
-    supabase
-      .from('session_plans')
-      .select('id, student_id, protocol_id, recurrence_type, start_time, status')
-      .in('status', ['pending', 'accepted', 'completed']),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select('id, student_id, protocol_id, recurrence_type, start_time, status')
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+    ),
     supabase.from('prioritized_needs').select('student_id, protocol_id'),
   ])
   const prioritizedSet = new Set((prioritizedRows ?? []).map((p) => `${p.student_id}:${p.protocol_id}`))

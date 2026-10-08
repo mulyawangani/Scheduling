@@ -89,10 +89,14 @@ export async function getUnmetNeeds(
         .range(from, to)
         .returns<NeedRow[]>()
     ),
-    supabase
-      .from('session_plans')
-      .select('student_id, protocol_id, recurrence_type, start_time')
-      .in('status', ['pending', 'accepted', 'completed']),
+    fetchAllRows((from, to) =>
+      supabase
+        .from('session_plans')
+        .select('student_id, protocol_id, recurrence_type, start_time')
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+    ),
     supabase.from('prioritized_needs').select('student_id, protocol_id'),
   ])
 
@@ -169,11 +173,15 @@ export async function getProtocolOptionsByStudent(
         .range(from, to)
         .returns<{ student_id: string; protocol_id: string; protocols: { title: string } | null }[]>()
     ),
-    supabase
-      .from('session_plans')
-      .select('student_id, protocol_id, recurrence_type, start_time')
-      .in('status', ['pending', 'accepted', 'completed'])
-      .returns<ActivePlanRow[]>(),
+    fetchAllRows<ActivePlanRow>((from, to) =>
+      supabase
+        .from('session_plans')
+        .select('student_id, protocol_id, recurrence_type, start_time')
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+        .returns<ActivePlanRow[]>()
+    ),
   ])
 
   const activeSet = buildActiveProtocolSet(activePlans ?? [], monthPrefix)
