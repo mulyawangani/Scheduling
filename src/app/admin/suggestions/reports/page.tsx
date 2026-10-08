@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { ProtocolStatusList, type ProtocolStatus } from './protocol-status-list'
 import { CancelAllButton } from './cancel-all-button'
 import { SuggestionsNav } from '../suggestions-nav'
@@ -70,7 +71,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   const [{ data: students }, { data: allNeeds }, { data: monthSessionRows }, { data: prioritizedRows }] = await Promise.all([
     supabase.from('students').select('id, name, status').order('name'),
-    supabase.from('student_protocols').select('student_id, protocol_id, protocols(title)'),
+    fetchAllRows((from, to) =>
+      supabase.from('student_protocols').select('student_id, protocol_id, protocols(title)').order('id').range(from, to)
+    ),
     supabase
       .from('session_plans')
       .select('id, student_id, protocol_id, recurrence_type, start_time, status')

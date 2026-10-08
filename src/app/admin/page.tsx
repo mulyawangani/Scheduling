@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { redirect } from 'next/navigation'
 import { getUnmetNeeds } from '@/lib/matching/unmet-needs'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { generateSchedule } from '@/lib/matching/generate-schedule'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
 
@@ -166,7 +167,9 @@ export default async function AdminDashboard() {
 
   // Owner dashboard — scheduling stats
   const [{ data: allNeeds }, unmet, { data: allHistoryRows }] = await Promise.all([
-    supabase.from('student_protocols').select('student_id, protocol_id, students(status)'),
+    fetchAllRows((from, to) =>
+      supabase.from('student_protocols').select('student_id, protocol_id, students(status)').order('id').range(from, to)
+    ),
     getUnmetNeeds(supabase, getUpcomingWeekStart()),
     supabase.from('session_plans').select('student_id, protocol_id, status').order('created_at', { ascending: false }),
   ])

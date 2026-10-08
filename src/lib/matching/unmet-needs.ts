@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { fetchAllRows } from '@/lib/supabase/fetch-all'
 
 export interface UnmetNeed {
   studentId: string
@@ -75,12 +76,19 @@ export async function getUnmetNeeds(
 ): Promise<UnmetNeed[]> {
   const monthPrefix = weekStartDate.slice(0, 7)
   const [{ data: needs }, { data: activePlans }, { data: prioritizedRows }] = await Promise.all([
-    supabase
-      .from('student_protocols')
-      .select(
-        'id, student_id, protocol_id, sub_protocol_id, students(name, status, profiles!students_parent_id_fkey(priority_tier)), protocols(title), sub_protocols(title)'
-      )
-      .returns<NeedRow[]>(),
+    // One row per sub-protocol, so this table outgrows Supabase's silent
+    // 1,000-row query cap well before the child count suggests — a plain
+    // query here quietly hid the newest children from scheduling entirely.
+    fetchAllRows<NeedRow>((from, to) =>
+      supabase
+        .from('student_protocols')
+        .select(
+          'id, student_id, protocol_id, sub_protocol_id, students(name, status, profiles!students_parent_id_fkey(priority_tier)), protocols(title), sub_protocols(title)'
+        )
+        .order('id')
+        .range(from, to)
+        .returns<NeedRow[]>()
+    ),
     supabase
       .from('session_plans')
       .select('student_id, protocol_id, recurrence_type, start_time')
@@ -153,10 +161,14 @@ export async function getProtocolOptionsByStudent(
   })
 
   const [{ data: needs }, { data: activePlans }] = await Promise.all([
-    supabase
-      .from('student_protocols')
-      .select('student_id, protocol_id, protocols(title)')
-      .returns<{ student_id: string; protocol_id: string; protocols: { title: string } | null }[]>(),
+    fetchAllRows<{ student_id: string; protocol_id: string; protocols: { title: string } | null }>((from, to) =>
+      supabase
+        .from('student_protocols')
+        .select('student_id, protocol_id, protocols(title)')
+        .order('id')
+        .range(from, to)
+        .returns<{ student_id: string; protocol_id: string; protocols: { title: string } | null }[]>()
+    ),
     supabase
       .from('session_plans')
       .select('student_id, protocol_id, recurrence_type, start_time')
