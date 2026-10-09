@@ -5,7 +5,7 @@
 --           enrollment, attendance, teacher availability, therapy notes
 --   change  classrooms, and therapy notes (accept or send back)
 -- A Principal cannot see billing, rates, announcements or the audit log, and cannot
--- yet edit a child's profile (that needs a rule that limits which fields she may change).
+-- yet edit a child's profile (that needs a rule that limits which fields the Principal may change).
 --
 -- Safe to re-run: each policy is dropped before it is created.
 

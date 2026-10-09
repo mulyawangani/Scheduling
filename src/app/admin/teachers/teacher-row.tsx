@@ -31,7 +31,7 @@ export function TeacherRow({
   status: TeacherStatus | null
   servesScope: ServesScope | null
   requiresNoteReview: boolean
-  /** May open her detail page. */
+  /** May open the teacher's detail page. */
   canOpen: boolean
   canEdit: boolean
   canRemove: boolean

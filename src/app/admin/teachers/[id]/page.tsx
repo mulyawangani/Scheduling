@@ -18,8 +18,8 @@ export default async function TeacherDetailPage({
   searchParams: Promise<{ week?: string }>
 }) {
   // The weekly schedule is open to everyone who may see a teacher's schedule;
-  // her protocols and ratings, editing them, and clearing her schedule each
-  // have their own rule in the permission table.
+  // the teacher's protocols and ratings, editing them, and clearing the
+  // schedule each have their own rule in the permission table.
   const { role } = await requireCapability('sched.teacherView')
   const showProtocols = can(role, 'people.protocols.view')
   const canEditProtocols = canChange(role, 'people.protocols.edit')
