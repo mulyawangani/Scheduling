@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { BackLink } from '@/components/back-link'
 import Link from 'next/link'
 import { PaymentStatusButton } from './payment-status-button'
@@ -19,7 +19,7 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<{ month?: string; tab?: string; filter?: string }>
 }) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing')
   const { month: monthParam, tab: tabParam, filter } = await searchParams
 
   const today = new Date()

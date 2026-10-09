@@ -5,10 +5,10 @@ import { getRankedNeeds, isReopenedNeed } from '@/lib/matching/ranked-needs'
 import { getUpcomingWeekStart } from '@/lib/week'
 import { RecommendationList } from './recommendation-list'
 import { SuggestionsNav } from '../suggestions-nav'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 export default async function RecommendationPage() {
-  await requireOwner()
+  await requireCapability('sched.needs')
   const supabase = await createClient()
 
   const withCandidates = await getRankedNeeds(supabase, getUpcomingWeekStart())

@@ -2,9 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { authorize } from '@/lib/auth/require-capability'
 
 /** Flags a need to jump the queue on the next Generate Schedule run — cleared automatically once it's booked, or by hand via unprioritizeNeed. */
 export async function prioritizeNeed(studentId: string, protocolId: string) {
+  const auth = await authorize('sched.needs')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase
     .from('prioritized_needs')
@@ -19,6 +22,8 @@ export async function prioritizeNeed(studentId: string, protocolId: string) {
 }
 
 export async function unprioritizeNeed(studentId: string, protocolId: string) {
+  const auth = await authorize('sched.needs')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase
     .from('prioritized_needs')

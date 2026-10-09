@@ -4,6 +4,7 @@ import { getRankedNeeds, isReopenedNeed } from '@/lib/matching/ranked-needs'
 import { getUpcomingWeekStart } from '@/lib/week'
 import { RecommendationList } from '../recommendation/recommendation-list'
 import { SuggestionsNav } from '../suggestions-nav'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 // Both 'owner' and the narrower 'admin' role can reach this page — it's
 // deliberately the one piece of scheduling admin is allowed to touch: fixing
@@ -11,6 +12,7 @@ import { SuggestionsNav } from '../suggestions-nav'
 // not booking new schedules from scratch. See requireOwnerOrReschedulableNeed
 // for the matching enforcement on the Assign page this links to.
 export default async function ReschedulePage() {
+  await requireCapability('sched.reschedule')
   const supabase = await createClient()
   const withCandidates = await getRankedNeeds(supabase, getUpcomingWeekStart())
   const reopened = withCandidates

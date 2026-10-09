@@ -2,8 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { suggestTeachers } from '@/lib/matching/suggest'
 import { BackLink } from '@/components/back-link'
 import { AssignForm } from './assign-form'
-import { requireOwnerOrReschedulableNeed } from '@/lib/auth/require-reschedule-access'
+import { requireManualOrReschedulableNeed } from '@/lib/auth/require-reschedule-access'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
+import { canChange } from '@/lib/auth/permissions'
 
 export default async function SuggestionDetailPage({
   params,
@@ -11,9 +12,9 @@ export default async function SuggestionDetailPage({
   params: Promise<{ studentId: string; protocolId: string }>
 }) {
   const { studentId, protocolId } = await params
-  await requireOwnerOrReschedulableNeed(studentId, protocolId)
+  await requireManualOrReschedulableNeed(studentId, protocolId)
   const result = await getUserProfile()
-  const isAdmin = result?.profile.role === 'admin'
+  const reschedulesOnly = !canChange(result?.profile.role, 'sched.manual')
   const supabase = await createClient()
 
   const [{ data: student }, { data: protocol }, { data: allTeachers }, candidates] = await Promise.all([
@@ -25,7 +26,7 @@ export default async function SuggestionDetailPage({
 
   return (
     <main className="mx-auto max-w-lg p-6">
-      <BackLink href={isAdmin ? '/admin/suggestions/reschedule' : '/admin/suggestions'} label="Scheduling" />
+      <BackLink href={reschedulesOnly ? '/admin/suggestions/reschedule' : '/admin/suggestions'} label="Scheduling" />
       <h1 className="mb-6 text-xl font-semibold">
         {student?.name} — {protocol?.title}
       </h1>
@@ -34,6 +35,7 @@ export default async function SuggestionDetailPage({
         protocolId={protocolId}
         candidates={candidates}
         allTeachers={allTeachers ?? []}
+        backHref={reschedulesOnly ? '/admin/suggestions/reschedule' : '/admin/suggestions'}
       />
     </main>
   )

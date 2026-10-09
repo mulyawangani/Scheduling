@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { SchoolsManager } from './schools-manager'
 
 export default async function SchoolsPage() {
-  await requireOwner()
+  await requireCapability('settings.school')
   const supabase = await createClient()
   const { data: schools } = await supabase.from('schools').select('id, name').order('name')
 

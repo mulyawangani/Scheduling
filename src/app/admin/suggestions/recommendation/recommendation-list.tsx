@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { PRIORITY_LABEL } from '@/lib/priority'
+import { formatRupiah } from '@/lib/money'
 import { prioritizeNeed, unprioritizeNeed } from './actions'
 import type { RankedNeed } from '@/lib/matching/ranked-needs'
 
@@ -137,7 +138,7 @@ export function RecommendationList({ items, showRank = true }: { items: RankedNe
                     <p className="text-xs text-gray-500">{need.subProtocols.map((sp) => sp.name).join(', ')}</p>
                   )}
                   <p className="mt-1 text-xs text-gray-400">
-                    Priority {item.priority ? (PRIORITY_LABEL[item.priority] ?? item.priority) : '—'} · Rate {item.rate ? `$${item.rate}` : '—'}
+                    Priority {item.priority ? (PRIORITY_LABEL[item.priority] ?? item.priority) : '—'} · Rate {item.rate ? formatRupiah(item.rate) : '—'}
                   </p>
                   {item.previousTeacher && (
                     <p className="mt-1 text-xs font-medium text-purple-700">

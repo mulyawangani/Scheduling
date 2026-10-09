@@ -8,6 +8,10 @@ import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { generateSchedule } from '@/lib/matching/generate-schedule'
 import { buildNoSessionReport } from '@/lib/matching/no-session-report'
 import { NoSessionPanel } from './no-session-panel'
+import { NeedsAttention } from './needs-attention'
+import { HomeShortcuts } from './home-shortcuts'
+import { isStaffRole } from '@/lib/auth/permissions'
+import { schedulingHome } from '@/lib/auth/admin-nav-config'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
 
 function percentColor(percent: number | null) {
@@ -22,7 +26,8 @@ export const dynamic = 'force-dynamic'
 export default async function AdminDashboard() {
   const result = await getUserProfile()
   if (!result) redirect('/login')
-  if (result.profile.role !== 'owner' && result.profile.role !== 'admin') redirect('/')
+  const role = result.profile.role
+  if (!isStaffRole(role)) redirect('/')
 
   const supabase = await createClient()
   const firstName = result.profile.name?.split(' ')[0] ?? result.profile.role
@@ -65,7 +70,7 @@ export default async function AdminDashboard() {
       { label: 'Manage Classrooms', href: '/admin/classrooms', color: '#8B5CF6' },
       { label: 'Extracurricular Activities', href: '/admin/extracurricular', color: '#06B6D4' },
       { label: 'Announcements', href: '/admin/announcements', color: '#F59030' },
-      { label: 'Scheduling', href: '/admin/suggestions', color: '#EC4899' },
+      { label: 'Scheduling', href: schedulingHome(role), color: '#EC4899' },
       { label: 'Manage Students', href: '/admin/children', color: '#3B82F6' },
     ]
 
@@ -78,6 +83,8 @@ export default async function AdminDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Welcome, {firstName}</h1>
           <p className="text-sm text-gray-500 mt-1">School admin dashboard</p>
         </div>
+
+        <NeedsAttention role="admin" />
 
         <div className="flex flex-col gap-4">
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -163,6 +170,22 @@ export default async function AdminDashboard() {
             </div>
           </div>
         </div>
+      </main>
+    )
+  }
+
+  if (role === 'principal') {
+    return (
+      <main className="mx-auto max-w-4xl p-6 flex flex-col gap-8">
+        <div>
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Welcome, {firstName}</h1>
+          <p className="text-sm text-gray-500 mt-1">Principal dashboard</p>
+        </div>
+        <NeedsAttention role="principal" />
+        <HomeShortcuts role="principal" />
       </main>
     )
   }
@@ -260,6 +283,8 @@ export default async function AdminDashboard() {
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <h1 className="text-xl font-semibold">Owner dashboard</h1>
 
+      <NeedsAttention role="owner" />
+
       {reopenedCount > 0 && (
         <Link
           href="/admin/suggestions/recommendation"
@@ -300,6 +325,8 @@ export default async function AdminDashboard() {
           </ul>
         </div>
       )}
+
+      <HomeShortcuts role="owner" />
     </main>
   )
 }

@@ -2,9 +2,18 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { authorize } from '@/lib/auth/require-capability'
 import { revalidatePath } from 'next/cache'
 
+// Server actions are web endpoints, so each one checks the caller against the
+// permission table before it does anything. createTeacher and deleteTeacher
+// use the master (service-role) key, which bypasses every database rule, so
+// that check is the only protection they have.
+
 export async function createTeacher(formData: FormData) {
+  const auth = await authorize('people.teacher.add')
+  if (!auth.ok) return { error: auth.error }
+
   const name = String(formData.get('name') || '').trim()
   const email = String(formData.get('email') || '').trim()
   const password = String(formData.get('password') || '')
@@ -46,6 +55,9 @@ export async function createTeacher(formData: FormData) {
 }
 
 export async function updateTeacherProfile(teacherId: string, name: string, status: string, servesScope: string) {
+  const auth = await authorize('people.teacher.edit')
+  if (!auth.ok) return { error: auth.error }
+
   const trimmed = name.trim()
   if (!trimmed) return { error: 'Name is required.' }
   if (status !== 'teacher' && status !== 'therapist') return { error: 'Status must be teacher or therapist.' }
@@ -54,12 +66,15 @@ export async function updateTeacherProfile(teacherId: string, name: string, stat
   }
 
   const supabase = await createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .update({ name: trimmed, status, serves_scope: servesScope === '' ? null : servesScope })
     .eq('id', teacherId)
+    .eq('role', 'teacher')
+    .select('id')
 
   if (error) return { error: 'Could not update teacher.' }
+  if (!data || data.length === 0) return { error: 'Not saved: your account is not allowed to change this teacher.' }
 
   revalidatePath('/admin/teachers')
   return { error: null }
@@ -70,10 +85,19 @@ export async function updateTeacherProfile(teacherId: string, name: string, stat
 // submitTherapyNote) or auto-publish straight to 'accepted'. Doesn't touch
 // any note already written.
 export async function setTeacherNoteReview(teacherId: string, requiresReview: boolean) {
+  const auth = await authorize('people.teacher.noteReview')
+  if (!auth.ok) return { error: auth.error }
+
   const supabase = await createClient()
-  const { error } = await supabase.from('profiles').update({ requires_note_review: requiresReview }).eq('id', teacherId)
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ requires_note_review: requiresReview })
+    .eq('id', teacherId)
+    .eq('role', 'teacher')
+    .select('id')
 
   if (error) return { error: 'Could not update this teacher.' }
+  if (!data || data.length === 0) return { error: 'Not saved: your account is not allowed to change this teacher.' }
 
   revalidatePath('/admin/teachers')
   return { error: null }
@@ -81,9 +105,17 @@ export async function setTeacherNoteReview(teacherId: string, requiresReview: bo
 
 // Deleting the auth user (not just the profiles row) cascades to profiles
 // and every dependent row (availability, protocol assignments, sessions),
-// same as how createTeacher creates the auth user first.
+// same as how createTeacher creates the auth user first. Only teacher
+// accounts can be removed here: the master key would otherwise delete any
+// account (an owner or admin) given its id.
 export async function deleteTeacher(teacherId: string) {
+  const auth = await authorize('people.teacher.remove')
+  if (!auth.ok) return { error: auth.error }
+
   const admin = createAdminClient()
+  const { data: target } = await admin.from('profiles').select('role').eq('id', teacherId).maybeSingle()
+  if (!target || target.role !== 'teacher') return { error: 'Only teacher accounts can be removed here.' }
+
   const { error } = await admin.auth.admin.deleteUser(teacherId)
 
   if (error) return { error: 'Could not delete teacher.' }

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
+import { canChange } from '@/lib/auth/permissions'
 import { BackLink } from '@/components/back-link'
 import Link from 'next/link'
 import { EnrollPicker, UnenrollButton } from './enroll-controls'
@@ -12,7 +13,8 @@ export default async function EnrollmentPage({
 }: {
   searchParams: Promise<{ month?: string }>
 }) {
-  await requireAdminOrOwner()
+  const { role } = await requireCapability('students.enrollment')
+  const mayChange = canChange(role, 'students.enrollment')
   const { month: monthParam } = await searchParams
 
   const today = new Date()
@@ -155,12 +157,14 @@ export default async function EnrollmentPage({
         </div>
       </div>
 
-      <EnrollPicker
-        month={monthStart}
-        monthLabel={monthLabel}
-        candidates={candidates}
-        loadError={candidatesError?.message}
-      />
+      {mayChange && (
+        <EnrollPicker
+          month={monthStart}
+          monthLabel={monthLabel}
+          candidates={candidates}
+          loadError={candidatesError?.message}
+        />
+      )}
 
       {/* Roster */}
       {students.length === 0 ? (
@@ -217,7 +221,7 @@ export default async function EnrollmentPage({
                     )
                   })}
                 </div>
-                <UnenrollButton studentId={s.id} name={s.name} month={monthStart} monthLabel={monthLabel} />
+                {mayChange && <UnenrollButton studentId={s.id} name={s.name} month={monthStart} monthLabel={monthLabel} />}
               </li>
             ))}
           </ul>

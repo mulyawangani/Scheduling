@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { BackLink } from '@/components/back-link'
 import Link from 'next/link'
 
@@ -73,7 +73,7 @@ export default async function SchedulePage({
 }: {
   searchParams: Promise<{ week?: string }>
 }) {
-  await requireAdminOrOwner()
+  await requireCapability('sched.calendar')
   const { week: weekParam } = await searchParams
 
   const nowUTC = new Date()

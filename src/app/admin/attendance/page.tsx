@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
+import { canChange } from '@/lib/auth/permissions'
 import { BackLink } from '@/components/back-link'
 import Link from 'next/link'
 import { AttendanceGrid } from '../enrollment/attendance-grid'
@@ -23,7 +24,7 @@ export default async function AttendancePage({
 }: {
   searchParams: Promise<{ month?: string }>
 }) {
-  await requireAdminOrOwner()
+  const { role } = await requireCapability('ops.attendance.view')
   const { month: monthParam } = await searchParams
 
   const today = new Date()
@@ -180,6 +181,7 @@ export default async function AttendancePage({
           daysInMonth={daysInMonth}
           currentMonth={currentMonthStr}
           today={todayStr}
+          readOnly={!canChange(role, 'ops.attendance.record')}
         />
       )}
     </main>

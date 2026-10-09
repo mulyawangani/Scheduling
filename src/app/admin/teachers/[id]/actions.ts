@@ -2,8 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { authorize } from '@/lib/auth/require-capability'
 
 export async function assignProtocol(teacherId: string, protocolId: string, subProtocolId: string | null, rating: number) {
+  const auth = await authorize('people.protocols.edit')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },
@@ -26,6 +29,8 @@ export async function assignProtocol(teacherId: string, protocolId: string, subP
 }
 
 export async function updateProtocolRating(teacherId: string, assignmentId: string, rating: number) {
+  const auth = await authorize('people.protocols.edit')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const { error } = await supabase
@@ -41,6 +46,8 @@ export async function updateProtocolRating(teacherId: string, assignmentId: stri
 }
 
 export async function unassignProtocol(teacherId: string, assignmentId: string) {
+  const auth = await authorize('people.protocols.edit')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const { error } = await supabase.from('teacher_protocols').delete().eq('id', assignmentId).eq('teacher_id', teacherId)
@@ -55,6 +62,8 @@ export async function unassignProtocol(teacherId: string, assignmentId: string) 
 // her schedule can be regenerated from scratch. Same effect as cancelling
 // each session individually (status -> cancelled), just in bulk.
 export async function clearTeacherSchedule(teacherId: string) {
+  const auth = await authorize('sched.reset')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const { error } = await supabase

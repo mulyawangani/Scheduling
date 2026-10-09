@@ -2,10 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { QuotaRow } from './quota-row'
 import { SuggestionsNav } from '../suggestions-nav'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 export default async function QuotaPage() {
-  await requireOwner()
+  await requireCapability('people.teacher.quota')
   const supabase = await createClient()
 
   const { data: teachers } = await supabase

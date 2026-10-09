@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { NewActivityForm } from './new-activity-form'
 import { ActivityRow } from './activity-row'
 
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 type Activity = { id: string; name: string; is_active: boolean; monthly_price: number | null }
 
 export default async function ExtracurricularPage() {
-  await requireAdminOrOwner()
+  await requireCapability('ops.extracurricular')
   const db = (await createClient()) as any
 
   const { data, error } = await db

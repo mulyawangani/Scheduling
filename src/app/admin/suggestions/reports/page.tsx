@@ -5,6 +5,7 @@ import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { ProtocolStatusList, type ProtocolStatus } from './protocol-status-list'
 import { CancelAllButton } from './cancel-all-button'
 import { SuggestionsNav } from '../suggestions-nav'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
@@ -64,6 +65,7 @@ function CoverageTable({ title, rows }: { title: string; rows: CoverageRow[] }) 
 }
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+  await requireCapability('sched.reports')
   const { month } = await searchParams
   const supabase = await createClient()
 

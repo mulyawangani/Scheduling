@@ -9,6 +9,9 @@ import { computeMatchScore, conflictWindow, findTeachersAtSlot, type TimeSlotCan
 import { checkCapacity, type CapacityCheck } from '@/lib/matching/capacity'
 import { BUSINESS_TIMEZONE, businessLocalToISOString, dateStringInBusinessTz } from '@/lib/timezone'
 import { logAudit } from '@/lib/audit'
+import { authorize, authorizeAny } from '@/lib/auth/require-capability'
+import { canChange } from '@/lib/auth/permissions'
+import { isReschedulableNeed } from '@/lib/auth/require-reschedule-access'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -45,6 +48,20 @@ export async function createSessionPlan(params: AssignParams) {
   } = await supabase.auth.getUser()
 
   if (!user) return { error: 'You must be signed in.' }
+
+  // Booking is the Owner's job (Generate Schedule, Manual Addition). A role that
+  // may only reschedule (Admin today) can book one exception: a need whose last
+  // session was cancelled or declined. Server actions are public endpoints, so
+  // the rule the Assign page enforces is applied again here, where the write happens.
+  const { data: actorProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const actorRole = actorProfile?.role
+  const mayBookAnything = canChange(actorRole, 'sched.generate') || canChange(actorRole, 'sched.manual')
+  if (!mayBookAnything) {
+    if (!canChange(actorRole, 'sched.reschedule')) return { error: 'You do not have permission to book sessions.' }
+    if (!(await isReschedulableNeed(supabase, params.studentId, params.protocolId))) {
+      return { error: 'This need is not waiting to be rescheduled.' }
+    }
+  }
 
   const proposedWindow = conflictWindow({
     recurrence_type: params.recurrenceType,
@@ -100,12 +117,11 @@ export async function createSessionPlan(params: AssignParams) {
   }
   if (error || !plan) return { error: `Could not create session: ${error?.message}` }
 
-  // The admin role only ever reaches this action through the Reschedule
-  // page's one narrow exception (see requireOwnerOrReschedulableNeed) —
-  // worth an explicit, readable audit-log entry beyond the raw owner_id
-  // column, since it's the one place admin can create a real session.
-  const { data: actorProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (actorProfile?.role === 'admin') {
+  // A role without full booking rights only reaches this point through the
+  // Reschedule exception above (see requireManualOrReschedulableNeed) — worth
+  // an explicit, readable audit-log entry beyond the raw owner_id column,
+  // since it's the one place Admin can create a real session.
+  if (!mayBookAnything) {
     const [{ data: studentRow }, { data: protocolRow }, { data: teacherRow }] = await Promise.all([
       supabase.from('students').select('name').eq('id', params.studentId).single(),
       supabase.from('protocols').select('title').eq('id', params.protocolId).single(),
@@ -189,6 +205,8 @@ export async function findTeachersAtTime(
   endTime: string,
   weekStartDate?: string
 ): Promise<{ candidates: TimeSlotCandidate[]; error: string | null }> {
+  const auth = await authorizeAny(['sched.manual', 'sched.reschedule'], 'view')
+  if (!auth.ok) return { candidates: [], error: auth.error }
   const supabase = await createClient()
   return weekStartDate
     ? findTeachersAtSlot(supabase, studentId, protocolId, { dayOfWeek, startTime, endTime }, weekStartDate)
@@ -249,6 +267,8 @@ export async function manualAssign(studentId: string, protocolId: string, formDa
 
 /** Cancels a booked session — same soft-delete pattern as the parent's own cancel action. */
 export async function deleteSession(sessionId: string) {
+  const auth = await authorize('sched.generate')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase
     .from('session_plans')
@@ -268,6 +288,8 @@ export async function deleteSession(sessionId: string) {
  * Schedule can be run again from a clean slate.
  */
 export async function resetAllSchedules() {
+  const auth = await authorize('sched.reset')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },
@@ -334,6 +356,8 @@ export async function commitAllSimulatedSessions(
   proposals: { studentId: string; protocolId: string; teacherId: string; date: string; startTime: string; endTime: string }[],
   weekStartDate?: string
 ) {
+  const auth = await authorize('sched.generate')
+  if (!auth.ok) return { succeeded: 0, errors: [{ index: 0, error: auth.error }] }
   const supabase = await createClient()
   const {
     data: { user },

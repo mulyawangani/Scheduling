@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { authorize } from '@/lib/auth/require-capability'
 
 /**
  * Sets a child's billing/commission rate — either her default (teacherId
@@ -12,6 +13,8 @@ import { revalidatePath } from 'next/cache'
  * can't address as a single on-conflict column list.
  */
 export async function setBillingRate(studentId: string, teacherId: string | null, billingRateInput: string, commissionRateInput: string) {
+  const auth = await authorize('sched.rates')
+  if (!auth.ok) return { error: auth.error }
   const billingRate = Number(billingRateInput)
   const commissionRate = Number(commissionRateInput)
 
@@ -36,6 +39,8 @@ export async function setBillingRate(studentId: string, teacherId: string | null
 }
 
 export async function deleteBillingRate(id: string) {
+  const auth = await authorize('sched.rates')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase.from('billing_rates').delete().eq('id', id)
 

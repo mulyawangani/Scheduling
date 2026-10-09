@@ -3,11 +3,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { RankFactor, SortDirection } from '@/lib/supabase/types'
+import { authorize } from '@/lib/auth/require-capability'
 
 const FACTORS: RankFactor[] = ['priority', 'rate', 'protocol_needs', 'match_quality', 'teacher_rating']
 const DIRECTIONS: SortDirection[] = ['asc', 'desc']
 
 export async function updateSchedulingRules(formData: FormData) {
+  const auth = await authorize('sched.rules')
+  if (!auth.ok) return { error: auth.error }
   const rankOrder = formData.getAll('rank_order').map(String)
   const priorityDirection = String(formData.get('priority_direction') || '')
   const rateDirection = String(formData.get('rate_direction') || '')
@@ -82,6 +85,8 @@ export async function updateSchedulingRules(formData: FormData) {
 }
 
 export async function createTeacherConcurrencyRule(formData: FormData) {
+  const auth = await authorize('sched.rules')
+  if (!auth.ok) return { error: auth.error }
   const startTime = String(formData.get('startTime') || '')
   const endTime = String(formData.get('endTime') || '')
   const maxConcurrent = Number(formData.get('maxConcurrent') || 0)
@@ -102,6 +107,8 @@ export async function createTeacherConcurrencyRule(formData: FormData) {
 }
 
 export async function deleteTeacherConcurrencyRule(ruleId: string) {
+  const auth = await authorize('sched.rules')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase.from('teacher_concurrency_rules').delete().eq('id', ruleId)
 

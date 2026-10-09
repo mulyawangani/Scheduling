@@ -2,16 +2,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { revalidatePath } from 'next/cache'
-import { getUserProfile } from '@/lib/auth/get-user-profile'
-import { redirect } from 'next/navigation'
 
 export async function markAttendance(studentId: string, date: string, status: 'present' | 'absent' | 'late' | 'excused') {
-  const profileResult = await getUserProfile()
-  if (!profileResult) redirect('/login')
-  const { profile } = profileResult
-  if (!['owner', 'admin', 'nanny'].includes(profile.role)) redirect('/')
+  const { profile } = await requireCapability('ops.attendance.record', 'change')
 
   const supabase = await createClient()
   const db = supabase as any
@@ -29,7 +24,7 @@ export async function markAttendance(studentId: string, date: string, status: 'p
 const FIRST_OF_MONTH = /^\d{4}-\d{2}-01$/
 
 export async function addEnrollment(studentId: string, month: string): Promise<{ error?: string }> {
-  await requireAdminOrOwner()
+  await requireCapability('students.enrollment', 'change')
   if (!FIRST_OF_MONTH.test(month)) return { error: 'Invalid month.' }
   const supabase = await createClient()
   const db = supabase as any
@@ -58,7 +53,7 @@ export async function addEnrollment(studentId: string, month: string): Promise<{
 }
 
 export async function cancelEnrollment(studentId: string, month: string): Promise<{ error?: string }> {
-  await requireAdminOrOwner()
+  await requireCapability('students.enrollment', 'change')
   if (!FIRST_OF_MONTH.test(month)) return { error: 'Invalid month.' }
   const supabase = await createClient()
   const db = supabase as any

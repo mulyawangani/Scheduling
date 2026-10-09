@@ -20,6 +20,10 @@ export function TeacherRow({
   status,
   servesScope,
   requiresNoteReview,
+  canOpen,
+  canEdit,
+  canRemove,
+  reviewAccess,
 }: {
   id: string
   name: string
@@ -27,6 +31,12 @@ export function TeacherRow({
   status: TeacherStatus | null
   servesScope: ServesScope | null
   requiresNoteReview: boolean
+  /** May open her detail page. */
+  canOpen: boolean
+  canEdit: boolean
+  canRemove: boolean
+  /** yes = may flip the notes-review switch, view = may only see it, no = not shown. */
+  reviewAccess: 'yes' | 'view' | 'no'
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [nameInput, setNameInput] = useState(name)
@@ -130,9 +140,13 @@ export function TeacherRow({
     <li className="flex items-center justify-between gap-3 p-3">
       <div>
         <div className="flex items-center gap-2">
-          <Link href={`/admin/teachers/${id}`} className="font-medium hover:underline">
-            {name}
-          </Link>
+          {canOpen ? (
+            <Link href={`/admin/teachers/${id}`} className="font-medium hover:underline">
+              {name}
+            </Link>
+          ) : (
+            <span className="font-medium">{name}</span>
+          )}
           {status && (
             <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">{STATUS_LABEL[status]}</span>
           )}
@@ -141,25 +155,40 @@ export function TeacherRow({
           )}
         </div>
         <p className="text-sm text-gray-500">{email}</p>
-        <button
-          onClick={handleToggleReview}
-          disabled={isTogglingReview}
-          title="Click to toggle whether her therapy notes need your review before a parent sees them"
-          className={`mt-1 rounded-full px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${
-            requiresNoteReview ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
-          }`}
-        >
-          {requiresNoteReview ? 'Notes need review' : 'Notes auto-publish'}
-        </button>
+        {reviewAccess === 'yes' && (
+          <button
+            onClick={handleToggleReview}
+            disabled={isTogglingReview}
+            title="Click to toggle whether her therapy notes need your review before a parent sees them"
+            className={`mt-1 rounded-full px-2 py-0.5 text-xs font-medium disabled:opacity-50 ${
+              requiresNoteReview ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
+            }`}
+          >
+            {requiresNoteReview ? 'Notes need review' : 'Notes auto-publish'}
+          </button>
+        )}
+        {reviewAccess === 'view' && (
+          <span
+            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+              requiresNoteReview ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
+            }`}
+          >
+            {requiresNoteReview ? 'Notes need review' : 'Notes auto-publish'}
+          </span>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
       <div className="flex shrink-0 gap-3 text-sm">
-        <button onClick={() => setIsEditing(true)} disabled={isPending} className="text-blue-600 hover:underline disabled:opacity-50">
-          Edit
-        </button>
-        <button onClick={handleDelete} disabled={isPending} className="text-red-600 hover:underline disabled:opacity-50">
-          Delete
-        </button>
+        {canEdit && (
+          <button onClick={() => setIsEditing(true)} disabled={isPending} className="text-blue-600 hover:underline disabled:opacity-50">
+            Edit
+          </button>
+        )}
+        {canRemove && (
+          <button onClick={handleDelete} disabled={isPending} className="text-red-600 hover:underline disabled:opacity-50">
+            Delete
+          </button>
+        )}
       </div>
     </li>
   )

@@ -2,10 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import type { SubProtocol } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'
 import { ProtocolLibrary } from './protocol-library'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 export default async function ProtocolsPage() {
-  await requireOwner()
+  await requireCapability('sched.protocolsLibrary')
   const supabase = await createClient()
 
   const [{ data: protocols }, { data: subProtocols }] = await Promise.all([

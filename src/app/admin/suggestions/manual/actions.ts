@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { suggestTeachers, type SuggestionCandidate } from '@/lib/matching/suggest'
 
 export interface ManualAssignData {
@@ -16,6 +17,7 @@ export async function getManualAssignData(
   protocolId: string,
   weekStartDate: string
 ): Promise<ManualAssignData> {
+  await requireCapability('sched.manual')
   const supabase = await createClient()
   const [{ data: student }, { data: protocol }, { data: allTeachers }, candidates] = await Promise.all([
     supabase.from('students').select('name').eq('id', studentId).single(),

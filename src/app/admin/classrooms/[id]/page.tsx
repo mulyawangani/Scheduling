@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { notFound } from 'next/navigation'
 import { ClassroomEditor } from './classroom-editor'
 import { StudentRoster } from './student-roster'
@@ -9,7 +9,7 @@ import { StudentRoster } from './student-roster'
 export const dynamic = 'force-dynamic'
 
 export default async function ClassroomDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.classrooms')
   const { id } = await params
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -27,6 +27,7 @@ export function ChildProfileEditor({
   weeklyTargetSessions,
   schoolId,
   schools,
+  can,
   onSaved,
 }: {
   studentId: string
@@ -38,6 +39,8 @@ export function ChildProfileEditor({
   weeklyTargetSessions: number
   schoolId: string | null
   schools: { id: string; name: string }[]
+  /** What this role may change; the server enforces the same rules. */
+  can: { status: boolean; billing: boolean; delete: boolean }
   onSaved?: () => void
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +98,7 @@ export function ChildProfileEditor({
           <select
             name="status"
             defaultValue={status ?? ''}
+            disabled={!can.status}
             className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
           >
             <option value="">None</option>
@@ -114,6 +118,7 @@ export function ChildProfileEditor({
             step="0.01"
             min="0"
             name="ratePerSession"
+            disabled={!can.billing}
             defaultValue={ratePerSession ?? ''}
             placeholder="0.00"
             className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
@@ -124,6 +129,7 @@ export function ChildProfileEditor({
           <select
             name="priority"
             defaultValue={priority ?? ''}
+            disabled={!can.billing}
             className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
           >
             <option value="">None</option>
@@ -150,6 +156,7 @@ export function ChildProfileEditor({
           <select
             name="weeklyTargetSessions"
             defaultValue={weeklyTargetSessions}
+            disabled={!can.billing}
             className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
           >
             <option value="1">1</option>
@@ -166,14 +173,16 @@ export function ChildProfileEditor({
           >
             Save profile
           </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={isPending}
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            Delete child
-          </button>
+          {can.delete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isPending}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              Delete child
+            </button>
+          )}
         </div>
       </form>
 

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateParentProfile } from './actions'
-import { PrioritySelect } from './priority-select'
+import { PrioritySelect, PRIORITY_LABELS } from './priority-select'
 
 export function ParentRow({
   id,
@@ -11,12 +11,15 @@ export function ParentRow({
   email,
   phone,
   priorityTier,
+  canEdit,
 }: {
   id: string
   name: string
   email: string | null
   phone: string | null
   priorityTier: number
+  /** False for roles that may only look: no Edit button, and the priority is shown as text. */
+  canEdit: boolean
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [nameInput, setNameInput] = useState(name)
@@ -90,10 +93,18 @@ export function ParentRow({
         {phone && <p className="text-sm text-gray-500">{phone}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <PrioritySelect parentId={id} tier={priorityTier} />
-        <button onClick={() => setIsEditing(true)} className="text-sm text-blue-600 hover:underline">
-          Edit
-        </button>
+        {canEdit ? (
+          <>
+            <PrioritySelect parentId={id} tier={priorityTier} />
+            <button onClick={() => setIsEditing(true)} className="text-sm text-blue-600 hover:underline">
+              Edit
+            </button>
+          </>
+        ) : (
+          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+            {PRIORITY_LABELS[priorityTier] ?? 'Standard'}
+          </span>
+        )}
       </div>
     </li>
   )

@@ -19,11 +19,14 @@ export function NeedsEditor({
   protocols,
   subProtocolsByProtocol,
   selectedNeeds,
+  readOnly = false,
 }: {
   studentId: string
   protocols: Protocol[]
   subProtocolsByProtocol: Record<string, SubProtocol[]>
   selectedNeeds: SelectedNeed[]
+  /** Roles that may see a child's therapies but not change them. */
+  readOnly?: boolean
 }) {
   const [selected, setSelected] = useState(new Set(selectedNeeds.map((n) => needKey(n.protocolId, n.subProtocolId))))
   const [isPending, startTransition] = useTransition()
@@ -54,7 +57,7 @@ export function NeedsEditor({
         <input
           type="checkbox"
           checked={checked}
-          disabled={isPending}
+          disabled={isPending || readOnly}
           onChange={(e) => handleToggle(protocolId, subProtocolId, e.target.checked)}
         />
         {label}

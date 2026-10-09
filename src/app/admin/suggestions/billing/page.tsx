@@ -8,6 +8,7 @@ import { BackLink } from '@/components/back-link'
 import { CollapsibleSection } from '@/components/collapsible-section'
 import { SuggestionsNav } from '../suggestions-nav'
 import { RateManager, type RateRow } from './rate-manager'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
@@ -21,6 +22,7 @@ interface DeliveredRow {
 }
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ week?: string }> }) {
+  await requireCapability('sched.rates')
   const { week } = await searchParams
   const weekStartDate = week ? getWeekStart(new Date(`${week}T00:00:00Z`)) : getUpcomingWeekStart()
   const supabase = await createClient()

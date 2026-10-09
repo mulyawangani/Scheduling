@@ -27,12 +27,15 @@ export function AssignForm({
   protocolId,
   candidates,
   allTeachers,
+  backHref = '/admin/suggestions',
   onAssigned,
 }: {
   studentId: string
   protocolId: string
   candidates: SuggestionCandidate[]
   allTeachers: { id: string; name: string }[]
+  /** Where "Back to queue" goes; a role that cannot open Simulations is sent to Reschedule. */
+  backHref?: string
   /** Called after a successful assign, alongside router.refresh() — lets an embedding page (e.g. Manual Addition) know its own cached data (candidates, protocol availability) is now stale. */
   onAssigned?: () => void
 }) {
@@ -149,7 +152,7 @@ export function AssignForm({
       {success && (
         <div className="rounded-lg bg-green-50 p-3 text-sm text-green-800">
           {success}{' '}
-          <Link href="/admin/suggestions" className="underline">
+          <Link href={backHref} className="underline">
             Back to queue
           </Link>
         </div>

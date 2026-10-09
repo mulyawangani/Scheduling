@@ -2,8 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { authorize } from '@/lib/auth/require-capability'
 
 export async function updateTeacherQuota(teacherId: string, weeklyQuotaInput: string, dailyQuotaInput: string) {
+  const auth = await authorize('people.teacher.quota')
+  if (!auth.ok) return { error: auth.error }
   const weeklyQuota = weeklyQuotaInput.trim() === '' ? null : Number(weeklyQuotaInput)
   const dailyQuota = dailyQuotaInput.trim() === '' ? null : Number(dailyQuotaInput)
 

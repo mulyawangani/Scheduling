@@ -2,10 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { NewTeacherForm } from './new-teacher-form'
 import { TeacherRow } from './teacher-row'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
+import { accessOf, can, canChange } from '@/lib/auth/permissions'
 
 export default async function TeachersPage() {
-  await requireAdminOrOwner()
+  const { role } = await requireCapability('people.staff.view')
   const supabase = await createClient()
   const { data: teachers } = await supabase
     .from('profiles')
@@ -13,12 +14,20 @@ export default async function TeachersPage() {
     .eq('role', 'teacher')
     .order('name')
 
+  // What each control shows comes from the permission table, so a role never
+  // sees a button the database would silently ignore.
+  const canAdd = canChange(role, 'people.teacher.add')
+  const canOpen = can(role, 'sched.teacherView')
+  const canEdit = canChange(role, 'people.teacher.edit')
+  const canRemove = canChange(role, 'people.teacher.remove')
+  const reviewAccess = accessOf(role, 'people.teacher.noteReview')
+
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
       <div>
         <BackLink href="/admin" label="Dashboard" />
         <h1 className="mb-4 text-xl font-semibold">Teachers</h1>
-        <NewTeacherForm />
+        {canAdd && <NewTeacherForm />}
       </div>
 
       {!teachers || teachers.length === 0 ? (
@@ -34,6 +43,10 @@ export default async function TeachersPage() {
               status={teacher.status}
               servesScope={teacher.serves_scope}
               requiresNoteReview={teacher.requires_note_review}
+              canOpen={canOpen}
+              canEdit={canEdit}
+              canRemove={canRemove}
+              reviewAccess={reviewAccess}
             />
           ))}
         </ul>

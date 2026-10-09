@@ -7,6 +7,7 @@ import { sendBookingConfirmationWhatsApp } from '@/lib/whatsapp'
 import { BUSINESS_TIMEZONE, businessLocalToISOString } from '@/lib/timezone'
 import { logAudit } from '@/lib/audit'
 import type { ProposedSession } from '@/lib/matching/generate-schedule'
+import { authorize } from '@/lib/auth/require-capability'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -30,6 +31,8 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
  * has written.
  */
 export async function createSchedule(weekStartDate: string, proposals: ProposedSession[]) {
+  const auth = await authorize('sched.generate')
+  if (!auth.ok) return { error: auth.error }
   if (proposals.length === 0) return { error: 'Nothing to schedule — there are no proposed sessions.' }
 
   const supabase = await createClient()
@@ -99,6 +102,8 @@ export async function createSchedule(weekStartDate: string, proposals: ProposedS
  * Grouping only, never creates or re-books a session.
  */
 export async function addExistingSessionsToSchedule(weekStartDate: string, sessionIds: string[]) {
+  const auth = await authorize('sched.generate')
+  if (!auth.ok) return { error: auth.error }
   if (sessionIds.length === 0) return { error: 'No sessions to add.' }
 
   const supabase = await createClient()
@@ -142,6 +147,8 @@ export async function addExistingSessionsToSchedule(weekStartDate: string, sessi
  * just reads + outbound messages).
  */
 export async function pushWhatsAppForBatch(batchId: string) {
+  const auth = await authorize('sched.schedules')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },
@@ -205,6 +212,8 @@ export async function pushWhatsAppForBatch(batchId: string) {
  * pending/accepted filter on the Schedules page.
  */
 export async function cancelScheduleBatch(batchId: string) {
+  const auth = await authorize('sched.schedules')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },
@@ -234,6 +243,8 @@ export async function cancelScheduleBatch(batchId: string) {
  * hasn't been added to a schedule yet.
  */
 export async function deleteScheduleBatch(batchId: string) {
+  const auth = await authorize('sched.schedules')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },

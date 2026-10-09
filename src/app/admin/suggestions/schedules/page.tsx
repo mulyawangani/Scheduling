@@ -6,12 +6,14 @@ import { fetchAllRows } from '@/lib/supabase/fetch-all'
 import { SuggestionsNav } from '../suggestions-nav'
 import { SchedulesList, type ScheduleBatchWithSessions } from './schedules-list'
 import type { GridSession } from './actual-sessions-grid'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 const dateLabelFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: BUSINESS_TIMEZONE })
 const timeLabelFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: BUSINESS_TIMEZONE })
 const DAY_NAMES: Record<number, string> = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' }
 
 export default async function SchedulesPage() {
+  await requireCapability('sched.schedules')
   const supabase = await createClient()
 
   const [{ data: batches }, { data: sessionRows }, { data: activeSessions }] = await Promise.all([

@@ -12,9 +12,9 @@ export default async function Home() {
 
   switch (result.profile.role) {
     case 'owner':
-      redirect('/admin')
     case 'admin':
-      redirect('/admin/suggestions/schedules')
+    case 'principal':
+      redirect('/admin')
     case 'teacher':
       redirect('/teacher')
     case 'parent':

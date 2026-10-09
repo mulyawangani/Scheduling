@@ -41,15 +41,19 @@ export function AttendanceGrid({
   daysInMonth,
   currentMonth,
   today,
+  readOnly = false,
 }: {
   students: Student[]
   daysInMonth: { date: string; label: number; dow: number; isWeekend: boolean }[]
   currentMonth: string   // YYYY-MM
   today: string          // YYYY-MM-DD
+  /** Roles that may see attendance but not change it. */
+  readOnly?: boolean
 }) {
   const [pending, startTransition] = useTransition()
 
   function toggle(studentId: string, date: string, currentStatus: string | null) {
+    if (readOnly) return
     if (new Date(date) > new Date(today)) return  // can't mark future
     const next = currentStatus ? STATUS_CYCLE[currentStatus] ?? 'present' : 'present'
     startTransition(() => markAttendance(studentId, date, next))
@@ -136,7 +140,7 @@ export function AttendanceGrid({
                         <span className="text-gray-200">—</span>
                       ) : (
                         <button
-                          disabled={isFuture || pending}
+                          disabled={isFuture || pending || readOnly}
                           onClick={() => toggle(student.id, d.date, status)}
                           title={
                             temperature !== null
@@ -147,7 +151,7 @@ export function AttendanceGrid({
                           }
                           className={`h-5 rounded-full mx-auto flex items-center justify-center transition-all ${
                             temperature !== null ? 'min-w-[20px] px-1' : 'w-5'
-                          } ${isFuture ? 'cursor-default' : 'hover:scale-110 cursor-pointer'} ${
+                          } ${isFuture || readOnly ? 'cursor-default' : 'hover:scale-110 cursor-pointer'} ${
                             isToday ? 'ring-2 ring-offset-1 ring-orange-300' : ''
                           }`}
                           style={{
@@ -173,7 +177,7 @@ export function AttendanceGrid({
         </tbody>
       </table>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 border-t border-gray-50 text-[10px] text-gray-400">
-        <span>Click a cell to toggle. A number is the temperature (°C) the nanny recorded at check-in. Hover an absent cell for the reason.</span>
+        <span>{readOnly ? 'View only. ' : 'Click a cell to toggle. '}A number is the temperature (°C) the nanny recorded at check-in. Hover an absent cell for the reason.</span>
         {Object.entries(STATUS_COLOR).map(([s, c]) => (
           <span key={s} className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full inline-block" style={{ background: c }} />

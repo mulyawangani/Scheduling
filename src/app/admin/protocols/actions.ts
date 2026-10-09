@@ -2,8 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { authorize } from '@/lib/auth/require-capability'
 
 export async function createProtocol(formData: FormData) {
+  const auth = await authorize('sched.protocolsLibrary')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const title = String(formData.get('title') || '').trim()
@@ -20,6 +23,8 @@ export async function createProtocol(formData: FormData) {
 }
 
 export async function toggleProtocolActive(protocolId: string, isActive: boolean) {
+  const auth = await authorize('sched.protocolsLibrary')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const { error } = await supabase.from('protocols').update({ is_active: isActive }).eq('id', protocolId)
@@ -31,6 +36,8 @@ export async function toggleProtocolActive(protocolId: string, isActive: boolean
 }
 
 export async function deleteProtocol(protocolId: string) {
+  const auth = await authorize('sched.protocolsLibrary')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const { error } = await supabase.from('protocols').delete().eq('id', protocolId)
@@ -42,6 +49,8 @@ export async function deleteProtocol(protocolId: string) {
 }
 
 export async function createSubProtocol(protocolId: string, formData: FormData) {
+  const auth = await authorize('sched.protocolsLibrary')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const title = String(formData.get('title') || '').trim()
@@ -56,6 +65,8 @@ export async function createSubProtocol(protocolId: string, formData: FormData) 
 }
 
 export async function toggleSubProtocolActive(subProtocolId: string, isActive: boolean) {
+  const auth = await authorize('sched.protocolsLibrary')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const { error } = await supabase.from('sub_protocols').update({ is_active: isActive }).eq('id', subProtocolId)
@@ -67,6 +78,8 @@ export async function toggleSubProtocolActive(subProtocolId: string, isActive: b
 }
 
 export async function deleteSubProtocol(subProtocolId: string) {
+  const auth = await authorize('sched.protocolsLibrary')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
 
   const { error } = await supabase.from('sub_protocols').delete().eq('id', subProtocolId)

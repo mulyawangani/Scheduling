@@ -2,10 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 export async function createSchool(formData: FormData) {
-  await requireOwner()
+  await requireCapability('settings.school', 'change')
   const supabase = await createClient()
   const name = String(formData.get('name') || '').trim()
   if (!name) return { error: 'School name is required.' }
@@ -16,7 +16,7 @@ export async function createSchool(formData: FormData) {
 }
 
 export async function deleteSchool(id: string) {
-  await requireOwner()
+  await requireCapability('settings.school', 'change')
   const supabase = await createClient()
   const { error } = await supabase.from('schools').delete().eq('id', id)
   if (error) return { error: error.message }

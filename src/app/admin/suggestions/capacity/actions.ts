@@ -2,8 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { authorize } from '@/lib/auth/require-capability'
 
 export async function createCapacityRule(formData: FormData) {
+  const auth = await authorize('sched.rules')
+  if (!auth.ok) return { error: auth.error }
   const startTime = String(formData.get('startTime') || '')
   const endTime = String(formData.get('endTime') || '')
   const maxConcurrent = Number(formData.get('maxConcurrent') || 0)
@@ -24,6 +27,8 @@ export async function createCapacityRule(formData: FormData) {
 }
 
 export async function deleteCapacityRule(ruleId: string) {
+  const auth = await authorize('sched.rules')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase.from('capacity_rules').delete().eq('id', ruleId)
 

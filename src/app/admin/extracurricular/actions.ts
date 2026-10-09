@@ -2,7 +2,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { revalidatePath } from 'next/cache'
 
 type Result = { error?: string }
@@ -15,7 +15,7 @@ function priceError(price: number | null | undefined): string | null {
 }
 
 export async function createActivity(name: string, monthlyPrice: number | null): Promise<Result> {
-  await requireAdminOrOwner()
+  await requireCapability('ops.extracurricular', 'change')
 
   const trimmed = name.trim()
   if (!trimmed) return { error: 'Enter an activity name.' }
@@ -47,7 +47,7 @@ export async function updateActivity(
   id: string,
   changes: { monthlyPrice?: number | null; isActive?: boolean },
 ): Promise<Result> {
-  await requireAdminOrOwner()
+  await requireCapability('ops.extracurricular', 'change')
 
   const patch: { monthly_price?: number | null; is_active?: boolean } = {}
   if (changes.monthlyPrice !== undefined) {

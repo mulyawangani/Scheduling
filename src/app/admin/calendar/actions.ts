@@ -2,8 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { authorize } from '@/lib/auth/require-capability'
 
 export async function createHoliday(formData: FormData) {
+  const auth = await authorize('settings.holidays')
+  if (!auth.ok) return { error: auth.error }
   const date = String(formData.get('date') || '')
   const name = String(formData.get('name') || '').trim()
   const type = String(formData.get('type') || 'school')
@@ -22,6 +25,8 @@ export async function createHoliday(formData: FormData) {
 }
 
 export async function deleteHoliday(id: string) {
+  const auth = await authorize('settings.holidays')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase.from('holidays').delete().eq('id', id)
 

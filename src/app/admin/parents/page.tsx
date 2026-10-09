@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { ParentRow } from './parent-row'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
+import { canChange } from '@/lib/auth/permissions'
 
 export default async function ParentsPage() {
-  await requireAdminOrOwner()
+  const { role } = await requireCapability('students.view')
+  const canEdit = canChange(role, 'people.parent.edit')
   const supabase = await createClient()
   const { data: parents } = await supabase
     .from('profiles')
@@ -28,6 +30,7 @@ export default async function ParentsPage() {
               email={parent.email}
               phone={parent.phone}
               priorityTier={parent.priority_tier}
+              canEdit={canEdit}
             />
           ))}
         </ul>

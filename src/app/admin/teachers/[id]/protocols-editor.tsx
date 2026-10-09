@@ -17,11 +17,14 @@ export function ProtocolsEditor({
   allProtocols,
   subProtocolsByProtocol,
   assignedProtocols,
+  readOnly = false,
 }: {
   teacherId: string
   allProtocols: Protocol[]
   subProtocolsByProtocol: Record<string, SubProtocol[]>
   assignedProtocols: AssignedProtocol[]
+  /** Roles that may see ratings but not change them. */
+  readOnly?: boolean
 }) {
   const [assignProtocolId, setAssignProtocolId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -78,32 +81,37 @@ export function ProtocolsEditor({
                 {p.subProtocolTitle ? `${p.subProtocolTitle} ` : ''}
                 <span className="text-gray-500">({p.protocolTitle})</span>
               </span>
-              <div className="flex items-center gap-2">
-                <select
-                  defaultValue={p.rating}
-                  disabled={isPending}
-                  onChange={(e) => handleRatingChange(p.assignmentId, Number(e.target.value))}
-                  className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
-                >
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => handleUnassign(p.assignmentId)}
-                  disabled={isPending}
-                  className="text-red-600 hover:underline disabled:opacity-50"
-                >
-                  Remove
-                </button>
-              </div>
+              {readOnly ? (
+                <span className="text-gray-600">Rating {p.rating} of 5</span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <select
+                    defaultValue={p.rating}
+                    disabled={isPending}
+                    onChange={(e) => handleRatingChange(p.assignmentId, Number(e.target.value))}
+                    className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                  >
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleUnassign(p.assignmentId)}
+                    disabled={isPending}
+                    className="text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
       )}
 
+      {!readOnly && (
       <div>
         <p className="mb-1 text-xs font-medium text-gray-500">
           Assign a protocol (and sub-protocol if applicable) and rate her on it (1-5)
@@ -150,6 +158,7 @@ export function ProtocolsEditor({
           </button>
         </form>
       </div>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>

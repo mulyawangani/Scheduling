@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { logAudit } from '@/lib/audit'
+import { authorize } from '@/lib/auth/require-capability'
 
 /**
  * Sends a note back to its teacher with a required comment — the teacher
@@ -11,6 +12,8 @@ import { logAudit } from '@/lib/audit'
  * this list can show what was asked for; it's cleared on accept.
  */
 export async function sendNoteBack(noteId: string, comment: string) {
+  const auth = await authorize('notes.review')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },
@@ -18,12 +21,14 @@ export async function sendNoteBack(noteId: string, comment: string) {
   if (!user) return { error: 'You must be signed in.' }
   if (!comment.trim()) return { error: 'A comment is required when sending a note back.' }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from('therapy_notes')
     .update({ status: 'sent_back', owner_comment: comment, updated_at: new Date().toISOString() })
     .eq('id', noteId)
+    .select('id')
 
   if (error) return { error: 'Could not send this note back.' }
+  if (!changed || changed.length === 0) return { error: 'Not saved: your account is not allowed to review this note.' }
 
   logAudit(supabase, user.id, 'send_note_back', 'therapy_note', noteId, { comment })
 
@@ -34,18 +39,22 @@ export async function sendNoteBack(noteId: string, comment: string) {
 
 /** Approves a note — only past this point can the parent app see it (see the parent RLS policy on therapy_notes). */
 export async function acceptNote(noteId: string) {
+  const auth = await authorize('notes.review')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: 'You must be signed in.' }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from('therapy_notes')
     .update({ status: 'accepted', owner_comment: null, updated_at: new Date().toISOString() })
     .eq('id', noteId)
+    .select('id')
 
   if (error) return { error: 'Could not accept this note.' }
+  if (!changed || changed.length === 0) return { error: 'Not saved: your account is not allowed to review this note.' }
 
   logAudit(supabase, user.id, 'accept_note', 'therapy_note', noteId)
 

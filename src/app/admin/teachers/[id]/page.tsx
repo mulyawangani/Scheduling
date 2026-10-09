@@ -7,7 +7,8 @@ import { ScheduleView, type SessionForSchedule } from './schedule-view'
 import { ProtocolsEditor, type AssignedProtocol } from './protocols-editor'
 import { ClearScheduleButton } from './clear-schedule-button'
 import { addWeeks, formatWeekLabel, getUpcomingWeekStart } from '@/lib/week'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
+import { can, canChange } from '@/lib/auth/permissions'
 
 export default async function TeacherDetailPage({
   params,
@@ -16,7 +17,13 @@ export default async function TeacherDetailPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ week?: string }>
 }) {
-  await requireOwner()
+  // The weekly schedule is open to everyone who may see a teacher's schedule;
+  // her protocols and ratings, editing them, and clearing her schedule each
+  // have their own rule in the permission table.
+  const { role } = await requireCapability('sched.teacherView')
+  const showProtocols = can(role, 'people.protocols.view')
+  const canEditProtocols = canChange(role, 'people.protocols.edit')
+  const canReset = canChange(role, 'sched.reset')
   const { id } = await params
   const { week } = await searchParams
   const weekStartDate = week || getUpcomingWeekStart()
@@ -96,7 +103,9 @@ export default async function TeacherDetailPage({
       <section>
         <div className="mb-2 flex items-center justify-between gap-3">
           <h2 className="text-sm font-medium text-gray-700">Weekly schedule</h2>
-          <ClearScheduleButton teacherId={id} teacherName={teacher.name} sessionCount={sessionRows.length} />
+          {canReset && (
+            <ClearScheduleButton teacherId={id} teacherName={teacher.name} sessionCount={sessionRows.length} />
+          )}
         </div>
         <p className="mb-2 text-sm text-gray-500">
           Availability the teacher has uploaded, with any booked sessions shown inline — yellow pending, blue
@@ -114,23 +123,30 @@ export default async function TeacherDetailPage({
         <ScheduleView weekStartDate={weekStartDate} availability={availability ?? []} sessions={sessionRows} />
       </section>
 
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-gray-700">Protocols</h2>
-        <p className="mb-2 text-sm text-gray-500">
-          Her qualification for a protocol is derived from her assignments here, each with its own 1-5 rating.
-          Manage the protocol/sub-protocol library at{' '}
-          <Link href="/admin/protocols" className="text-blue-600 hover:underline">
-            Protocols
-          </Link>
-          .
-        </p>
-        <ProtocolsEditor
-          teacherId={id}
-          allProtocols={allProtocols ?? []}
-          subProtocolsByProtocol={subProtocolsByProtocol}
-          assignedProtocols={assignedProtocols}
-        />
-      </section>
+      {showProtocols && (
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-gray-700">Protocols</h2>
+          <p className="mb-2 text-sm text-gray-500">
+            Her qualification for a protocol is derived from her assignments here, each with its own 1-5 rating.
+            {can(role, 'sched.protocolsLibrary') && (
+              <>
+                {' '}Manage the protocol/sub-protocol library at{' '}
+                <Link href="/admin/protocols" className="text-blue-600 hover:underline">
+                  Protocols
+                </Link>
+                .
+              </>
+            )}
+          </p>
+          <ProtocolsEditor
+            teacherId={id}
+            allProtocols={allProtocols ?? []}
+            subProtocolsByProtocol={subProtocolsByProtocol}
+            assignedProtocols={assignedProtocols}
+            readOnly={!canEditProtocols}
+          />
+        </section>
+      )}
     </main>
   )
 }

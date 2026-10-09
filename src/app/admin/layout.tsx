@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
+import { isStaffRole } from '@/lib/auth/permissions'
 import { AdminNav } from './admin-nav'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/login')
   }
 
-  if (result.profile.role !== 'owner' && result.profile.role !== 'admin') {
+  if (!isStaffRole(result.profile.role)) {
     redirect('/')
   }
 

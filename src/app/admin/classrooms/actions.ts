@@ -3,7 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 export async function createClassroom({
   name, ageGroup, primaryTeacherId, secondaryTeacherId,
@@ -13,7 +13,7 @@ export async function createClassroom({
   primaryTeacherId: string
   secondaryTeacherId: string
 }) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.classrooms', 'change')
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
@@ -33,7 +33,7 @@ export async function updateClassroom(
   id: string,
   data: { name: string; ageGroup: string; primaryTeacherId: string; secondaryTeacherId: string; active: boolean }
 ) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.classrooms', 'change')
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
@@ -51,7 +51,7 @@ export async function updateClassroom(
 }
 
 export async function assignStudentToClassroom(studentId: string, classroomId: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.classrooms', 'change')
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
@@ -62,7 +62,7 @@ export async function assignStudentToClassroom(studentId: string, classroomId: s
 }
 
 export async function removeStudentFromClassroom(studentId: string, classroomId: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.classrooms', 'change')
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any

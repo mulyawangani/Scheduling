@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { logAudit } from '@/lib/audit'
+import { authorize } from '@/lib/auth/require-capability'
 
 /**
  * Cancels the given one-off session_plans rows — same soft status change
@@ -12,6 +13,8 @@ import { logAudit } from '@/lib/audit'
  * session history or its therapy notes.
  */
 export async function cancelMonthlyTransactions(sessionIds: string[]) {
+  const auth = await authorize('sched.reports')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },

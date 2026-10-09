@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { ProposedSession, UnscheduledNeed } from '@/lib/matching/generate-schedule'
+import { authorize } from '@/lib/auth/require-capability'
 
 export async function saveScheduleVersion(
   weekStartDate: string,
@@ -10,6 +11,8 @@ export async function saveScheduleVersion(
   unscheduled: UnscheduledNeed[],
   scheduledCount: number
 ) {
+  const auth = await authorize('sched.versions')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const {
     data: { user },
@@ -40,6 +43,8 @@ export async function saveScheduleVersion(
 }
 
 export async function deleteScheduleVersion(versionId: string) {
+  const auth = await authorize('sched.versions')
+  if (!auth.ok) return { error: auth.error }
   const supabase = await createClient()
   const { error } = await supabase.from('schedule_versions').delete().eq('id', versionId)
 

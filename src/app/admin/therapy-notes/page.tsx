@@ -2,12 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
 import { NotesList, type NoteRow } from './notes-list'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BUSINESS_TIMEZONE })
 
 export default async function AdminTherapyNotesPage() {
-  await requireOwner()
+  await requireCapability('notes.review')
   const supabase = await createClient()
 
   const { data: notes } = await supabase

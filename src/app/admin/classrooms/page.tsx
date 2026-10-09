@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import Link from 'next/link'
 import { NewClassroomForm } from './new-classroom-form'
 
@@ -15,7 +15,7 @@ const STATUS_TAG: Record<string, string> = {
 }
 
 export default async function ClassroomsPage() {
-  await requireAdminOrOwner()
+  await requireCapability('ops.classrooms')
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any

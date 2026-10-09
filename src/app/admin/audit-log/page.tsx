@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -50,7 +50,7 @@ function formatMetadata(metadata: unknown) {
 }
 
 export default async function AuditLogPage() {
-  await requireOwner()
+  await requireCapability('audit.view')
   const supabase = await createClient()
   const { data: rows } = await supabase
     .from('audit_log')

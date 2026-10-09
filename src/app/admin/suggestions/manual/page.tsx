@@ -3,14 +3,14 @@ import { getProtocolOptionsByStudent } from '@/lib/matching/unmet-needs'
 import { getWeekStart, getUpcomingWeekStart } from '@/lib/week'
 import { BackLink } from '@/components/back-link'
 import { ManualPickerForm } from './manual-picker-form'
-import { requireOwner } from '@/lib/auth/require-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 
 export default async function ManualAdditionPage({
   searchParams,
 }: {
   searchParams: Promise<{ week?: string }>
 }) {
-  await requireOwner()
+  await requireCapability('sched.manual')
   const { week } = await searchParams
   const supabase = await createClient()
   const weekStartDate = week ? getWeekStart(new Date(`${week}T00:00:00Z`)) : getUpcomingWeekStart()

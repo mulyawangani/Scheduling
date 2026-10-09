@@ -1,9 +1,12 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import type { StudentStatus } from '@/lib/supabase/types'
+import type { Database, StudentStatus } from '@/lib/supabase/types'
 import { logAudit } from '@/lib/audit'
+import { authorize } from '@/lib/auth/require-capability'
+import { canChange } from '@/lib/auth/permissions'
 
 const SCHOOL_HOURS_WEEKDAYS = [1, 2, 3, 4, 5]
 const SCHOOL_HOURS_START = '08:00:00'
@@ -15,10 +18,11 @@ export async function ownerToggleProtocol(
   subProtocolId: string | null,
   enabled: boolean
 ) {
+  const auth = await authorize('students.needs')
+  if (!auth.ok) return { error: auth.error }
+
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = auth.user
 
   if (enabled) {
     const { error } = await supabase
@@ -67,7 +71,16 @@ async function needLabel(
 }
 
 export async function updateChildProfile(studentId: string, formData: FormData) {
+  const auth = await authorize('students.edit')
+  if (!auth.ok) return { error: auth.error }
+
   const supabase = await createClient()
+
+  // A role without the right to change status or the billing group
+  // (rate, priority, weekly target) does not send those fields, so the server
+  // decides from the permission table, not from what the form contains.
+  const mayChangeStatus = canChange(auth.role, 'students.status')
+  const mayChangeBilling = canChange(auth.role, 'students.billing')
 
   const name = String(formData.get('name') || '').trim()
   const dateOfBirth = String(formData.get('dateOfBirth') || '')
@@ -78,28 +91,28 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
   const schoolId = String(formData.get('schoolId') || '') || null
 
   if (!name) return { error: 'Name is required.' }
-  if (weeklyTargetSessions !== '1' && weeklyTargetSessions !== '2' && weeklyTargetSessions !== '3') {
+  if (mayChangeBilling && weeklyTargetSessions !== '1' && weeklyTargetSessions !== '2' && weeklyTargetSessions !== '3') {
     return { error: 'Weekly target sessions must be 1, 2, or 3.' }
   }
 
-  const { data: updated, error } = await supabase
-    .from('students')
-    .update({
-      name,
-      date_of_birth: dateOfBirth || null,
-      rate_per_session: ratePerSession ? Number(ratePerSession) : null,
-      priority: priority ? Number(priority) : null,
-      status: status || null,
-      weekly_target_sessions: Number(weeklyTargetSessions),
-      school_id: schoolId,
-    })
-    .eq('id', studentId)
-    .select('id')
+  const changes: Database['public']['Tables']['students']['Update'] = {
+    name,
+    date_of_birth: dateOfBirth || null,
+    school_id: schoolId,
+  }
+  if (mayChangeStatus) changes.status = status || null
+  if (mayChangeBilling) {
+    changes.rate_per_session = ratePerSession ? Number(ratePerSession) : null
+    changes.priority = priority ? Number(priority) : null
+    changes.weekly_target_sessions = Number(weeklyTargetSessions)
+  }
+
+  const { data: updated, error } = await supabase.from('students').update(changes).eq('id', studentId).select('id')
 
   if (error) return { error: 'Could not update profile.' }
   if (!updated || updated.length === 0) return { error: 'Not saved: your account is not allowed to edit this child.' }
 
-  if (status === 'student') {
+  if (mayChangeStatus && status === 'student') {
     await supabase.from('student_availability').delete().eq('student_id', studentId)
     const { error: availError } = await supabase.from('student_availability').insert(
       SCHOOL_HOURS_WEEKDAYS.map((day_of_week) => ({
@@ -116,15 +129,23 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
   return { error: null }
 }
 
+// Adds a child on a parent's behalf. The database only lets the Owner and the
+// parent insert a child, so this uses the master key after the permission
+// check, which is how Admin can do it too.
 export async function createChild(formData: FormData) {
-  const supabase = await createClient()
+  const auth = await authorize('students.add')
+  if (!auth.ok) return { error: auth.error }
 
   const parentId = String(formData.get('parentId') || '')
   const name = String(formData.get('name') || '').trim()
 
   if (!parentId || !name) return { error: 'Parent and name are required.' }
 
-  const { error } = await supabase.from('students').insert({ parent_id: parentId, name })
+  const admin = createAdminClient()
+  const { data: parent } = await admin.from('profiles').select('role').eq('id', parentId).maybeSingle()
+  if (!parent || parent.role !== 'parent') return { error: 'Choose a parent account.' }
+
+  const { error } = await admin.from('students').insert({ parent_id: parentId, name })
 
   if (error) return { error: 'Could not add child.' }
 
@@ -133,6 +154,9 @@ export async function createChild(formData: FormData) {
 }
 
 export async function deleteChild(studentId: string) {
+  const auth = await authorize('students.delete')
+  if (!auth.ok) return { error: auth.error }
+
   const supabase = await createClient()
 
   const { data: deleted, error } = await supabase.from('students').delete().eq('id', studentId).select('id')

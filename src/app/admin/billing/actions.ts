@@ -2,13 +2,13 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import { revalidatePath } from 'next/cache'
 
 // ── School (enrollment) payments ─────────────────────────────────────────────
 
 export async function markEnrollmentPaid(studentId: string, month: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing', 'change')
   const supabase = await createClient()
   const db = supabase as any
   await db.from('enrollment_payments').upsert({
@@ -18,7 +18,7 @@ export async function markEnrollmentPaid(studentId: string, month: string) {
 }
 
 export async function markEnrollmentPending(studentId: string, month: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing', 'change')
   const supabase = await createClient()
   const db = supabase as any
   await db.from('enrollment_payments')
@@ -28,7 +28,7 @@ export async function markEnrollmentPending(studentId: string, month: string) {
 }
 
 export async function markEnrollmentUnpaid(studentId: string, month: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing', 'change')
   const supabase = await createClient()
   const db = supabase as any
   await db.from('enrollment_payments')
@@ -40,7 +40,7 @@ export async function markEnrollmentUnpaid(studentId: string, month: string) {
 // ── Therapy payments ──────────────────────────────────────────────────────────
 
 export async function markTherapyPaid(studentId: string, month: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing', 'change')
   const supabase = await createClient()
   const db = supabase as any
   await db.from('therapy_payments')
@@ -50,7 +50,7 @@ export async function markTherapyPaid(studentId: string, month: string) {
 }
 
 export async function markTherapyPending(studentId: string, month: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing', 'change')
   const supabase = await createClient()
   const db = supabase as any
   await db.from('therapy_payments')
@@ -60,7 +60,7 @@ export async function markTherapyPending(studentId: string, month: string) {
 }
 
 export async function markTherapyUnpaid(studentId: string, month: string) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing', 'change')
   const supabase = await createClient()
   const db = supabase as any
   await db.from('therapy_payments')
@@ -77,7 +77,7 @@ export async function upsertTherapyPayment(
   sessionCount: number,
   ratePerSession: number,
 ) {
-  await requireAdminOrOwner()
+  await requireCapability('ops.billing', 'change')
   const supabase = await createClient()
   const db = supabase as any
 

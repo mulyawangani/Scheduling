@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import type { StudentStatus } from '@/lib/supabase/types'
+import type { StudentStatus, SubProtocol } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'
-import { ChildCard } from './child-card'
+import { ChildCard, type ChildCardAccess } from './child-card'
 import { NewChildForm } from './new-child-form'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
+import { accessOf, can, canChange } from '@/lib/auth/permissions'
 
 const STATUS_LABELS: Record<string, string> = {
   none: 'None',
@@ -15,14 +16,25 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export default async function ChildrenPage({ searchParams }: { searchParams: Promise<{ student?: string; status?: string }> }) {
-  await requireAdminOrOwner()
+  const { role } = await requireCapability('students.view')
   const { student: highlightStudentId, status: statusFilter } = await searchParams
   const supabase = await createClient()
+
+  // What each control shows comes from the permission table; the server
+  // actions check the same table before they change anything.
+  const access: ChildCardAccess = {
+    edit: canChange(role, 'students.edit'),
+    status: canChange(role, 'students.status'),
+    billing: can(role, 'students.billing'),
+    delete: canChange(role, 'students.delete'),
+    needs: accessOf(role, 'students.needs'),
+  }
+  const canAdd = canChange(role, 'students.add')
 
   let studentsQuery = supabase
     .from('students')
     .select(
-      'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name)'
+      'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
     )
     .order('name')
 
@@ -32,11 +44,18 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
     studentsQuery = studentsQuery.eq('status', statusFilter as StudentStatus)
   }
 
-  const [{ data: students }, { data: parents }, { data: schools }] = await Promise.all([
+  const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }, { data: schools }] = await Promise.all([
     studentsQuery,
-    supabase.from('profiles').select('id, name').eq('role', 'parent').order('name'),
+    access.needs === 'no' ? Promise.resolve({ data: [] }) : supabase.from('protocols').select('*').eq('is_active', true).order('title'),
+    access.needs === 'no' ? Promise.resolve({ data: [] }) : supabase.from('sub_protocols').select('*').eq('is_active', true).order('title'),
+    canAdd ? supabase.from('profiles').select('id, name').eq('role', 'parent').order('name') : Promise.resolve({ data: [] }),
     supabase.from('schools').select('id, name').order('name'),
   ])
+
+  const subProtocolsByProtocol: Record<string, SubProtocol[]> = {}
+  for (const sp of (subProtocols ?? []) as SubProtocol[]) {
+    ;(subProtocolsByProtocol[sp.protocol_id] ??= []).push(sp)
+  }
 
   return (
     <main className="mx-auto max-w-2xl p-6">
@@ -51,7 +70,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
         )}
       </div>
 
-      <NewChildForm parents={parents ?? []} />
+      {canAdd && <NewChildForm parents={(parents ?? []) as { id: string; name: string }[]} />}
 
       {!students || students.length === 0 ? (
         <p className="text-sm text-gray-500">No children yet.</p>
@@ -78,6 +97,13 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                 status={student.status}
                 weeklyTargetSessions={student.weekly_target_sessions}
                 schools={schools ?? []}
+                access={access}
+                protocols={(protocols ?? []) as import('@/lib/supabase/types').Protocol[]}
+                subProtocolsByProtocol={subProtocolsByProtocol}
+                selectedNeeds={student.student_protocols.map((s) => ({
+                  protocolId: s.protocol_id,
+                  subProtocolId: s.sub_protocol_id,
+                }))}
                 autoExpand={student.id === highlightStudentId}
               />
             )

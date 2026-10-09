@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/lib/supabase/server'
 import { BackLink } from '@/components/back-link'
-import { requireAdminOrOwner } from '@/lib/auth/require-admin-or-owner'
+import { requireCapability } from '@/lib/auth/require-capability'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +13,7 @@ const STATUS_STYLES: Record<string, { text: string; bg: string; label: string }>
 }
 
 export default async function AnnouncementsPage() {
-  await requireAdminOrOwner()
+  await requireCapability('ops.announcements')
   const supabase = await createClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
