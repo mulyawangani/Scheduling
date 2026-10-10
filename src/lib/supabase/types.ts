@@ -976,7 +976,13 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      /** The signed-in teacher's commission per child, and nothing else about the rates (see supabase/fix_teacher_commission_only.sql). */
+      my_commission_rates: {
+        Args: Record<PropertyKey, never>
+        Returns: { student_id: string; commission_rate: number }[]
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

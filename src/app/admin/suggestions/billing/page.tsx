@@ -9,8 +9,7 @@ import { CollapsibleSection } from '@/components/collapsible-section'
 import { SuggestionsNav } from '../suggestions-nav'
 import { RateManager, type RateRow } from './rate-manager'
 import { requireCapability } from '@/lib/auth/require-capability'
-
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+import { formatRupiah } from '@/lib/money'
 
 interface DeliveredRow {
   teacherId: string
@@ -191,11 +190,11 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-lg border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-gray-900">{currencyFormatter.format(estimatedBilling)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatRupiah(estimatedBilling)}</p>
             <p className="text-sm text-gray-500">Estimated billing</p>
           </div>
           <div className="rounded-lg border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-gray-900">{currencyFormatter.format(estimatedCommission)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatRupiah(estimatedCommission)}</p>
             <p className="text-sm text-gray-500">Estimated commission</p>
           </div>
         </div>
@@ -215,11 +214,11 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         </p>
         <div className="mb-4 grid grid-cols-2 gap-4">
           <div className="rounded-lg border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-green-700">{currencyFormatter.format(actualBilling)}</p>
+            <p className="text-2xl font-bold text-green-700">{formatRupiah(actualBilling)}</p>
             <p className="text-sm text-gray-500">Actual billing</p>
           </div>
           <div className="rounded-lg border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-green-700">{currencyFormatter.format(actualCommission)}</p>
+            <p className="text-2xl font-bold text-green-700">{formatRupiah(actualCommission)}</p>
             <p className="text-sm text-gray-500">Actual commission</p>
           </div>
         </div>
@@ -239,7 +238,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-900">{t.teacherName}</p>
                   <p className="text-sm text-gray-500">
-                    {currencyFormatter.format(t.commission)} commission · {currencyFormatter.format(t.billing)} billed
+                    {formatRupiah(t.commission)} commission · {formatRupiah(t.billing)} billed
                   </p>
                 </div>
                 <ul className="flex flex-col gap-1">
@@ -249,7 +248,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                         {row.protocolName} — {row.studentName}
                       </span>
                       <span className={row.commissionRate === null ? 'text-amber-600' : 'text-gray-600'}>
-                        {row.commissionRate === null ? 'no rate set' : currencyFormatter.format(row.commissionRate)}
+                        {row.commissionRate === null ? 'no rate set' : formatRupiah(row.commissionRate)}
                       </span>
                     </li>
                   ))}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { formatRupiah } from '@/lib/money'
 import { setBillingRate, deleteBillingRate } from './actions'
 
 export interface RateRow {
@@ -13,8 +14,6 @@ export interface RateRow {
   billingRate: number
   commissionRate: number
 }
-
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export function RateManager({
   rates,
@@ -85,8 +84,8 @@ export function RateManager({
                 <tr key={r.id}>
                   <td className="p-2">{r.studentName}</td>
                   <td className="p-2">{r.teacherName ?? <span className="text-gray-400">Default (any teacher)</span>}</td>
-                  <td className="p-2">{currencyFormatter.format(r.billingRate)}</td>
-                  <td className="p-2">{currencyFormatter.format(r.commissionRate)}</td>
+                  <td className="p-2">{formatRupiah(r.billingRate)}</td>
+                  <td className="p-2">{formatRupiah(r.commissionRate)}</td>
                   <td className="p-2">
                     <button
                       onClick={() => handleDelete(r.id)}
@@ -127,7 +126,7 @@ export function RateManager({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-500">
-          Billing/session
+          Billing/session (Rp)
           <input
             type="number"
             min="0"
@@ -138,7 +137,7 @@ export function RateManager({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-500">
-          Commission/session
+          Commission/session (Rp)
           <input
             type="number"
             min="0"

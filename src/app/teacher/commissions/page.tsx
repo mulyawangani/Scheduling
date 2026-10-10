@@ -3,10 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { BackLink } from '@/components/back-link'
 import { BUSINESS_TIMEZONE, dateStringInBusinessTz, businessLocalToISOString } from '@/lib/timezone'
-import { lookupBillingRate } from '@/lib/billing'
+import { formatRupiah } from '@/lib/money'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
 
-const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
   month: 'short',
@@ -20,6 +19,38 @@ interface Breakdown {
   name: string
   count: number
   amount: number
+}
+
+/**
+ * What this teacher earns per delivered session, by child. A teacher never
+ * reads what the school bills: the database function my_commission_rates()
+ * returns only the commission (the teacher's own rate for the child if there
+ * is one, otherwise the child's default). Until that function is installed
+ * (supabase/fix_teacher_commission_only.sql), fall back to reading just the
+ * commission columns, so the page keeps working in the meantime.
+ */
+async function loadMyCommissions(supabase: Awaited<ReturnType<typeof createClient>>, studentIds: string[], teacherId: string) {
+  const byStudent = new Map<string, number>()
+  if (studentIds.length === 0) return byStudent
+
+  const { data, error } = await supabase.rpc('my_commission_rates')
+  if (!error) {
+    for (const r of data ?? []) byStudent.set(r.student_id, Number(r.commission_rate))
+    return byStudent
+  }
+
+  const { data: rows } = await supabase
+    .from('billing_rates')
+    .select('student_id, teacher_id, commission_rate')
+    .in('student_id', studentIds)
+    .or(`teacher_id.eq.${teacherId},teacher_id.is.null`)
+  const own = new Map<string, number>()
+  for (const r of rows ?? []) {
+    if (r.teacher_id === teacherId) own.set(r.student_id, Number(r.commission_rate))
+    else if (!byStudent.has(r.student_id)) byStudent.set(r.student_id, Number(r.commission_rate))
+  }
+  for (const [studentId, commission] of own) byStudent.set(studentId, commission)
+  return byStudent
 }
 
 function addToBreakdown(map: Map<string, Breakdown>, name: string, commission: number) {
@@ -52,7 +83,7 @@ function BreakdownTable({ title, rows }: { title: string; rows: Breakdown[] }) {
                   <tr key={r.name}>
                     <td className="p-2">{r.name}</td>
                     <td className="p-2">{r.count}</td>
-                    <td className="p-2 font-medium">{currencyFormatter.format(r.amount)}</td>
+                    <td className="p-2 font-medium">{formatRupiah(r.amount)}</td>
                   </tr>
                 ))}
             </tbody>
@@ -76,11 +107,7 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
     .eq('teacher_id', teacherId)
 
   const studentIds = Array.from(new Set((allSessions ?? []).map((s) => s.student_id)))
-  const { data: rateRows } =
-    studentIds.length > 0
-      ? await supabase.from('billing_rates').select('*').in('student_id', studentIds).or(`teacher_id.eq.${teacherId},teacher_id.is.null`)
-      : { data: [] }
-  const rates = rateRows ?? []
+  const commissionByStudent = await loadMyCommissions(supabase, studentIds, teacherId)
 
   const sessionInfoById = new Map(
     (allSessions ?? []).map((s) => [
@@ -123,18 +150,18 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
   function deliver(sessionId: string) {
     const info = sessionInfoById.get(sessionId)
     if (!info) return
-    const rate = lookupBillingRate(rates, info.studentId, teacherId)
+    const commission = commissionByStudent.get(info.studentId)
     const when = info.whenISO ? dateTimeFormatter.format(new Date(info.whenISO)) : 'Unknown time'
     totalDelivered += 1
-    if (!rate) {
+    if (commission === undefined) {
       unratedDelivered += 1
       deliveredSessions.push({ whenISO: info.whenISO, when, studentName: info.studentName, protocolName: info.protocolName, commission: null })
       return
     }
-    addToBreakdown(byStudent, info.studentName, rate.commissionRate)
-    addToBreakdown(byProtocol, info.protocolName, rate.commissionRate)
-    totalCommission += rate.commissionRate
-    deliveredSessions.push({ whenISO: info.whenISO, when, studentName: info.studentName, protocolName: info.protocolName, commission: rate.commissionRate })
+    addToBreakdown(byStudent, info.studentName, commission)
+    addToBreakdown(byProtocol, info.protocolName, commission)
+    totalCommission += commission
+    deliveredSessions.push({ whenISO: info.whenISO, when, studentName: info.studentName, protocolName: info.protocolName, commission })
   }
 
   // One-off: her own status='completed' marking is the delivery record.
@@ -174,7 +201,7 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
       </div>
 
       <div className="rounded-lg border border-gray-200 p-4 text-center">
-        <p className="text-3xl font-bold text-green-700">{currencyFormatter.format(totalCommission)}</p>
+        <p className="text-3xl font-bold text-green-700">{formatRupiah(totalCommission)}</p>
         <p className="text-sm text-gray-500">
           {totalDelivered} session{totalDelivered === 1 ? '' : 's'} delivered — week of {formatWeekLabel(weekStartDate)}
         </p>
@@ -211,7 +238,7 @@ export default async function TeacherCommissionsPage({ searchParams }: { searchP
                       <td className="p-2">{s.studentName}</td>
                       <td className="p-2">{s.protocolName}</td>
                       <td className={`p-2 font-medium ${s.commission === null ? 'text-amber-600' : ''}`}>
-                        {s.commission === null ? 'no rate set' : currencyFormatter.format(s.commission)}
+                        {s.commission === null ? 'no rate set' : formatRupiah(s.commission)}
                       </td>
                     </tr>
                   ))}
