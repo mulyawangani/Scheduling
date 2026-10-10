@@ -202,6 +202,7 @@ export default async function BillingPage({
       scheduled: became?.scheduled ?? 0,
       sessionCount: sessions.length,
       notDone: became?.notDone ?? 0,
+      noShow: became?.noShow ?? 0,
       cancelled: became?.cancelled ?? 0,
       rate,
       total: sessions.length * rate,
@@ -299,7 +300,7 @@ export default async function BillingPage({
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6 flex flex-col gap-6">
+    <main className="mx-auto max-w-7xl p-6 flex flex-col gap-6">
       <div>
         <BackLink href="/admin" label="Dashboard" />
         <h1 className="text-xl font-semibold mt-1">Billing</h1>

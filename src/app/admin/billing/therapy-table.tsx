@@ -14,8 +14,10 @@ export interface TherapyRow {
   scheduled: number
   /** Sessions with a submitted note: what is billed. */
   sessionCount: number
-  /** Ended without being marked complete: a no-show, or a note not written yet. */
+  /** Ended without a note, a no-show mark or a cancellation: the teacher has not written or marked it yet. */
   notDone: number
+  /** The assigned teacher marked the session a no-show: the student did not come, and it was not cancelled. */
+  noShow: number
   cancelled: number
   rate: number
   total: number
@@ -45,8 +47,11 @@ export function TherapyTable({ rows, monthStart }: { rows: TherapyRow[]; monthSt
             <th className="whitespace-nowrap px-2 py-3 text-center" title="Sessions with a submitted therapy note. This is what is billed.">
               Done
             </th>
-            <th className="whitespace-nowrap px-2 py-3 text-center" title="The session time has passed but it was never marked complete: a no-show, or the teacher has not written the note yet.">
+            <th className="whitespace-nowrap px-2 py-3 text-center" title="The session time has passed but the teacher has not written the note or marked a no-show yet.">
               Not done
+            </th>
+            <th className="whitespace-nowrap px-2 py-3 text-center" title="The assigned teacher marked the session a no-show: the student did not come and it was not cancelled.">
+              No-show
             </th>
             <th className="whitespace-nowrap px-2 py-3 text-center" title="Sessions dated this month that were cancelled. The app does not record who cancelled or why.">
               Cancelled
@@ -78,6 +83,9 @@ export function TherapyTable({ rows, monthStart }: { rows: TherapyRow[]; monthSt
               <td className="px-2 py-3 text-center font-semibold tabular-nums text-gray-700">{r.sessionCount}</td>
               <td className="px-2 py-3 text-center tabular-nums">
                 {r.notDone > 0 ? <span className="font-semibold" style={{ color: '#B45309' }}>{r.notDone}</span> : <Zero />}
+              </td>
+              <td className="px-2 py-3 text-center tabular-nums">
+                {r.noShow > 0 ? <span className="font-semibold" style={{ color: '#BE123C' }}>{r.noShow}</span> : <Zero />}
               </td>
               <td className="px-2 py-3 text-center tabular-nums">
                 {r.cancelled > 0 ? <span className="font-semibold" style={{ color: '#DC2626' }}>{r.cancelled}</span> : <Zero />}
@@ -113,6 +121,7 @@ export function TherapyTable({ rows, monthStart }: { rows: TherapyRow[]; monthSt
             <td className="px-2 py-3 text-center tabular-nums">{sum((r) => r.scheduled)}</td>
             <td className="px-2 py-3 text-center tabular-nums">{sum((r) => r.sessionCount)}</td>
             <td className="px-2 py-3 text-center tabular-nums">{sum((r) => r.notDone)}</td>
+            <td className="px-2 py-3 text-center tabular-nums">{sum((r) => r.noShow)}</td>
             <td className="px-2 py-3 text-center tabular-nums">{sum((r) => r.cancelled)}</td>
             <td />
             <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">Rp {fmt(sum((r) => r.total))}</td>
@@ -132,13 +141,14 @@ export function SessionStrip({ monthLabel, outcomes }: { monthLabel: string; out
     { label: 'Done', value: outcomes.done, color: '#16A34A' },
     { label: 'To come', value: outcomes.toCome, color: '#3B82F6' },
     { label: 'Not done', value: outcomes.notDone, color: '#B45309' },
+    { label: 'No-show', value: outcomes.noShow, color: '#BE123C' },
     { label: 'Cancelled', value: outcomes.cancelled, color: '#DC2626' },
     { label: 'Declined', value: outcomes.declined, color: '#6B7280' },
   ]
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Sessions · {monthLabel}</h2>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {tiles.map((t) => (
           <div key={t.label} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="text-lg font-bold tabular-nums" style={{ color: t.color }}>
@@ -149,9 +159,10 @@ export function SessionStrip({ monthLabel, outcomes }: { monthLabel: string; out
         ))}
       </div>
       <p className="text-xs leading-relaxed text-gray-400">
-        Scheduled is what is on the calendar (cancelled and declined sessions are not in it): done, still to come, or ended without being marked
-        complete. Not done is a session whose time has passed without a note: a no-show, or a note the teacher has not written yet. The app does not
-        record no-shows, or who cancelled a session and why, and Cancelled also counts sessions removed when a schedule was reset.
+        Scheduled is what is on the calendar (cancelled, declined and no-show sessions are not in it): done, still to come, or ended without a note.
+        Not done is a session whose time has passed without a note or a no-show mark yet. No-show is a session the assigned teacher marked because
+        the student did not come and it was not cancelled; it is not counted in Done, so it is not billed. The app does not record who cancelled a
+        session or why, and Cancelled also counts sessions removed when a schedule was reset.
       </p>
     </section>
   )

@@ -116,6 +116,85 @@ export async function declineSession(sessionId: string, reason: string) {
 }
 
 /**
+ * The teacher assigned to a session marks it a no-show: the student did not come, and the session was not
+ * cancelled (decided 2026-10-10). The session leaves the calendar's active sessions, since it was neither done
+ * nor cancelled, so it is not billed and the child's need for the month is unmet again; the Billing page counts
+ * it as a no-show. Only the assigned teacher, only for an accepted one-off session that has already started
+ * (a class cannot be missed before it begins). Needs the 'no_show' status from supabase/add_no_show.sql.
+ */
+export async function markNoShow(sessionId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { data: session } = await supabase
+    .from('session_plans')
+    .select('id, status, recurrence_type, start_time')
+    .eq('id', sessionId)
+    .eq('teacher_id', user.id)
+    .maybeSingle()
+
+  if (!session || session.recurrence_type !== 'one_off' || session.status !== 'accepted' || !session.start_time) {
+    return { error: "This isn't one of your confirmed sessions anymore — it may have been cancelled or changed elsewhere. Refresh to see its current status." }
+  }
+  if (new Date(session.start_time) > new Date()) return { error: "Can't mark a no-show before the session has started." }
+
+  const { data, error } = await supabase
+    .from('session_plans')
+    .update({ status: 'no_show', responded_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .eq('teacher_id', user.id)
+    .eq('status', 'accepted')
+    .eq('recurrence_type', 'one_off')
+    .select('id')
+
+  // 22P02: the database does not know the status yet; 42501: the teacher rule does not allow it yet. Both mean add_no_show.sql has not run.
+  if (error) return { error: error.code === '22P02' || error.code === '42501' ? 'No-show is not switched on yet.' : 'Could not mark the no-show.' }
+  if (!data || data.length === 0) {
+    return { error: "This session isn't confirmed anymore — it may have been cancelled or changed elsewhere. Refresh to see its current status." }
+  }
+
+  logAudit(supabase, user.id, 'mark_no_show', 'session_plan', sessionId)
+
+  revalidatePath('/teacher')
+  revalidatePath('/teacher/therapy-notes')
+  revalidatePath('/admin/billing')
+  return { error: null }
+}
+
+/** Takes a no-show mark back (marked by mistake): the session goes back to confirmed, so its note can be written. */
+export async function undoNoShow(sessionId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'You must be signed in.' }
+
+  const { data, error } = await supabase
+    .from('session_plans')
+    .update({ status: 'accepted', responded_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .eq('teacher_id', user.id)
+    .eq('status', 'no_show')
+    .eq('recurrence_type', 'one_off')
+    .select('id')
+
+  if (error) return { error: 'Could not undo the no-show.' }
+  if (!data || data.length === 0) return { error: "This session isn't marked as a no-show anymore. Refresh to see its current status." }
+
+  logAudit(supabase, user.id, 'undo_no_show', 'session_plan', sessionId)
+
+  revalidatePath('/teacher')
+  revalidatePath('/teacher/therapy-notes')
+  revalidatePath('/admin/billing')
+  return { error: null }
+}
+
+/**
  * Marks a specific week's occurrence of a weekly-recurring session as
  * delivered — the per-occurrence record a standing weekly session_plans row
  * has no other way to carry (see session_occurrences). Self-declared by the

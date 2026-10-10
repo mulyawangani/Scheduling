@@ -4,6 +4,8 @@ import { getUserProfile } from '@/lib/auth/get-user-profile'
 import { BackLink } from '@/components/back-link'
 import { BUSINESS_TIMEZONE, dateStringInBusinessTz, businessLocalToISOString } from '@/lib/timezone'
 import { getWeekStart, dateForDayOfWeek } from '@/lib/week'
+import { isNoShowReady } from '@/lib/no-show'
+import { NoShowButton } from '../no-show-button'
 import { RecentNotesList, type RecentNoteRow } from './recent-notes-list'
 
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -22,11 +24,15 @@ export default async function TherapyNotesPage() {
   const weekStart = getWeekStart(new Date())
   const todayStr = dateStringInBusinessTz(new Date())
 
-  const { data: sessions } = await supabase
-    .from('session_plans')
-    .select('id, recurrence_type, start_time, day_of_week, time_of_day_start, status, students(name), protocols(title)')
-    .eq('teacher_id', teacherId)
-    .eq('status', 'accepted')
+  const [{ data: sessions }, noShowReady] = await Promise.all([
+    supabase
+      .from('session_plans')
+      .select('id, recurrence_type, start_time, day_of_week, time_of_day_start, status, students(name), protocols(title)')
+      .eq('teacher_id', teacherId)
+      .eq('status', 'accepted'),
+    isNoShowReady(supabase),
+  ])
+  const now = new Date()
 
   const weeklyIds = (sessions ?? []).filter((s) => s.recurrence_type === 'weekly').map((s) => s.id)
   const { data: occurrenceRows } =
@@ -41,6 +47,8 @@ export default async function TherapyNotesPage() {
     studentName: string
     protocolName: string
     whenLabel: string
+    /** A one-off session that has already started: the student may not have come. */
+    canMarkNoShow: boolean
   }
 
   const awaiting: AwaitingRow[] = []
@@ -55,6 +63,7 @@ export default async function TherapyNotesPage() {
         studentName: student?.name ?? 'Unknown student',
         protocolName: protocol?.title ?? 'Unknown protocol',
         whenLabel: dateTimeFormatter.format(new Date(s.start_time)),
+        canMarkNoShow: new Date(s.start_time) <= now,
       })
     } else {
       if (s.day_of_week === null || !s.time_of_day_start || completedWeeklyIds.has(s.id)) continue
@@ -66,6 +75,7 @@ export default async function TherapyNotesPage() {
         studentName: student?.name ?? 'Unknown student',
         protocolName: protocol?.title ?? 'Unknown protocol',
         whenLabel: dateTimeFormatter.format(new Date(businessLocalToISOString(`${occurrenceDate}T${s.time_of_day_start.slice(0, 5)}`))),
+        canMarkNoShow: false,
       })
     }
   }
@@ -135,12 +145,17 @@ export default async function TherapyNotesPage() {
                   {a.studentName} — {a.protocolName}
                   <span className="text-gray-400"> · {a.whenLabel}</span>
                 </span>
-                <Link
-                  href={`/teacher/therapy-notes/${a.sessionId}${a.weekStartDate ? `?week=${a.weekStartDate}` : ''}`}
-                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Write note
-                </Link>
+                <span className="flex flex-shrink-0 items-center gap-3">
+                  {noShowReady && a.canMarkNoShow && (
+                    <NoShowButton sessionId={a.sessionId} label={a.studentName} className="text-sm font-medium text-rose-700 hover:underline" />
+                  )}
+                  <Link
+                    href={`/teacher/therapy-notes/${a.sessionId}${a.weekStartDate ? `?week=${a.weekStartDate}` : ''}`}
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    Write note
+                  </Link>
+                </span>
               </li>
             ))}
           </ul>

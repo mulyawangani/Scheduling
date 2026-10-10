@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { confirmSession, confirmAllSessions, declineSession } from './actions'
 import { getWeekStart, addWeeks, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
 import { dateStringInBusinessTz } from '@/lib/timezone'
+import { NoShowButton } from './no-show-button'
 
 const WEEKDAYS = [1, 2, 3, 4, 5]
 const DAY_NAMES: Record<number, string> = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri' }
@@ -37,7 +38,16 @@ export interface CompletedOccurrence {
   weekStartDate: string
 }
 
-export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherSessionRow[]; occurrences: CompletedOccurrence[] }) {
+export function ScheduleCalendar({
+  sessions,
+  occurrences,
+  noShowReady = false,
+}: {
+  sessions: TeacherSessionRow[]
+  occurrences: CompletedOccurrence[]
+  /** The No-show buttons show only once the database knows the status (supabase/add_no_show.sql has run). */
+  noShowReady?: boolean
+}) {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -183,16 +193,24 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
                             s.recurrenceType === 'weekly'
                               ? dateForDayOfWeek(weekStart, s.dayOfWeek) > todayStr
                               : s.date !== null && s.date > todayStr
+                          const isNoShow = s.status === 'no_show'
                           return (
                             <div
                               key={s.id}
                               className={`rounded px-1 py-0.5 ${
-                                isDone ? 'bg-green-50 text-green-800' : s.status === 'accepted' ? 'bg-blue-50 text-blue-800' : 'bg-yellow-50 text-yellow-800'
+                                isDone
+                                  ? 'bg-green-50 text-green-800'
+                                  : isNoShow
+                                    ? 'bg-rose-50 text-rose-800'
+                                    : s.status === 'accepted'
+                                      ? 'bg-blue-50 text-blue-800'
+                                      : 'bg-yellow-50 text-yellow-800'
                               }`}
                             >
                               <p className="font-medium leading-tight">{s.protocolName}</p>
                               <p className="leading-tight opacity-80">
-                                {s.studentName} <span className="text-[9px] uppercase opacity-60">({isDone ? 'completed' : s.status})</span>
+                                {s.studentName}{' '}
+                                <span className="text-[9px] uppercase opacity-60">({isDone ? 'completed' : isNoShow ? 'no-show' : s.status})</span>
                               </p>
                               {s.status === 'pending' && (
                                 <div className="mt-0.5 flex gap-2">
@@ -213,12 +231,19 @@ export function ScheduleCalendar({ sessions, occurrences }: { sessions: TeacherS
                                 </div>
                               )}
                               {s.status === 'accepted' && s.recurrenceType === 'one_off' && !occurrenceInFuture && (
-                                <Link
-                                  href={`/teacher/therapy-notes/${s.id}`}
-                                  className="mt-0.5 block text-[10px] text-green-700 hover:underline"
-                                >
-                                  Write note
-                                </Link>
+                                <div className="mt-0.5 flex flex-col items-start gap-0.5 sm:flex-row sm:gap-2">
+                                  <Link href={`/teacher/therapy-notes/${s.id}`} className="whitespace-nowrap text-[10px] text-green-700 hover:underline">
+                                    Write note
+                                  </Link>
+                                  {noShowReady && (
+                                    <NoShowButton sessionId={s.id} label={s.studentName} className="text-[10px] text-rose-700 hover:underline" />
+                                  )}
+                                </div>
+                              )}
+                              {isNoShow && (
+                                <div className="mt-0.5">
+                                  <NoShowButton sessionId={s.id} label={s.studentName} mode="undo" className="text-[10px] text-rose-700 hover:underline" />
+                                </div>
                               )}
                               {s.status === 'accepted' && s.recurrenceType === 'weekly' && !isWeeklyCompletedThisWeek && !occurrenceInFuture && (
                                 <Link

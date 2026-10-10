@@ -19,6 +19,8 @@ const ACTION_LABELS: Record<string, string> = {
   cancel_schedule_batch: 'Cancel schedule',
   reset_all_schedules: 'Reset all schedules',
   decline_session: 'Decline session',
+  mark_no_show: 'Mark no-show',
+  undo_no_show: 'Undo no-show',
   cancel_monthly_transactions: 'Cancel monthly transactions',
   add_protocol_need: 'Add protocol need',
   remove_protocol_need: 'Remove protocol need',

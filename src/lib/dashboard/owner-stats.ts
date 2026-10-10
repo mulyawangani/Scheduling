@@ -240,15 +240,17 @@ export interface SessionOutcomes {
   done: number
   /** Still ahead: the session has not ended yet. */
   toCome: number
-  /** Ended, but never marked complete and not cancelled: a no-show, or a note the teacher has not written yet. */
+  /** Ended, but never marked complete, a no-show or cancelled: the teacher has not written the note, or marked the no-show, yet. */
   notDone: number
+  /** One-off sessions dated in the month that the assigned teacher marked a no-show (the student did not come, and it was not cancelled). */
+  noShow: number
   /** One-off sessions dated in the month that were cancelled. The app does not record who cancelled, or why. */
   cancelled: number
   /** One-off sessions dated in the month that the teacher declined. */
   declined: number
 }
 
-const emptyOutcomes = (): SessionOutcomes => ({ scheduled: 0, done: 0, toCome: 0, notDone: 0, cancelled: 0, declined: 0 })
+const emptyOutcomes = (): SessionOutcomes => ({ scheduled: 0, done: 0, toCome: 0, notDone: 0, noShow: 0, cancelled: 0, declined: 0 })
 
 /** The moment one occurrence ends: a one-off's end time, or a weekly session's end time on its date in that week. */
 function occurrenceEnd(s: BillableSession, weekStart: string): Date | null {
@@ -262,7 +264,7 @@ function occurrenceEnd(s: BillableSession, weekStart: string): Date | null {
 /**
  * What became of every session dated in the month (YYYY-MM), in total and for each child: how many are
  * on the calendar, how many of those are done, still to come, or ended without being marked complete, and
- * how many one-off sessions were cancelled or declined. `sessions` may hold any status; a weekly session only
+ * how many one-off sessions left the calendar: marked a no-show by the teacher, cancelled, or declined. `sessions` may hold any status; a weekly session only
  * counts while pending, accepted or completed (a cancelled weekly session has no dates left to count).
  * `deliveredWeekly` holds "sessionId:weekStartDate" for the weekly sessions with an occurrence record, `now`
  * decides what has already ended.
@@ -299,11 +301,12 @@ export function sessionOutcomesForMonth(
 
   const first = `${month}-01`
   const last = lastDayOf(month)
+  const leftTheCalendar: Record<string, 'noShow' | 'cancelled' | 'declined'> = { no_show: 'noShow', cancelled: 'cancelled', declined: 'declined' }
   for (const s of sessions) {
-    if (s.recurrence_type !== 'one_off' || !s.start_time) continue
-    if (s.status !== 'cancelled' && s.status !== 'declined') continue
+    const outcome = leftTheCalendar[s.status]
+    if (!outcome || s.recurrence_type !== 'one_off' || !s.start_time) continue
     const date = dateStringInBusinessTz(new Date(s.start_time))
-    if (date >= first && date <= last) count(s.student_id, s.status === 'cancelled' ? 'cancelled' : 'declined')
+    if (date >= first && date <= last) count(s.student_id, outcome)
   }
   return { total, perChild }
 }

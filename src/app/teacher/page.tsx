@@ -8,6 +8,7 @@ import {
   formatTimeInBusinessTz,
 } from '@/lib/timezone'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel, dateForDayOfWeek } from '@/lib/week'
+import { isNoShowReady } from '@/lib/no-show'
 import { ScheduleCalendar, type TeacherSessionRow, type CompletedOccurrence } from './schedule-calendar'
 
 export const dynamic = 'force-dynamic'
@@ -36,20 +37,23 @@ export default async function TeacherDashboard() {
   const currentWeekStart = getWeekStart(new Date())
   const upcomingWeekStart = getUpcomingWeekStart()
 
-  const [{ data: sessions }, { data: availability }] = await Promise.all([
+  const [{ data: sessions }, { data: availability }, noShowReady] = await Promise.all([
     supabase
       .from('session_plans')
       .select(
         'id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, students(name), protocols(title)'
       )
       .eq('teacher_id', result!.user.id)
-      .in('status', ['pending', 'accepted', 'completed'])
+      // Everything except what was cancelled or declined, so a no-show she marked stays on her schedule (and can be undone).
+      // A deny-list on purpose: it works before the database knows the no-show status as well as after.
+      .not('status', 'in', '(cancelled,declined)')
       .order('created_at', { ascending: false }),
     supabase
       .from('teacher_availability')
       .select('start_time, end_time')
       .eq('teacher_id', result!.user.id)
       .eq('week_start_date', upcomingWeekStart),
+    isNoShowReady(supabase),
   ])
 
   const allSessions = sessions ?? []
@@ -215,6 +219,7 @@ export default async function TeacherDashboard() {
                   ? formatTimeInBusinessTz(new Date(s.start_time)).slice(0, 5)
                   : s.time_of_day_start?.slice(0, 5) ?? '—'
               const isAccepted = s.status === 'accepted'
+              const isNoShow = s.status === 'no_show'
               return (
                 <div
                   key={s.id}
@@ -230,11 +235,11 @@ export default async function TeacherDashboard() {
                   <span
                     className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
                     style={{
-                      background: isAccepted ? 'rgba(34,197,94,0.1)' : 'rgba(245,144,48,0.1)',
-                      color: isAccepted ? '#16a34a' : '#ea580c',
+                      background: isNoShow ? 'rgba(225,29,72,0.1)' : isAccepted ? 'rgba(34,197,94,0.1)' : 'rgba(245,144,48,0.1)',
+                      color: isNoShow ? '#be123c' : isAccepted ? '#16a34a' : '#ea580c',
                     }}
                   >
-                    {isAccepted ? 'Confirmed' : 'Pending'}
+                    {isNoShow ? 'No-show' : isAccepted ? 'Confirmed' : 'Pending'}
                   </span>
                 </div>
               )
@@ -268,8 +273,9 @@ export default async function TeacherDashboard() {
         <p className="mb-3 text-sm text-gray-500">
           Confirm a pending session to accept it. Once the class has happened, write its therapy
           note — that&apos;s what actually marks the session complete.
+          {noShowReady && ' If the student did not come and the session was not cancelled, mark it a no-show instead.'}
         </p>
-        <ScheduleCalendar sessions={sessionRows} occurrences={occurrences} />
+        <ScheduleCalendar sessions={sessionRows} occurrences={occurrences} noShowReady={noShowReady} />
       </section>
 
     </main>

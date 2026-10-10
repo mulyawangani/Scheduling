@@ -2,7 +2,8 @@ export type UserRole = 'parent' | 'teacher' | 'owner' | 'admin' | 'principal' | 
 export type ContactType = 'father' | 'mother' | 'emergency'
 export type RecurrenceType = 'one_off' | 'weekly'
 export type SessionSource = 'algorithm' | 'manual'
-export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed'
+// 'no_show' is added by supabase/add_no_show.sql: the student did not come and the session was not cancelled.
+export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed' | 'no_show'
 export type StudentStatus = 'student' | 'non_student' | 'inactive' | 'trial'
 export type HolidayType = 'school' | 'public'
 export type TeacherStatus = 'teacher' | 'therapist'
