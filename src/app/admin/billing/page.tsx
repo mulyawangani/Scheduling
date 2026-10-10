@@ -2,9 +2,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCapability } from '@/lib/auth/require-capability'
 import { fetchAllRows } from '@/lib/supabase/fetch-all'
+import { commissionForSessions } from '@/lib/billing'
+import { sessionOutcomesForMonth, weeksOverlappingMonth, type BillableSession } from '@/lib/dashboard/owner-stats'
+import { businessLocalToISOString } from '@/lib/timezone'
+import type { BillingRate } from '@/lib/supabase/types'
 import { BackLink } from '@/components/back-link'
 import Link from 'next/link'
 import { PaymentStatusButton } from './payment-status-button'
+import { SessionStrip, TherapyTable, type TherapyRow } from './therapy-table'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,7 +81,13 @@ export default async function BillingPage({
   // Every therapy client is listed: each child whose therapy is switched on, whatever their school status
   // (non-students included), with their sessions this month. A child with a submitted note this month is
   // listed even if therapy has since been switched off, so nothing already delivered is left out.
-  const [{ data: therapyKids }, { data: therapyNotes }] = await Promise.all([
+  // The month's sessions as they stand: every one-off dated in the month with any status (so cancelled ones can be
+  // counted) and every weekly session that is on the calendar, plus which weeks of a weekly session were delivered.
+  const sessionFields = 'id, student_id, teacher_id, status, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end'
+  const monthStartISO = businessLocalToISOString(`${monthStart}T00:00`)
+  const nextMonthStartISO = businessLocalToISOString(`${nextMonth}-01T00:00`)
+
+  const [{ data: therapyKids }, { data: therapyNotes }, { data: monthSessions }, { data: weeklySessions }, occurrenceRes] = await Promise.all([
     fetchAllRows<any>((from, to) =>
       db
         .from('students')
@@ -92,15 +103,39 @@ export default async function BillingPage({
       .gte('session_date', monthStart)
       .lte('session_date', monthEnd)
       .neq('status', 'draft'),
+    fetchAllRows<BillableSession>((from, to) =>
+      db
+        .from('session_plans')
+        .select(sessionFields)
+        .eq('recurrence_type', 'one_off')
+        .gte('start_time', monthStartISO)
+        .lt('start_time', nextMonthStartISO)
+        .order('id')
+        .range(from, to)
+    ),
+    fetchAllRows<BillableSession>((from, to) =>
+      db
+        .from('session_plans')
+        .select(sessionFields)
+        .eq('recurrence_type', 'weekly')
+        .in('status', ['pending', 'accepted', 'completed'])
+        .order('id')
+        .range(from, to)
+    ),
+    db.from('session_occurrences').select('session_plan_id, week_start_date').in('week_start_date', weeksOverlappingMonth(currentMonthStr)),
   ])
 
+  const deliveredWeekly = new Set<string>(
+    ((occurrenceRes.data ?? []) as { session_plan_id: string; week_start_date: string }[]).map((o) => `${o.session_plan_id}:${o.week_start_date}`)
+  )
+  const outcomes = sessionOutcomesForMonth([...(monthSessions ?? []), ...(weeklySessions ?? [])], deliveredWeekly, currentMonthStr, new Date())
+
   // Billing rates: fetch all and build lookup (student+teacher → rate, student+null → default)
-  const { data: billingRates } = await db
-    .from('billing_rates')
-    .select('student_id, teacher_id, billing_rate')
+  const { data: billingRatesData } = await db.from('billing_rates').select('*')
+  const billingRates = (billingRatesData ?? []) as BillingRate[]
 
   const rateMap = new Map<string, number>()
-  for (const r of billingRates ?? []) {
+  for (const r of billingRates) {
     const key = r.teacher_id ? `${r.student_id}:${r.teacher_id}` : `${r.student_id}:default`
     rateMap.set(key, r.billing_rate)
   }
@@ -154,18 +189,24 @@ export default async function BillingPage({
   for (const p of therapyPayments ?? []) therapyPayMap.set(p.student_id, p)
 
   // Build therapy rows: a child with no session this month has no payment status.
-  const therapyRows = Array.from(byStudent.values()).map(({ student, sessions, rate }) => {
+  const therapyRows: TherapyRow[] = Array.from(byStudent.values()).map(({ student, sessions, rate }) => {
     const payment = therapyPayMap.get(student.id)
     const hasSessions = sessions.length > 0
+    const became = outcomes.perChild.get(student.id)
     return {
       studentId: student.id as string,
       name: student.name as string,
-      schoolStatus: (student.status ?? null) as string | null,
+      schoolStatusLabel: schoolStatusTag(student.status ?? null),
       classroom: one(student.classrooms)?.name ?? null,
       parent: one(student.profiles) ?? null,
+      scheduled: became?.scheduled ?? 0,
       sessionCount: sessions.length,
+      notDone: became?.notDone ?? 0,
+      cancelled: became?.cancelled ?? 0,
       rate,
       total: sessions.length * rate,
+      // Each done session at the commission rate of the teacher who taught it.
+      commission: commissionForSessions(billingRates, student.id, sessions.map((n: any) => n.teacher_id as string)),
       status: hasSessions ? ((payment?.status ?? 'unpaid') as string) : null,
       paidAt: payment?.paid_at ?? null,
       xenditPaymentId: payment?.xendit_payment_id ?? null,
@@ -181,7 +222,6 @@ export default async function BillingPage({
   const tUnpaid  = therapyRows.filter(r => r.status === 'unpaid').length
   const tNone    = therapyRows.filter(r => r.status === null).length
   const tRevenue = therapyRows.filter(r => r.status === 'paid').reduce((s, r) => s + r.total, 0)
-  const tTotal   = therapyRows.reduce((s, r) => s + r.total, 0)
 
   // ── School (enrollment) payments ────────────────────────────────────────────
   // Every student is listed (status Student), plus any child enrolled in this month who has since been set
@@ -259,7 +299,7 @@ export default async function BillingPage({
   }
 
   return (
-    <main className="mx-auto max-w-5xl p-6 flex flex-col gap-6">
+    <main className="mx-auto max-w-6xl p-6 flex flex-col gap-6">
       <div>
         <BackLink href="/admin" label="Dashboard" />
         <h1 className="text-xl font-semibold mt-1">Billing</h1>
@@ -308,6 +348,9 @@ export default async function BillingPage({
             ))}
           </div>
 
+          {/* What became of the month's sessions: scheduled, done, to come, not done, cancelled */}
+          <SessionStrip monthLabel={monthLabel} outcomes={outcomes.total} />
+
           {/* Filter tabs */}
           <div className="flex gap-2">
             {FILTERS.map(f => {
@@ -334,66 +377,13 @@ export default async function BillingPage({
               <span className="text-xs">Switch therapy on in a child&apos;s profile on the Children page; they are then listed here.</span>
             </div>
           ) : (
-            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    <th className="px-5 py-3 text-left">Student</th>
-                    <th className="px-3 py-3 text-left">Parent</th>
-                    <th className="px-3 py-3 text-center">Sessions</th>
-                    <th className="px-3 py-3 text-right">Rate</th>
-                    <th className="px-3 py-3 text-right">Total</th>
-                    <th className="px-3 py-3 text-right">Paid on</th>
-                    <th className="px-5 py-3 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTherapyRows.map((r, i) => (
-                    <tr key={r.studentId} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                      <td className="px-5 py-3">
-                        <div className="font-medium text-gray-900">{r.name}</div>
-                        <div className="text-xs text-gray-400">
-                          {r.classroom ? `${r.classroom} · ` : ''}{schoolStatusTag(r.schoolStatus)}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="text-gray-700">{r.parent?.name ?? '—'}</div>
-                        {r.parent?.phone && <div className="text-xs text-gray-400">{r.parent.phone}</div>}
-                      </td>
-                      <td className="px-3 py-3 text-center font-semibold text-gray-700">{r.sessionCount}</td>
-                      <td className="px-3 py-3 text-right text-xs text-gray-500">
-                        {r.rate > 0 ? `Rp ${fmt(r.rate)}` : '—'}
-                      </td>
-                      <td className="px-3 py-3 text-right font-semibold text-gray-800">
-                        {r.total > 0 ? `Rp ${fmt(r.total)}` : '—'}
-                      </td>
-                      <td className="px-3 py-3 text-right text-xs text-gray-500">
-                        {r.paidAt ? new Date(r.paidAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        {r.status === null ? (
-                          <span className="text-xs text-gray-400">No sessions</span>
-                        ) : (
-                          <PaymentStatusButton studentId={r.studentId} month={monthStart} status={r.status} type="therapy" xenditPaymentId={r.xenditPaymentId} />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-gray-100 bg-gray-50/50">
-                    <td colSpan={4} className="px-5 py-3 text-xs font-semibold text-gray-500">Total</td>
-                    <td className="px-3 py-3 text-right font-bold text-gray-800">Rp {fmt(tTotal)}</td>
-                    <td colSpan={2} />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <TherapyTable rows={filteredTherapyRows} monthStart={monthStart} />
           )}
 
-          <p className="text-xs text-gray-400 text-center">
-            Every child with therapy on is listed, non-students included ({tNone} with no sessions in {monthLabel}). Sessions are counted from
-            submitted therapy notes. Click a status to cycle: Unpaid → Pending → Paid.
+          <p className="text-xs leading-relaxed text-gray-400 text-center">
+            Every child with therapy on is listed, non-students included ({tNone} with no sessions in {monthLabel}). Done counts the submitted therapy
+            notes, and that is what is billed. Commission is each done session at its teacher&apos;s commission rate; a dash means no commission rate is
+            set for that child and teacher. Click a status to cycle: Unpaid → Pending → Paid.
           </p>
         </>
       )}

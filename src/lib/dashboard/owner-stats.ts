@@ -1,7 +1,7 @@
 import type { BillingRate } from '@/lib/supabase/types'
 import { lookupBillingRate } from '@/lib/billing'
 import { sessionDateInWeek, type BookedSessionRow } from '@/lib/matching/weekly-coverage'
-import { dateStringInBusinessTz } from '@/lib/timezone'
+import { businessLocalToISOString, dateStringInBusinessTz } from '@/lib/timezone'
 import { addWeeks, getWeekStart } from '@/lib/week'
 
 // ── Children ────────────────────────────────────────────────────────────────
@@ -229,6 +229,83 @@ export function sessionsPerChildInMonth(sessions: BillableSession[], month: stri
   const perChild = new Map<string, number>()
   forEachOccurrence(sessions, month, (s) => perChild.set(s.student_id, (perChild.get(s.student_id) ?? 0) + 1))
   return perChild
+}
+
+// ── What became of the sessions ─────────────────────────────────────────────
+
+export interface SessionOutcomes {
+  /** On the calendar in the month and not cancelled: done + toCome + notDone (the sessions the billing above prices). */
+  scheduled: number
+  /** Delivered: a one-off marked Complete (its note was submitted), or a weekly session with an occurrence record. */
+  done: number
+  /** Still ahead: the session has not ended yet. */
+  toCome: number
+  /** Ended, but never marked complete and not cancelled: a no-show, or a note the teacher has not written yet. */
+  notDone: number
+  /** One-off sessions dated in the month that were cancelled. The app does not record who cancelled, or why. */
+  cancelled: number
+  /** One-off sessions dated in the month that the teacher declined. */
+  declined: number
+}
+
+const emptyOutcomes = (): SessionOutcomes => ({ scheduled: 0, done: 0, toCome: 0, notDone: 0, cancelled: 0, declined: 0 })
+
+/** The moment one occurrence ends: a one-off's end time, or a weekly session's end time on its date in that week. */
+function occurrenceEnd(s: BillableSession, weekStart: string): Date | null {
+  if (s.recurrence_type === 'weekly') {
+    const date = sessionDateInWeek(s, weekStart)
+    return date && s.time_of_day_end ? new Date(businessLocalToISOString(`${date}T${s.time_of_day_end.slice(0, 8)}`)) : null
+  }
+  return s.end_time ? new Date(s.end_time) : null
+}
+
+/**
+ * What became of every session dated in the month (YYYY-MM), in total and for each child: how many are
+ * on the calendar, how many of those are done, still to come, or ended without being marked complete, and
+ * how many one-off sessions were cancelled or declined. `sessions` may hold any status; a weekly session only
+ * counts while pending, accepted or completed (a cancelled weekly session has no dates left to count).
+ * `deliveredWeekly` holds "sessionId:weekStartDate" for the weekly sessions with an occurrence record, `now`
+ * decides what has already ended.
+ */
+export function sessionOutcomesForMonth(
+  sessions: BillableSession[],
+  deliveredWeekly: Set<string>,
+  month: string,
+  now: Date
+): { total: SessionOutcomes; perChild: Map<string, SessionOutcomes> } {
+  const total = emptyOutcomes()
+  const perChild = new Map<string, SessionOutcomes>()
+  const count = (studentId: string, field: keyof SessionOutcomes) => {
+    total[field] += 1
+    let child = perChild.get(studentId)
+    if (!child) {
+      child = emptyOutcomes()
+      perChild.set(studentId, child)
+    }
+    child[field] += 1
+  }
+
+  const onCalendar = sessions.filter((s) => s.status === 'pending' || s.status === 'accepted' || s.status === 'completed')
+  forEachOccurrence(onCalendar, month, (s, week) => {
+    count(s.student_id, 'scheduled')
+    const delivered = s.recurrence_type === 'weekly' ? deliveredWeekly.has(`${s.id}:${week}`) : s.status === 'completed'
+    if (delivered) {
+      count(s.student_id, 'done')
+      return
+    }
+    const end = occurrenceEnd(s, week)
+    count(s.student_id, end && end <= now ? 'notDone' : 'toCome')
+  })
+
+  const first = `${month}-01`
+  const last = lastDayOf(month)
+  for (const s of sessions) {
+    if (s.recurrence_type !== 'one_off' || !s.start_time) continue
+    if (s.status !== 'cancelled' && s.status !== 'declined') continue
+    const date = dateStringInBusinessTz(new Date(s.start_time))
+    if (date >= first && date <= last) count(s.student_id, s.status === 'cancelled' ? 'cancelled' : 'declined')
+  }
+  return { total, perChild }
 }
 
 // ── Per school ──────────────────────────────────────────────────────────────

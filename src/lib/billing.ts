@@ -24,6 +24,21 @@ export function lookupBillingRate(rates: BillingRate[], studentId: string, teach
   return null
 }
 
+/**
+ * The teacher commission owed on a child's delivered sessions: each session at the commission rate of the
+ * teacher who taught it (their own rate for the child, else the child's default). Null when any of the
+ * sessions has no rate set at all, because the amount would then be only partly known.
+ */
+export function commissionForSessions(rates: BillingRate[], studentId: string, teacherIds: string[]): number | null {
+  let sum = 0
+  for (const teacherId of teacherIds) {
+    const rate = lookupBillingRate(rates, studentId, teacherId)
+    if (!rate) return null
+    sum += Number(rate.commissionRate)
+  }
+  return sum
+}
+
 export function groupRatesByStudent(rates: BillingRate[]): Map<string, BillingRate[]> {
   const map = new Map<string, BillingRate[]>()
   for (const r of rates) {
