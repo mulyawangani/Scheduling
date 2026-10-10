@@ -14,24 +14,28 @@ export interface BookedSessionRow {
 }
 
 /**
- * How many of the given sessions (pending, accepted or completed) fall in one Monday-start week.
- * Same rule as `existing` in generate-schedule.ts: a weekly session counts in every week, a
- * one-off in the week of its own date, Monday to Friday only.
+ * The date (YYYY-MM-DD) a session falls on in one Monday-start week, or null when it is not on the
+ * calendar that week. Same rule as `existing` in generate-schedule.ts: a weekly session is on the
+ * calendar in every week, a one-off only in the week of its own date, Monday to Friday only.
  */
+export function sessionDateInWeek(row: BookedSessionRow, weekStartDate: string): string | null {
+  const window = conflictWindow(row)
+  if (!window || !WEEKDAYS.includes(window.dayOfWeek)) return null
+  const date =
+    row.recurrence_type === 'weekly'
+      ? dateForDayOfWeek(weekStartDate, window.dayOfWeek)
+      : row.start_time
+        ? dateStringInBusinessTz(new Date(row.start_time))
+        : null
+  if (!date || date < weekStartDate || date > dateForDayOfWeek(weekStartDate, 5)) return null
+  return date
+}
+
+/** How many of the given sessions (pending, accepted or completed) fall in one Monday-start week. */
 export function countSessionsInWeek(sessions: BookedSessionRow[], weekStartDate: string): number {
-  const fridayDate = dateForDayOfWeek(weekStartDate, 5)
   let count = 0
   for (const row of sessions) {
-    const window = conflictWindow(row)
-    if (!window || !WEEKDAYS.includes(window.dayOfWeek)) continue
-    const date =
-      row.recurrence_type === 'weekly'
-        ? dateForDayOfWeek(weekStartDate, window.dayOfWeek)
-        : row.start_time
-          ? dateStringInBusinessTz(new Date(row.start_time))
-          : null
-    if (!date || date < weekStartDate || date > fridayDate) continue
-    count += 1
+    if (sessionDateInWeek(row, weekStartDate)) count += 1
   }
   return count
 }

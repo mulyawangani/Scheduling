@@ -8,6 +8,9 @@ import { navFor } from '@/lib/auth/admin-nav-config'
 
 const ROLE_LABEL: Record<string, string> = { owner: 'Owner', admin: 'Admin', principal: 'Principal' }
 
+// A page is "on" when the address is that page or below it: /admin/therapy must not light up on /admin/therapy-notes.
+const isOn = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`)
+
 export function AdminNav({ role, name }: { role: string; name: string }) {
   const pathname = usePathname()
   const groups = navFor(role)
@@ -46,7 +49,7 @@ export function AdminNav({ role, name }: { role: string; name: string }) {
       </Link>
 
       {groups.map((g) => {
-        const groupActive = g.items.some((i) => pathname.startsWith(i.href))
+        const groupActive = g.items.some((i) => isOn(pathname, i.href))
 
         // A group with a single page is just a link.
         if (g.items.length === 1) {
@@ -83,7 +86,7 @@ export function AdminNav({ role, name }: { role: string; name: string }) {
                 className="absolute left-0 top-full mt-1 min-w-[180px] rounded-lg border border-gray-100 bg-white py-1 shadow-lg"
               >
                 {g.items.map((item) => {
-                  const active = pathname.startsWith(item.href)
+                  const active = isOn(pathname, item.href)
                   return (
                     <Link
                       key={item.href}

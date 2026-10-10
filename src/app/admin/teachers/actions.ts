@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { authorize } from '@/lib/auth/require-capability'
+import { isTeacherLevel, type TeacherLevel } from '@/lib/teachers/levels'
 import { revalidatePath } from 'next/cache'
 
 // Server actions are web endpoints, so each one checks the caller against the
@@ -54,7 +55,8 @@ export async function createTeacher(formData: FormData) {
   return { error: null }
 }
 
-export async function updateTeacherProfile(teacherId: string, name: string, status: string, servesScope: string) {
+// `level` is left out (undefined) until the teacher_level column exists; '' clears it.
+export async function updateTeacherProfile(teacherId: string, name: string, status: string, servesScope: string, level?: string) {
   const auth = await authorize('people.teacher.edit')
   if (!auth.ok) return { error: auth.error }
 
@@ -64,11 +66,21 @@ export async function updateTeacherProfile(teacherId: string, name: string, stat
   if (servesScope !== '' && servesScope !== 'student_only' && servesScope !== 'non_student_only' && servesScope !== 'both') {
     return { error: 'Invalid serves scope.' }
   }
+  let teacherLevel: TeacherLevel | null | undefined
+  if (level === undefined) teacherLevel = undefined
+  else if (level === '') teacherLevel = null
+  else if (isTeacherLevel(level)) teacherLevel = level
+  else return { error: 'Invalid level.' }
 
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('profiles')
-    .update({ name: trimmed, status, serves_scope: servesScope === '' ? null : servesScope })
+    .update({
+      name: trimmed,
+      status,
+      serves_scope: servesScope === '' ? null : servesScope,
+      ...(teacherLevel === undefined ? {} : { teacher_level: teacherLevel }),
+    })
     .eq('id', teacherId)
     .eq('role', 'teacher')
     .select('id')

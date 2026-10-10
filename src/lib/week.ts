@@ -38,19 +38,24 @@ export function formatWeekLabel(weekStart: string): string {
   return `${labelFormatter.format(start)} – ${labelFormatterWithYear.format(end)}`
 }
 
+/** The Monday of every week filed under `month` (YYYY-MM): the Monday-start weeks whose Monday falls in that month. */
+export function weekStartsInMonth(month: string): string[] {
+  const [year, mon] = month.split('-').map(Number)
+  const daysInMonth = new Date(Date.UTC(year, mon, 0)).getUTCDate()
+  const mondays: string[] = []
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (new Date(Date.UTC(year, mon - 1, day)).getUTCDay() === 1) mondays.push(`${month}-${String(day).padStart(2, '0')}`)
+  }
+  return mondays
+}
+
 /**
  * How many Monday-start weeks belong to the month that `weekStart` falls in. A week is filed under the
  * month of its Monday (the rule getUnmetNeeds uses for "covered this month"), so this is the number of
  * Mondays in that month: 4 or 5.
  */
 export function weeksInMonthOf(weekStart: string): number {
-  const [year, month] = weekStart.split('-').map(Number)
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
-  let mondays = 0
-  for (let day = 1; day <= daysInMonth; day++) {
-    if (new Date(Date.UTC(year, month - 1, day)).getUTCDay() === 1) mondays += 1
-  }
-  return mondays
+  return weekStartsInMonth(weekStart.slice(0, 7)).length
 }
 
 export function dateForDayOfWeek(weekStart: string, dayOfWeek: number): string {

@@ -6,6 +6,7 @@ export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 
 export type StudentStatus = 'student' | 'non_student' | 'inactive' | 'trial'
 export type HolidayType = 'school' | 'public'
 export type TeacherStatus = 'teacher' | 'therapist'
+export type TeacherLevel = 'senior' | 'junior' | 'intern'
 export type ServesScope = 'student_only' | 'non_student_only' | 'both'
 export type RankFactor = 'priority' | 'rate' | 'protocol_needs' | 'match_quality' | 'teacher_rating'
 export type SortDirection = 'asc' | 'desc'
@@ -24,6 +25,7 @@ export interface Database {
           weekly_quota: number | null
           daily_quota: number | null
           status: TeacherStatus | null
+          teacher_level: TeacherLevel | null
           serves_scope: ServesScope | null
           requires_note_review: boolean
           created_at: string
@@ -38,6 +40,7 @@ export interface Database {
           weekly_quota?: number | null
           daily_quota?: number | null
           status?: TeacherStatus | null
+          teacher_level?: TeacherLevel | null
           serves_scope?: ServesScope | null
           requires_note_review?: boolean
           created_at?: string
@@ -52,6 +55,7 @@ export interface Database {
           weekly_quota?: number | null
           daily_quota?: number | null
           status?: TeacherStatus | null
+          teacher_level?: TeacherLevel | null
           serves_scope?: ServesScope | null
           requires_note_review?: boolean
           created_at?: string

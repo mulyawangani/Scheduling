@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ServesScope, TeacherStatus } from '@/lib/supabase/types'
+import { TEACHER_LEVEL_LABEL, isTeacherLevel, type TeacherLevel } from '@/lib/teachers/levels'
 import { updateTeacherProfile, deleteTeacher, setTeacherNoteReview } from './actions'
 
 const STATUS_LABEL: Record<TeacherStatus, string> = { teacher: 'Teacher', therapist: 'Therapist' }
@@ -18,6 +19,8 @@ export function TeacherRow({
   name,
   email,
   status,
+  level,
+  levelsAvailable,
   servesScope,
   requiresNoteReview,
   canOpen,
@@ -29,6 +32,9 @@ export function TeacherRow({
   name: string
   email: string | null
   status: TeacherStatus | null
+  level: TeacherLevel | null
+  /** False until the teacher_level column exists, so the control stays hidden and the save leaves it alone. */
+  levelsAvailable: boolean
   servesScope: ServesScope | null
   requiresNoteReview: boolean
   /** May open the teacher's detail page. */
@@ -41,6 +47,7 @@ export function TeacherRow({
   const [isEditing, setIsEditing] = useState(false)
   const [nameInput, setNameInput] = useState(name)
   const [statusInput, setStatusInput] = useState<TeacherStatus>(status ?? 'teacher')
+  const [levelInput, setLevelInput] = useState<TeacherLevel | ''>(level ?? '')
   const [servesScopeInput, setServesScopeInput] = useState<ServesScope | ''>(servesScope ?? '')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -61,7 +68,7 @@ export function TeacherRow({
   function handleSave() {
     setError(null)
     startTransition(async () => {
-      const result = await updateTeacherProfile(id, nameInput, statusInput, servesScopeInput)
+      const result = await updateTeacherProfile(id, nameInput, statusInput, servesScopeInput, levelsAvailable ? levelInput : undefined)
       if (result.error) {
         setError(result.error)
         return
@@ -98,6 +105,19 @@ export function TeacherRow({
             <option value="teacher">Teacher</option>
             <option value="therapist">Therapist</option>
           </select>
+          {levelsAvailable && (
+            <select
+              value={levelInput}
+              onChange={(e) => setLevelInput(isTeacherLevel(e.target.value) ? e.target.value : '')}
+              aria-label="Level"
+              className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
+            >
+              <option value="">Level not set</option>
+              <option value="senior">{TEACHER_LEVEL_LABEL.senior}</option>
+              <option value="junior">{TEACHER_LEVEL_LABEL.junior}</option>
+              <option value="intern">{TEACHER_LEVEL_LABEL.intern}</option>
+            </select>
+          )}
           <select
             value={servesScopeInput}
             onChange={(e) => setServesScopeInput(e.target.value as ServesScope | '')}
@@ -121,6 +141,7 @@ export function TeacherRow({
                 setIsEditing(false)
                 setNameInput(name)
                 setStatusInput(status ?? 'teacher')
+                setLevelInput(level ?? '')
                 setServesScopeInput(servesScope ?? '')
                 setError(null)
               }}
@@ -149,6 +170,9 @@ export function TeacherRow({
           )}
           {status && (
             <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">{STATUS_LABEL[status]}</span>
+          )}
+          {level && (
+            <span className="rounded bg-purple-50 px-1.5 py-0.5 text-xs font-medium text-purple-700">{TEACHER_LEVEL_LABEL[level]}</span>
           )}
           {servesScope && (
             <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">{SCOPE_LABEL[servesScope]}</span>

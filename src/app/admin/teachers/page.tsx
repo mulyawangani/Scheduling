@@ -4,15 +4,15 @@ import { NewTeacherForm } from './new-teacher-form'
 import { TeacherRow } from './teacher-row'
 import { requireCapability } from '@/lib/auth/require-capability'
 import { accessOf, can, canChange } from '@/lib/auth/permissions'
+import { loadTeacherLevels } from '@/lib/teachers/levels'
 
 export default async function TeachersPage() {
   const { role } = await requireCapability('people.staff.view')
   const supabase = await createClient()
-  const { data: teachers } = await supabase
-    .from('profiles')
-    .select('id, name, email, status, serves_scope, requires_note_review')
-    .eq('role', 'teacher')
-    .order('name')
+  const [{ data: teachers }, levels] = await Promise.all([
+    supabase.from('profiles').select('id, name, email, status, serves_scope, requires_note_review').eq('role', 'teacher').order('name'),
+    loadTeacherLevels(supabase),
+  ])
 
   // What each control shows comes from the permission table, so a role never
   // sees a button the database would silently ignore.
@@ -41,6 +41,8 @@ export default async function TeachersPage() {
               name={teacher.name}
               email={teacher.email}
               status={teacher.status}
+              level={levels.byId.get(teacher.id) ?? null}
+              levelsAvailable={levels.available}
               servesScope={teacher.serves_scope}
               requiresNoteReview={teacher.requires_note_review}
               canOpen={canOpen}

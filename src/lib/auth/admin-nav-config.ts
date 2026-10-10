@@ -31,6 +31,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Announcements', href: '/admin/announcements', group: 'school', any: ['ops.announcements'] },
   { label: 'Extracurricular', href: '/admin/extracurricular', group: 'school', any: ['ops.extracurricular'] },
 
+  { label: 'Overview', href: '/admin/therapy', group: 'therapy', any: ['sched.generate'] },
   { label: 'Calendar', href: '/admin/schedule', group: 'therapy', any: ['sched.calendar'] },
   {
     label: 'Scheduling',
