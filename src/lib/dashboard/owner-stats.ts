@@ -128,9 +128,18 @@ export interface TherapyBilling {
   scheduled: number
   /** The same, for sessions already delivered. */
   actual: number
+  /** Teacher commission on the sessions on the calendar, and on those already delivered, at the commission rates set. */
+  scheduledCommission: number
+  actualCommission: number
+  /**
+   * Therapy income: what is billed minus the teacher commission, on the sessions already delivered
+   * (`income`) and on all those on the calendar (`scheduledIncome`).
+   */
+  income: number
+  scheduledIncome: number
   sessions: number
   delivered: number
-  /** Sessions left out of both amounts because no billing rate is set for that child. */
+  /** Sessions left out of every amount because no billing rate is set for that child. */
   unrated: number
 }
 
@@ -171,7 +180,8 @@ function forEachOccurrence(sessions: BillableSession[], month: string, visit: (s
 
 /**
  * Therapy billing for one calendar month (YYYY-MM): every session on the calendar on a date in that
- * month, at the billing rate for that child and teacher. A one-off is delivered once marked Complete;
+ * month, at the billing rate for that child and teacher, less the teacher's commission for the
+ * therapy income. A one-off is delivered once marked Complete;
  * a weekly session is delivered for each week that has an occurrence record (`deliveredWeekly` holds
  * "sessionId:weekStartDate"). Same definitions as the Scheduling > Billing tab, summed over the month.
  */
@@ -181,7 +191,17 @@ export function therapyBillingForMonth(
   deliveredWeekly: Set<string>,
   month: string
 ): TherapyBilling {
-  const out: TherapyBilling = { scheduled: 0, actual: 0, sessions: 0, delivered: 0, unrated: 0 }
+  const out: TherapyBilling = {
+    scheduled: 0,
+    actual: 0,
+    scheduledCommission: 0,
+    actualCommission: 0,
+    income: 0,
+    scheduledIncome: 0,
+    sessions: 0,
+    delivered: 0,
+    unrated: 0,
+  }
   forEachOccurrence(sessions, month, (s, week) => {
     const delivered = s.recurrence_type === 'weekly' ? deliveredWeekly.has(`${s.id}:${week}`) : s.status === 'completed'
     out.sessions += 1
@@ -192,8 +212,15 @@ export function therapyBillingForMonth(
       return
     }
     out.scheduled += rate.billingRate
-    if (delivered) out.actual += rate.billingRate
+    out.scheduledCommission += rate.commissionRate
+    if (delivered) {
+      out.actual += rate.billingRate
+      out.actualCommission += rate.commissionRate
+    }
   })
+  // Therapy income = billing minus the teacher commission.
+  out.income = out.actual - out.actualCommission
+  out.scheduledIncome = out.scheduled - out.scheduledCommission
   return out
 }
 

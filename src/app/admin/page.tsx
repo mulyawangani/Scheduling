@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation'
 import { NeedsAttention } from './needs-attention'
 import { HomeShortcuts } from './home-shortcuts'
 import { OwnerDashboard } from './owner-dashboard'
+import { BillingBox } from './billing-box'
+import { loadBillingSummary } from '@/lib/dashboard/billing-summary'
 import { isStaffRole } from '@/lib/auth/permissions'
 import { schedulingHome } from '@/lib/auth/admin-nav-config'
 
@@ -29,6 +31,9 @@ export default async function AdminDashboard() {
       db.from('classrooms').select('id, name, active').eq('active', true),
       db.from('announcements').select('id, title, status, created_at').eq('status', 'PUBLISHED').order('created_at', { ascending: false }).limit(5),
     ])
+
+    // The month's money, the same box the Owner sees (Admin may see payments and billing rates).
+    const billing = await loadBillingSummary(supabase)
 
     const totalChildren = students?.length ?? 0
     const statusCounts = {
@@ -118,6 +123,8 @@ export default async function AdminDashboard() {
             ))}
           </div>
         </div>
+
+        <BillingBox monthLabel={billing.monthLabel} therapy={billing.therapy} extra={billing.extra} />
 
         <div className="grid grid-cols-2 gap-6">
           <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
