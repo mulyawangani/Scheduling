@@ -115,14 +115,16 @@ export function SessionsList({ studentId, sessions }: { studentId: string; sessi
                               ? { box: 'bg-green-50 text-green-800', sub: 'text-green-600', badge: 'text-green-400' }
                               : s.status === 'accepted'
                                 ? { box: 'bg-blue-50 text-blue-800', sub: 'text-blue-600', badge: 'text-blue-400' }
-                                : { box: 'bg-yellow-50 text-yellow-800', sub: 'text-yellow-700', badge: 'text-yellow-500' }
+                                : s.status === 'no_show'
+                                  ? { box: 'bg-rose-50 text-rose-800', sub: 'text-rose-600', badge: 'text-rose-400' }
+                                  : { box: 'bg-yellow-50 text-yellow-800', sub: 'text-yellow-700', badge: 'text-yellow-500' }
                           return (
                             <div key={s.id} className={`rounded px-1 py-0.5 ${colors.box}`}>
                               <p className="font-medium leading-tight">{s.protocolName}</p>
                               <p className={`leading-tight ${colors.sub}`}>
-                                {s.teacherName} <span className={`text-[9px] uppercase ${colors.badge}`}>({s.status})</span>
+                                {s.teacherName} <span className={`text-[9px] uppercase ${colors.badge}`}>({s.status === 'no_show' ? 'no-show' : s.status})</span>
                               </p>
-                              {s.status !== 'completed' && (
+                              {(s.status === 'pending' || s.status === 'accepted') && (
                                 <button
                                   onClick={() => handleCancel(s.id, `${s.protocolName} with ${s.teacherName}`)}
                                   disabled={isPending && cancelingId === s.id}

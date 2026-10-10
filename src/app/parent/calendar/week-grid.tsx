@@ -21,6 +21,7 @@ const STATUS_THEME: Record<string, { bg: string; border: string; text: string }>
   accepted: { bg: '#DBEAFE', border: '#3B82F6', text: '#1E3A8A' },
   completed: { bg: '#D1FAE5', border: '#10B981', text: '#064E3B' },
   pending: { bg: '#FEF3C7', border: '#F59E0B', text: '#78350F' },
+  no_show: { bg: '#FFE4E6', border: '#F43F5E', text: '#9F1239' },
 }
 const FALLBACK_THEME = { bg: '#F3F4F6', border: '#9CA3AF', text: '#374151' }
 
@@ -228,7 +229,9 @@ export function WeekGrid({
 
       {/* Legend */}
       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] text-gray-500">
-        {(['accepted', 'pending', 'completed'] as const).map((status) => (
+        {(['accepted', 'pending', 'completed', 'no_show'] as const)
+          .filter((status) => status !== 'no_show' || sessions.some((s) => s.status === 'no_show'))
+          .map((status) => (
           <span key={status} className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ background: STATUS_THEME[status].bg, border: `1px solid ${STATUS_THEME[status].border}` }} />
             {STATUS_LABEL[status]}
@@ -255,6 +258,9 @@ export function WeekGrid({
                   {selected.endTime ? ` – ${formatClock(selected.endTime)}` : ''}
                 </p>
                 {selected.teacher && <p className="mt-1 text-sm text-gray-500">with {selected.teacher}</p>}
+                {selected.status === 'no_show' && (
+                  <p className="mt-2 text-xs text-gray-500">Your child did not come to this session and it was not cancelled, so the teacher marked it a no-show.</p>
+                )}
               </div>
               <span
                 className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"

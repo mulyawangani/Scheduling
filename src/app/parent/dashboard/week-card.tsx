@@ -4,11 +4,12 @@ import { formatClock, STATUS_LABEL, type WeekSession } from '@/lib/parent-week'
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// How a session's status reads to a parent: confirmed, pending or completed.
+// How a session's status reads to a parent: confirmed, pending, completed or a no-show.
 const STATUS_CHIP: Record<string, { bg: string; text: string }> = {
   accepted: { bg: 'rgba(34,197,94,0.1)', text: '#16a34a' },
   pending: { bg: 'rgba(245,144,48,0.1)', text: '#F59030' },
   completed: { bg: 'rgba(59,130,246,0.1)', text: '#2563eb' },
+  no_show: { bg: 'rgba(225,29,72,0.1)', text: '#be123c' },
 }
 
 /** Every therapy scheduled for the week, in time order, on the parent's Home. */

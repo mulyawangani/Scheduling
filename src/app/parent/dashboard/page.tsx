@@ -83,7 +83,7 @@ export default async function DashboardPage() {
       .from('session_plans')
       .select('id, student_id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, protocols(title), profiles!session_plans_teacher_id_fkey(name)')
       .in('student_id', childIds)
-      .in('status', ['pending', 'accepted', 'completed'])
+      .in('status', ['pending', 'accepted', 'completed', 'no_show'])
       .order('created_at', { ascending: false })
     sessions = (sessionRows ?? []) as unknown as Session[]
 
@@ -158,9 +158,18 @@ export default async function DashboardPage() {
         const childSessions = sessions.filter(s => s.student_id === child.id)
         const upcoming = childSessions.filter(s => s.status === 'pending' || s.status === 'accepted')
         const completed = childSessions.filter(s => s.status === 'completed')
+        const noShows = childSessions.filter(s => s.status === 'no_show')
 
         // Every therapy scheduled for the week, in time order
         const weekSessions = sessionsInWeek(childSessions, weekStart)
+
+        // Total = completed + upcoming + no-show, so the no-show tile only appears when there is one
+        const statTiles = [
+          { label: 'Total Sessions', value: childSessions.length, color: '#3B82F6' },
+          { label: 'Completed', value: completed.length, color: '#22C55E' },
+          { label: 'Upcoming', value: upcoming.length, color: '#F59030' },
+          ...(noShows.length > 0 ? [{ label: 'No-show', value: noShows.length, color: '#BE123C' }] : []),
+        ]
 
         // Homework for this child
         const hw = homeworkNotes.find(n => n.student_id === child.id)
@@ -201,12 +210,8 @@ export default async function DashboardPage() {
             <WeekCard weekStart={weekStart} isNextWeek={isNextWeek} sessions={weekSessions} />
 
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: 'Total Sessions', value: childSessions.length, color: '#3B82F6' },
-                { label: 'Completed', value: completed.length, color: '#22C55E' },
-                { label: 'Upcoming', value: upcoming.length, color: '#F59030' },
-              ].map(stat => (
+            <div className={`grid gap-2 ${statTiles.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              {statTiles.map(stat => (
                 <div
                   key={stat.label}
                   className="bg-white rounded-2xl p-3 text-center"

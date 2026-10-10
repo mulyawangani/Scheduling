@@ -186,6 +186,10 @@ export default function ProgressPage() {
 
   const completed = sessions.filter(s => s.status === 'completed')
   const upcoming = sessions.filter(s => s.status === 'pending' || s.status === 'accepted')
+  // Sessions the teacher marked a no-show: the child did not come and the session was not cancelled
+  const noShows = sessions
+    .filter(s => s.status === 'no_show' && s.start_time)
+    .sort((a, b) => (b.start_time ?? '').localeCompare(a.start_time ?? ''))
 
   // This month
   const now = new Date()
@@ -367,6 +371,48 @@ export default function ProgressPage() {
                   }}
                 >
                   {capitalize(s.status)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No-show sessions */}
+      {noShows.length > 0 && (
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #F3F4F6' }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: '#F9FAFB' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+              No-show Sessions
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              Your child did not come and the session was not cancelled.
+            </p>
+          </div>
+          <div className="flex flex-col divide-y" style={{ borderColor: '#F9FAFB' }}>
+            {noShows.slice(0, 5).map(s => (
+              <div key={s.id} className="px-4 py-3 flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm"
+                  style={{ background: 'rgba(225,29,72,0.1)' }}
+                >
+                  🏥
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-800">
+                    {noteDateFmt.format(new Date(s.start_time as string))}
+                  </p>
+                  {(s.protocol_title || s.teacher_name) && (
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {[s.protocol_title, s.teacher_name ? `with ${s.teacher_name}` : null].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                  style={{ background: 'rgba(225,29,72,0.1)', color: '#be123c' }}
+                >
+                  No-show
                 </span>
               </div>
             ))}

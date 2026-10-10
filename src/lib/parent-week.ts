@@ -90,5 +90,5 @@ export function formatClock(hhmm: string): string {
   return `${hour12}:${String(m ?? 0).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 }
 
-/** What a parent sees for a session's status. */
-export const STATUS_LABEL: Record<string, string> = { accepted: 'Confirmed', pending: 'Pending', completed: 'Completed' }
+/** What a parent sees for a session's status. A no-show is a session the teacher marked because the child did not come and it was not cancelled. */
+export const STATUS_LABEL: Record<string, string> = { accepted: 'Confirmed', pending: 'Pending', completed: 'Completed', no_show: 'No-show' }

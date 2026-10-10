@@ -28,7 +28,7 @@ export default function CalendarPage() {
         protocols(title), profiles!session_plans_teacher_id_fkey(name)
       `)
       .eq('student_id', selectedChild.id)
-      .in('status', ['pending', 'accepted', 'completed'])
+      .in('status', ['pending', 'accepted', 'completed', 'no_show'])
       .then(({ data }) => { setRows((data ?? []) as SessionRowLike[]); setLoading(false) })
   }, [selectedChild])
 

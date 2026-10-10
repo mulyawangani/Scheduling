@@ -18,10 +18,11 @@ export default async function TherapyPage() {
     supabase.from('session_plans').select('student_id, status, recurrence_type, start_time'),
   ])
 
-  const statsByStudent = new Map<string, { proposedThisWeek: number; confirmedThisWeek: number; completedTotal: number }>()
+  const statsByStudent = new Map<string, { proposedThisWeek: number; confirmedThisWeek: number; completedTotal: number; noShowTotal: number }>()
   for (const row of sessionRows ?? []) {
-    const stats = statsByStudent.get(row.student_id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
+    const stats = statsByStudent.get(row.student_id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0, noShowTotal: 0 }
     if (row.status === 'completed') stats.completedTotal++
+    if (row.status === 'no_show') stats.noShowTotal++
     const inThisWeek = row.recurrence_type === 'weekly' || (row.start_time && getWeekStart(new Date(row.start_time)) === weekStart)
     if (row.status === 'pending' && inThisWeek) stats.proposedThisWeek++
     if (row.status === 'accepted' && inThisWeek) stats.confirmedThisWeek++
@@ -41,7 +42,7 @@ export default async function TherapyPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {students.map((student) => {
-            const stats = statsByStudent.get(student.id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0 }
+            const stats = statsByStudent.get(student.id) ?? { proposedThisWeek: 0, confirmedThisWeek: 0, completedTotal: 0, noShowTotal: 0 }
             const school = (Array.isArray(student.schools) ? student.schools[0]?.name : (student.schools as { name: string } | null)?.name) ?? null
             return (
               <li key={student.id}>
@@ -73,6 +74,11 @@ export default async function TherapyPage() {
                       <span className="bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full font-medium">
                         {stats.completedTotal} done
                       </span>
+                      {stats.noShowTotal > 0 && (
+                        <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-medium">
+                          {stats.noShowTotal} no-show
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Link>
