@@ -22,9 +22,10 @@ export default async function ClassroomDetailPage({ params }: { params: Promise<
       secondary_teacher:profiles!classrooms_secondary_teacher_id_fkey(id, name)
     `).eq('id', id).single(),
     supabase.from('profiles').select('id, name').eq('role', 'teacher').order('name'),
-    // An inactive child (for example a graduated student) shows nowhere in the classroom setting.
-    db.from('students').select('id, name, date_of_birth, status').eq('classroom_id', id).neq('status', 'inactive').order('name'),
-    db.from('students').select('id, name, status').is('classroom_id', null).neq('status', 'inactive').order('name'),
+    // An inactive child (for example a graduated student) shows nowhere in the classroom setting;
+    // a child with no status still does.
+    db.from('students').select('id, name, date_of_birth, status').eq('classroom_id', id).or('status.is.null,status.neq.inactive').order('name'),
+    db.from('students').select('id, name, status').is('classroom_id', null).or('status.is.null,status.neq.inactive').order('name'),
   ])
 
   if (!classroomResult.data) notFound()

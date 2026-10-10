@@ -41,8 +41,9 @@ export default async function ClassroomsPage() {
       .from('students')
       .select('id, name, status, classroom_id')
       .in('classroom_id', ids)
-      // An inactive child (for example a graduated student) shows nowhere in the classroom setting.
-      .neq('status', 'inactive')
+      // An inactive child (for example a graduated student) shows nowhere in the classroom setting;
+      // a child with no status still does.
+      .or('status.is.null,status.neq.inactive')
       .order('name')
     for (const s of students ?? []) {
       if (!studentsByClassroom[s.classroom_id]) studentsByClassroom[s.classroom_id] = []
