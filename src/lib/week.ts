@@ -38,6 +38,21 @@ export function formatWeekLabel(weekStart: string): string {
   return `${labelFormatter.format(start)} – ${labelFormatterWithYear.format(end)}`
 }
 
+/**
+ * How many Monday-start weeks belong to the month that `weekStart` falls in. A week is filed under the
+ * month of its Monday (the rule getUnmetNeeds uses for "covered this month"), so this is the number of
+ * Mondays in that month: 4 or 5.
+ */
+export function weeksInMonthOf(weekStart: string): number {
+  const [year, month] = weekStart.split('-').map(Number)
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  let mondays = 0
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (new Date(Date.UTC(year, month - 1, day)).getUTCDay() === 1) mondays += 1
+  }
+  return mondays
+}
+
 export function dateForDayOfWeek(weekStart: string, dayOfWeek: number): string {
   // weekStart is Monday (ISO day 1); dayOfWeek uses JS convention (0 = Sunday).
   const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1

@@ -12,7 +12,11 @@ import { NeedsAttention } from './needs-attention'
 import { HomeShortcuts } from './home-shortcuts'
 import { isStaffRole } from '@/lib/auth/permissions'
 import { schedulingHome } from '@/lib/auth/admin-nav-config'
+import { countSessionsInWeek, weeklyTarget } from '@/lib/matching/weekly-coverage'
 import { getWeekStart, getUpcomingWeekStart, formatWeekLabel } from '@/lib/week'
+
+// A week's share of the monthly target is often fractional (286 needs over 4 weeks is 71.5).
+const formatTarget = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
 function percentColor(percent: number | null) {
   if (percent === null) return 'text-gray-400'
@@ -222,12 +226,11 @@ export default async function AdminDashboard() {
   const percent = total > 0 ? Math.round((scheduled / total) * 100) : null
 
   const upcomingWeek = getUpcomingWeekStart()
-  const [{ data: oneOffDates }, { data: versionWeeks }, upcomingSchedule, { data: studentRows }, { data: availabilityRows }] = await Promise.all([
+  const [{ data: bookedSessions }, { data: versionWeeks }, upcomingSchedule, { data: studentRows }, { data: availabilityRows }] = await Promise.all([
     fetchAllRows((from, to) =>
       supabase
         .from('session_plans')
-        .select('start_time')
-        .eq('recurrence_type', 'one_off')
+        .select('recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end')
         .in('status', ['pending', 'accepted', 'completed'])
         .order('id')
         .range(from, to)
@@ -262,22 +265,21 @@ export default async function AdminDashboard() {
   })
 
   const weekSet = new Set<string>()
-  for (const row of oneOffDates ?? []) {
-    if (row.start_time) weekSet.add(getWeekStart(new Date(row.start_time)))
+  for (const row of bookedSessions ?? []) {
+    if (row.recurrence_type === 'one_off' && row.start_time) weekSet.add(getWeekStart(new Date(row.start_time)))
   }
   for (const row of versionWeeks ?? []) {
     weekSet.add(row.week_start_date)
   }
   const weeks = Array.from(weekSet).sort()
 
-  const weekBreakdown = await Promise.all(
-    weeks.map(async (weekStartDate) => {
-      const weekSchedule = weekStartDate === upcomingWeek ? upcomingSchedule : await generateSchedule(supabase, weekStartDate)
-      const weekTotal = weekSchedule.existing.length + weekSchedule.unscheduled.length
-      const weekPercent = weekTotal > 0 ? Math.round((weekSchedule.existing.length / weekTotal) * 100) : null
-      return { weekStartDate, scheduled: weekSchedule.existing.length, total: weekTotal, percent: weekPercent }
-    })
-  )
+  // Each week is judged against its share of the monthly target: one session for every child and
+  // protocol need (the same count as the Active schedule card), split evenly over the weeks of the month.
+  const weekBreakdown = weeks.map((weekStartDate) => {
+    const booked = countSessionsInWeek(bookedSessions ?? [], weekStartDate)
+    const target = weeklyTarget(total, weekStartDate)
+    return { weekStartDate, booked, target, percent: target > 0 ? Math.round((booked / target) * 100) : null }
+  })
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -307,7 +309,11 @@ export default async function AdminDashboard() {
 
       {weekBreakdown.length > 0 && (
         <div className="rounded-lg border border-gray-200 p-4">
-          <h2 className="mb-3 text-sm font-medium text-gray-700">Active schedule by week</h2>
+          <h2 className="mb-1 text-sm font-medium text-gray-700">Active schedule by week</h2>
+          <p className="mb-3 text-xs text-gray-500">
+            Sessions booked that week against that week&apos;s share of the monthly target: one session for each of the {total} child and
+            protocol needs, split evenly over the weeks of the month.
+          </p>
           <ul className="flex flex-col divide-y divide-gray-200">
             {weekBreakdown.map((w) => (
               <li key={w.weekStartDate} className="flex items-center justify-between py-2 text-sm">
@@ -317,7 +323,7 @@ export default async function AdminDashboard() {
                 <span className={`font-semibold ${percentColor(w.percent)}`}>
                   {w.percent === null ? '—' : `${w.percent}%`}{' '}
                   <span className="font-normal text-gray-400">
-                    ({w.scheduled}/{w.total})
+                    ({w.booked} / {formatTarget(w.target)})
                   </span>
                 </span>
               </li>
