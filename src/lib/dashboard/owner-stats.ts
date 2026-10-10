@@ -14,7 +14,10 @@ export interface ChildRow {
 }
 
 export interface ChildSummary {
-  /** Montessori school students: active = enrolled this month; inactive = set to Inactive (for example graduated). */
+  /**
+   * Montessori school students: active = enrolled this month; inactive = not enrolled this month, or set
+   * to Inactive (for example graduated). `notEnrolled` is the part of `inactive` that is still a Student.
+   */
   students: { active: number; inactive: number; notEnrolled: number }
   /** Therapy clients: active = Non-student, not set to Inactive; inactive = set to Inactive. */
   therapyClients: { active: number; inactive: number }
@@ -28,13 +31,12 @@ export interface ChildSummary {
 /**
  * Splits the children into Montessori students and therapy clients, each active or inactive.
  *
- * A Student is active when enrolled for the month; a Student not enrolled this month is counted apart
- * (still a current student, shown in the classroom). A Non-student is an active therapy client, since
- * therapy has no monthly enrollment. Inactive is a status of its own (a graduated student must be set
- * to it) and does not say what the child was, so an Inactive child counts as an inactive student when
- * they had a classroom or any enrollment, and as an inactive therapy client when they have therapy
- * needs or sessions. Both can apply: an inactive student can be a therapy client. Trial children and
- * children with no status are counted on their own.
+ * A Student is active when enrolled for the month and inactive when not enrolled this month. A
+ * Non-student is an active therapy client, since therapy has no monthly enrollment. Inactive is also a
+ * status of its own (a graduated student must be set to it) and does not say what the child was, so an
+ * Inactive child counts as an inactive student when they had a classroom or any enrollment, and as an
+ * inactive therapy client when they have therapy needs or sessions. Both can apply: an inactive
+ * student can be a therapy client. Trial children and children with no status are counted on their own.
  */
 export function summarizeChildren(
   children: ChildRow[],
@@ -52,8 +54,12 @@ export function summarizeChildren(
   }
   for (const c of children) {
     if (c.status === 'student') {
-      if (enrolledThisMonth.has(c.id)) out.students.active += 1
-      else out.students.notEnrolled += 1
+      if (enrolledThisMonth.has(c.id)) {
+        out.students.active += 1
+      } else {
+        out.students.inactive += 1
+        out.students.notEnrolled += 1
+      }
     } else if (c.status === 'non_student') {
       out.therapyClients.active += 1
     } else if (c.status === 'inactive') {

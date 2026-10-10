@@ -232,15 +232,13 @@ export function OwnerDashboardView({ data }: { data: OwnerDashboardData }) {
             </div>
           </div>
           <Hint>
-            Enrolled: students enrolled this month
-            {kids.students.notEnrolled > 0
-              ? ` (${kids.students.notEnrolled} more ${kids.students.notEnrolled === 1 ? 'student is' : 'students are'} not enrolled this month)`
-              : ''}
-            . Therapy sessions: on the calendar in {monthLabel}. Already enrolled ahead: {enrolledAhead.map((a) => `${a.label} ${a.count}`).join(' · ')}.
+            Enrolled: students enrolled this month. Therapy sessions: on the calendar in {monthLabel}. Already enrolled ahead:{' '}
+            {enrolledAhead.map((a) => `${a.label} ${a.count}`).join(' · ')}.
           </Hint>
           <Hint>
-            Inactive means set to Inactive, which a graduated student must be. An inactive child counts as a student if they had a classroom or an
-            enrollment, and as a therapy client if they have therapy needs or sessions, so both can apply.
+            Inactive students: {kids.students.notEnrolled} not enrolled this month and {kids.students.inactive - kids.students.notEnrolled} set to
+            Inactive, which a graduated student must be. A child set to Inactive counts as a student if they had a classroom or an enrollment, and
+            as a therapy client if they have therapy needs or sessions, so both can apply.
             {kids.inactiveNeither > 0 ? ` ${kids.inactiveNeither} inactive ${kids.inactiveNeither === 1 ? 'child has' : 'children have'} neither.` : ''}
           </Hint>
           <Hint>
