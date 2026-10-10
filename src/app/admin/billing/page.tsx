@@ -4,7 +4,6 @@ import { requireCapability } from '@/lib/auth/require-capability'
 import { BackLink } from '@/components/back-link'
 import Link from 'next/link'
 import { PaymentStatusButton } from './payment-status-button'
-import { upsertTherapyPayment } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,12 +13,37 @@ function fmt(n: number) {
   return new Intl.NumberFormat('id-ID').format(n)
 }
 
+/**
+ * Keeps one therapy_payments row per child per month in step with that month's submitted notes:
+ * created as unpaid, or its session count and amount refreshed unless it is already paid.
+ * The page calls this while it renders, so it is a plain function and not a server action: actions
+ * end with revalidatePath, which Next.js refuses during a render (that crashed this page the first
+ * time a Student child had a note). The rows are read right after, so nothing needs revalidating.
+ */
+async function syncTherapyPayment(db: any, studentId: string, schoolId: string | null, month: string, sessionCount: number, ratePerSession: number) {
+  const { data: existing } = await db.from('therapy_payments').select('id, status').eq('student_id', studentId).eq('month', month).maybeSingle()
+  const totalAmount = sessionCount * ratePerSession
+  if (!existing) {
+    await db.from('therapy_payments').insert({
+      student_id: studentId,
+      school_id: schoolId,
+      month,
+      session_count: sessionCount,
+      rate_per_session: ratePerSession,
+      total_amount: totalAmount,
+      status: 'unpaid',
+    })
+  } else if (existing.status !== 'paid') {
+    await db.from('therapy_payments').update({ session_count: sessionCount, rate_per_session: ratePerSession, total_amount: totalAmount }).eq('id', existing.id)
+  }
+}
+
 export default async function BillingPage({
   searchParams,
 }: {
   searchParams: Promise<{ month?: string; tab?: string; filter?: string }>
 }) {
-  await requireCapability('ops.billing')
+  const { access } = await requireCapability('ops.billing')
   const { month: monthParam, tab: tabParam, filter } = await searchParams
 
   const today = new Date()
@@ -82,15 +106,13 @@ export default async function BillingPage({
     }
   }
 
-  // Upsert therapy_payments rows for all students with sessions this month
-  // (runs server-side silently — keeps therapy_payments in sync with therapy_notes)
-  for (const [studentId, entry] of byStudent) {
-    await upsertTherapyPayment(
-      studentId,
-      entry.student.school_id ?? null,
-      monthStart,
-      entry.sessions.length,
-      entry.rate,
+  // Keep therapy_payments in sync with therapy_notes for every student with sessions this month
+  // (silent, server-side; only for a role that may change payments).
+  if (access === 'yes') {
+    await Promise.all(
+      Array.from(byStudent, ([studentId, entry]) =>
+        syncTherapyPayment(db, studentId, entry.student.school_id ?? null, monthStart, entry.sessions.length, entry.rate)
+      )
     )
   }
 
