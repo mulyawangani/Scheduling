@@ -3,19 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { BUSINESS_TIMEZONE } from '@/lib/timezone'
+import { parentWeek, sessionsInWeek } from '@/lib/parent-week'
+import { WeekCard } from './week-card'
 
 export const dynamic = 'force-dynamic'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 const greetingFmt = new Intl.DateTimeFormat('en-US', {
   weekday: 'long', month: 'long', day: 'numeric', timeZone: BUSINESS_TIMEZONE,
-})
-
-const timeFmt = new Intl.DateTimeFormat('en-US', {
-  hour: 'numeric', minute: '2-digit', hour12: true, timeZone: BUSINESS_TIMEZONE,
 })
 
 function timeOfDay() {
@@ -25,19 +21,6 @@ function timeOfDay() {
 
 function initials(name: string) {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-}
-
-function nextOccurrenceLabel(dayOfWeek: number, timeStr: string): string {
-  const now = new Date()
-  const today = now.getDay()
-  let diff = (dayOfWeek - today + 7) % 7
-  if (diff === 0) diff = 7
-  const next = new Date()
-  next.setDate(now.getDate() + diff)
-  const [h, m] = timeStr.split(':')
-  next.setHours(parseInt(h), parseInt(m), 0, 0)
-  const dayLabel = diff === 1 ? 'Tomorrow' : DAY_LABELS[dayOfWeek]
-  return `${dayLabel} · ${timeFmt.format(next)}`
 }
 
 // ── types ──────────────────────────────────────────────────────────────────
@@ -55,8 +38,10 @@ type Session = {
   student_id: string
   recurrence_type: string
   start_time: string | null
+  end_time: string | null
   day_of_week: number | null
   time_of_day_start: string | null
+  time_of_day_end: string | null
   status: string
   protocols: { title: string } | { title: string }[] | null
   profiles: { name: string } | { name: string }[] | null
@@ -96,7 +81,7 @@ export default async function DashboardPage() {
   if (childIds.length > 0) {
     const { data: sessionRows } = await supabase
       .from('session_plans')
-      .select('id, student_id, recurrence_type, start_time, day_of_week, time_of_day_start, status, protocols(title), profiles!session_plans_teacher_id_fkey(name)')
+      .select('id, student_id, recurrence_type, start_time, end_time, day_of_week, time_of_day_start, time_of_day_end, status, protocols(title), profiles!session_plans_teacher_id_fkey(name)')
       .in('student_id', childIds)
       .in('status', ['pending', 'accepted', 'completed'])
       .order('created_at', { ascending: false })
@@ -123,6 +108,9 @@ export default async function DashboardPage() {
       }))
     }
   }
+
+  // The week the Home lists: this week, or the coming week at the weekend.
+  const { weekStart, isNextWeek } = parentWeek()
 
   return (
     <div className="flex flex-col gap-4 p-4 pb-8">
@@ -171,18 +159,8 @@ export default async function DashboardPage() {
         const upcoming = childSessions.filter(s => s.status === 'pending' || s.status === 'accepted')
         const completed = childSessions.filter(s => s.status === 'completed')
 
-        // Next session to show
-        const nextSession = upcoming[0] ?? null
-        const protocolTitle = (
-          Array.isArray(nextSession?.protocols)
-            ? nextSession?.protocols[0]?.title
-            : (nextSession?.protocols as { title: string } | null)?.title
-        ) ?? null
-        const teacherName = (
-          Array.isArray(nextSession?.profiles)
-            ? nextSession?.profiles[0]?.name
-            : (nextSession?.profiles as { name: string } | null)?.name
-        ) ?? null
+        // Every therapy scheduled for the week, in time order
+        const weekSessions = sessionsInWeek(childSessions, weekStart)
 
         // Homework for this child
         const hw = homeworkNotes.find(n => n.student_id === child.id)
@@ -219,57 +197,8 @@ export default async function DashboardPage() {
               </Link>
             </div>
 
-            {/* Next session */}
-            <div className="bg-white rounded-2xl p-4" style={{ border: '1px solid #F3F4F6' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
-                Next Session
-              </p>
-              {nextSession ? (
-                <div className="flex items-start gap-3">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
-                    style={{ background: 'rgba(245,144,48,0.1)' }}
-                  >
-                    🏥
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">
-                      {nextSession.recurrence_type === 'one_off' && nextSession.start_time
-                        ? (() => {
-                            const d = new Date(nextSession.start_time)
-                            const now2 = new Date()
-                            const diffDays = Math.round((d.getTime() - now2.getTime()) / 86400000)
-                            const label = diffDays === 0 ? 'Today' : diffDays === 1 ? 'Tomorrow' : DAY_LABELS[d.getDay()]
-                            return `${label} · ${timeFmt.format(d)}`
-                          })()
-                        : nextSession.day_of_week !== null && nextSession.time_of_day_start
-                        ? nextOccurrenceLabel(nextSession.day_of_week, nextSession.time_of_day_start)
-                        : '—'}
-                    </p>
-                    {protocolTitle && (
-                      <p className="text-xs text-gray-500 mt-0.5">{protocolTitle}</p>
-                    )}
-                    {teacherName && (
-                      <p className="text-xs text-gray-400 mt-0.5">with {teacherName}</p>
-                    )}
-                  </div>
-                  <span
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{
-                      background: nextSession.status === 'accepted' ? 'rgba(34,197,94,0.1)' : 'rgba(245,144,48,0.1)',
-                      color: nextSession.status === 'accepted' ? '#16a34a' : '#F59030',
-                    }}
-                  >
-                    {nextSession.status === 'accepted' ? 'Confirmed' : 'Pending'}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-lg flex-shrink-0">📅</div>
-                  <p className="text-sm text-gray-400">No upcoming sessions scheduled</p>
-                </div>
-              )}
-            </div>
+            {/* Every therapy scheduled for the week */}
+            <WeekCard weekStart={weekStart} isNextWeek={isNextWeek} sessions={weekSessions} />
 
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-2">
