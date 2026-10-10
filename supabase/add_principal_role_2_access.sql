@@ -2,10 +2,11 @@
 --
 -- What a Principal may do follows the permission table (src/lib/auth/permissions.ts):
 --   read    children, parents, contacts, staff names, sessions, the weekly calendar,
---           enrollment, attendance, teacher availability, therapy notes
---   change  classrooms, and therapy notes (accept or send back)
--- A Principal cannot see billing, rates, announcements or the audit log, and cannot
--- yet edit a child's profile (that needs a rule that limits which fields the Principal may change).
+--           enrollment, attendance, teacher availability
+--   change  classrooms
+-- A Principal cannot see billing, rates, announcements, the audit log or therapy notes
+-- (reviewing therapy notes is Owner only, decided 10 Oct 2026), and cannot yet edit a
+-- child's profile (that needs a rule that limits which fields the Principal may change).
 --
 -- Safe to re-run: each policy is dropped before it is created.
 
@@ -64,16 +65,11 @@ CREATE POLICY "classrooms principal manages" ON classrooms
   FOR ALL TO authenticated
   USING (has_role('principal')) WITH CHECK (has_role('principal'));
 
--- ── Therapy notes: read and review (accept or send back) ─────────────────────
+-- ── Therapy notes: not for the Principal ─────────────────────────────────────
+-- An earlier version of this file let the Principal read and review notes. Remove those
+-- rules if they exist (fix_therapy_notes_access.sql does the same).
 DROP POLICY IF EXISTS "therapy_notes principal reads submitted" ON therapy_notes;
-CREATE POLICY "therapy_notes principal reads submitted" ON therapy_notes
-  FOR SELECT TO authenticated USING (has_role('principal') AND status <> 'draft');
-
 DROP POLICY IF EXISTS "therapy_notes principal reviews" ON therapy_notes;
-CREATE POLICY "therapy_notes principal reviews" ON therapy_notes
-  FOR UPDATE TO authenticated
-  USING (has_role('principal') AND status <> 'draft')
-  WITH CHECK (has_role('principal'));
 
 -- ── Link a login to the Principal role ───────────────────────────────────────
 -- Create the login first in the Supabase dashboard: Authentication > Users > Add user

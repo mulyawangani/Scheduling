@@ -84,6 +84,11 @@ export default async function TherapyNotePage({
       ? dateStringInBusinessTz(new Date(session.start_time as string))
       : dateForDayOfWeek(week as string, session.day_of_week as number)
 
+  // A teacher only ever sees the notes they wrote themselves, never another
+  // teacher's (decided 10 Oct 2026; the database enforces it too, see
+  // fix_therapy_notes_access.sql). Everything below carries forward from this
+  // teacher's own earlier notes only.
+  //
   // The most recent therapy note for this same (student, protocol) —
   // regardless of whether it came from a one-off session or a different week
   // of a weekly-recurring one — so today's note can carry forward fields
@@ -92,6 +97,7 @@ export default async function TherapyNotePage({
   const { data: priorNotes } = await supabase
     .from('therapy_notes')
     .select('*, session_plans!inner(student_id, protocol_id)')
+    .eq('teacher_id', teacherId)
     .eq('session_plans.student_id', session.student_id)
     .eq('session_plans.protocol_id', session.protocol_id)
     .order('session_date', { ascending: false })
@@ -101,14 +107,15 @@ export default async function TherapyNotePage({
 
   // Several fields aren't protocol-specific — homework, start date, duration,
   // review label, last session, objectives, and observations are all really
-  // about the CHILD, not the protocol, so whichever teacher last touched any
-  // of them, for whichever protocol, today's note should carry them forward
-  // too. Same "most recently touched" note the parent app already uses for
-  // its homework reminder (see parent/students/[id]/therapy-notes) — draft
-  // notes don't count since they were never actually sent anywhere.
+  // about the CHILD, not the protocol, so whichever of this teacher's notes
+  // last touched any of them, for whichever protocol, today's note should
+  // carry them forward too. Draft notes don't count since they were never
+  // actually sent anywhere. (The parent app's homework reminder still reads
+  // the most recent accepted note across all teachers; that is separate.)
   const { data: recentNotes } = await supabase
     .from('therapy_notes')
     .select('session_date, review_label, start_date, duration, objectives, observations, parent_instructions, updated_at, session_plans!inner(student_id)')
+    .eq('teacher_id', teacherId)
     .eq('session_plans.student_id', session.student_id)
     .neq('status', 'draft')
     .order('updated_at', { ascending: false })

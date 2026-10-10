@@ -50,7 +50,7 @@ export const CAPS = {
   'people.teacher.edit':      { id: 'A9',  label: "Edit a teacher's name, status and scope", owner: 'yes', admin: 'view', principal: 'no',
                                 note: 'The database only lets the Owner change other profiles.' },
   'people.teacher.quota':     { id: 'A10', label: "Set a teacher's weekly and daily quota", owner: 'yes', admin: 'no', principal: 'no', target: { admin: 'view' } },
-  'people.teacher.noteReview': { id: 'A11', label: 'Switch a teacher between notes needing review and auto-publish', owner: 'yes', admin: 'no', principal: 'view' },
+  'people.teacher.noteReview': { id: 'A11', label: 'Switch a teacher between notes needing review and auto-publish', owner: 'yes', admin: 'no', principal: 'no' },
   'people.parent.edit':       { id: 'A12', label: "Edit a parent's name, phone and priority tier", owner: 'yes', admin: 'view', principal: 'view',
                                 note: 'Not in the first matrix. The database only lets the Owner change another person\'s profile or a parent\'s priority tier; before this, Admin\'s Save on the Parents page did nothing.' },
 
@@ -100,7 +100,8 @@ export const CAPS = {
   'sched.needs':              { id: 'D8',  label: 'Manage prioritized needs and recommendations', owner: 'yes', admin: 'no', principal: 'no', target: { admin: 'yes' } },
   'sched.reports':            { id: 'D8b', label: 'See scheduling reports', owner: 'yes', admin: 'yes', principal: 'no' },
   'sched.protocolsLibrary':   { id: 'D9',  label: 'Create, rename and retire protocols', owner: 'yes', admin: 'no', principal: 'no', target: { admin: 'view' } },
-  'notes.review':             { id: 'D10', label: 'Review therapy notes (accept or send back)', owner: 'yes', admin: 'no', principal: 'yes' },
+  'notes.review':             { id: 'D10', label: 'Review therapy notes (accept or send back)', owner: 'yes', admin: 'no', principal: 'no',
+                                note: 'Owner only (decided 10 Oct 2026). A teacher reads only the notes they wrote; see fix_therapy_notes_access.sql.' },
   'audit.view':               { id: 'D11', label: 'See the full audit log', owner: 'yes', admin: 'no', principal: 'no', target: { admin: 'yes' } },
   'sched.reset':              { id: 'D12', label: 'Cancel or reset the whole schedule', owner: 'yes', admin: 'no', principal: 'no' },
 
