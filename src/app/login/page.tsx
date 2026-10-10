@@ -19,7 +19,7 @@ function FloatingInput({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         required={required}
-        className="w-full border-2 rounded-xl px-4 pt-6 pb-2 text-sm outline-none transition-colors bg-white"
+        className="w-full border-2 rounded-xl px-4 pt-6 pb-2 text-sm text-gray-900 outline-none transition-colors bg-white"
         style={{
           borderColor: focused ? '#F59030' : '#E5E7EB',
           paddingRight: rightSlot ? '3rem' : undefined,
@@ -32,7 +32,7 @@ function FloatingInput({
           left: 16, top: floated ? 6 : '50%',
           transform: floated ? 'none' : 'translateY(-50%)',
           fontSize: floated ? 11 : 14,
-          color: floated ? '#F59030' : '#9CA3AF',
+          color: floated ? '#F59030' : '#6B7280',
         }}
       >
         {label}
@@ -79,7 +79,7 @@ export default function LoginPage() {
 
         <div className="p-6">
           <h2 className="text-xl font-bold text-gray-800">Welcome Back!</h2>
-          <p className="text-gray-400 text-sm mb-6">Sign in to your account</p>
+          <p className="text-gray-500 text-sm mb-6">Sign in to your account</p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <FloatingInput id="email" label="Email Address" type="email" value={email} onChange={setEmail} required />
@@ -108,7 +108,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-400 mt-5">
+          <p className="text-center text-sm text-gray-500 mt-5">
             Don&apos;t have an account?{' '}
             <a href="/signup" className="font-semibold" style={{ color: '#F59030' }}>Sign Up</a>
           </p>

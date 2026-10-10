@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+/*
+ * Every screen is designed on white cards with dark text, so the app is light only. The dark-mode
+ * block that came with the project template turned the default text near-white on phones set to
+ * dark mode, which made form text invisible on white fields (the login page). color-scheme keeps
+ * the browser's own form controls and scrollbars light too.
+ */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -10,13 +17,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
