@@ -24,7 +24,7 @@ export default async function TherapyOverviewPage() {
 
   const [{ data: allNeeds }, unmet, { data: allHistoryRows }] = await Promise.all([
     fetchAllRows((from, to) =>
-      supabase.from('student_protocols').select('student_id, protocol_id, students(status)').order('id').range(from, to)
+      supabase.from('student_protocols').select('student_id, protocol_id, students(therapy_on)').order('id').range(from, to)
     ),
     getUnmetNeeds(supabase, getUpcomingWeekStart()),
     // Full history (newest first, id breaks ties so pages are stable) — paged
@@ -46,7 +46,7 @@ export default async function TherapyOverviewPage() {
 
   const total = new Set(
     (allNeeds ?? [])
-      .filter((n) => (Array.isArray(n.students) ? n.students[0]?.status : n.students?.status) !== 'inactive')
+      .filter((n) => (Array.isArray(n.students) ? n.students[0]?.therapy_on : n.students?.therapy_on) === true)
       .map((n) => `${n.student_id}:${n.protocol_id}`)
   ).size
   const scheduled = Math.max(0, total - unmet.length)
@@ -65,7 +65,7 @@ export default async function TherapyOverviewPage() {
     supabase.from('schedule_versions').select('week_start_date'),
     generateSchedule(supabase, upcomingWeek),
     fetchAllRows((from, to) =>
-      supabase.from('students').select('id, name, status, profiles!students_parent_id_fkey(name)').order('id').range(from, to)
+      supabase.from('students').select('id, name, therapy_on, profiles!students_parent_id_fkey(name)').order('id').range(from, to)
     ),
     fetchAllRows((from, to) =>
       supabase.from('student_availability').select('student_id, day_of_week, specific_date').order('id').range(from, to)
@@ -84,7 +84,7 @@ export default async function TherapyOverviewPage() {
   const noSessionReport = buildNoSessionReport({
     students: (studentRows ?? []).map((s) => {
       const parent = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
-      return { id: s.id, name: s.name, status: s.status, parentName: parent?.name ?? null }
+      return { id: s.id, name: s.name, therapyOn: s.therapy_on, parentName: parent?.name ?? null }
     }),
     studentIdsWithNeeds: new Set((allNeeds ?? []).map((n) => n.student_id)),
     availabilityByStudent,

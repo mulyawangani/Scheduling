@@ -16,12 +16,13 @@ export default async function ManualAdditionPage({
   const weekStartDate = week ? getWeekStart(new Date(`${week}T00:00:00Z`)) : getUpcomingWeekStart()
 
   const [{ data: studentRows }, { data: protocols }, protocolOptionsByStudent] = await Promise.all([
-    supabase.from('students').select('id, name, status').order('name'),
+    supabase.from('students').select('id, name, therapy_on').order('name'),
     supabase.from('protocols').select('id, title').order('title'),
     getProtocolOptionsByStudent(supabase, weekStartDate),
   ])
 
-  const students = (studentRows ?? []).filter((s) => s.status !== 'inactive')
+  // Only children whose therapy is switched on can be booked.
+  const students = (studentRows ?? []).filter((s) => s.therapy_on)
 
   return (
     <main className="mx-auto max-w-lg p-6">

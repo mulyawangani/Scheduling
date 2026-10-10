@@ -25,6 +25,7 @@ export function ChildProfileEditor({
   priority,
   status,
   weeklyTargetSessions,
+  therapyOn,
   schoolId,
   schools,
   can,
@@ -37,10 +38,12 @@ export function ChildProfileEditor({
   priority: number | null
   status: StudentStatus | null
   weeklyTargetSessions: number
+  /** Therapy switch, separate from the status. */
+  therapyOn: boolean
   schoolId: string | null
   schools: { id: string; name: string }[]
   /** What this role may change; the server enforces the same rules. */
-  can: { status: boolean; billing: boolean; delete: boolean }
+  can: { status: boolean; billing: boolean; delete: boolean; therapy: boolean }
   onSaved?: () => void
 }) {
   const [error, setError] = useState<string | null>(null)
@@ -108,7 +111,23 @@ export function ChildProfileEditor({
             <option value="inactive">Inactive</option>
           </select>
           <span className="text-gray-400">
-            Student sets availability to Mon–Fri 08:00–12:00 on save. Inactive gets no allocation at all.
+            Student sets availability to Mon–Fri 08:00–12:00 on save. Inactive (for example a graduated student) leaves the
+            classrooms. Therapy is set separately.
+          </span>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-gray-500">
+          Therapy
+          <select
+            name="therapyOn"
+            defaultValue={therapyOn ? 'on' : 'off'}
+            disabled={!can.therapy}
+            className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
+          >
+            <option value="off">Off</option>
+            <option value="on">On</option>
+          </select>
+          <span className="text-gray-400">
+            On: scheduled for therapy and billed for it, whatever the status. Off: no therapy is scheduled.
           </span>
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-500">

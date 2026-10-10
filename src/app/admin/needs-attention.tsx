@@ -57,6 +57,22 @@ export async function NeedsAttention({ role }: { role: StaffRole }) {
     )
   }
 
+  // A child with therapies needed but therapy switched off is not scheduled until staff decide.
+  if (canChange(role, 'students.therapy')) {
+    tasks.push(
+      (async () => {
+        const { data } = await supabase.from('students').select('id, status, student_protocols(protocol_id)').eq('therapy_on', false)
+        const n = (data ?? []).filter((s) => s.status !== 'inactive' && s.student_protocols.length > 0).length
+        found.therapy = {
+          key: 'therapy',
+          count: n,
+          text: `${plural(n, 'child has', 'children have')} therapies needed but therapy is off`,
+          href: '/admin/children?therapy=waiting',
+        }
+      })()
+    )
+  }
+
   if (can(role, 'students.contacts.view')) {
     tasks.push(
       (async () => {
@@ -98,7 +114,7 @@ export async function NeedsAttention({ role }: { role: StaffRole }) {
 
   await Promise.all(tasks)
 
-  const items = ['notes', 'trial', 'contacts', 'absent'].map((k) => found[k]).filter((i): i is Item => !!i)
+  const items = ['notes', 'trial', 'therapy', 'contacts', 'absent'].map((k) => found[k]).filter((i): i is Item => !!i)
   const open = items.filter((i) => i.count > 0)
 
   return (

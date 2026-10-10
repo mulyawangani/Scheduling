@@ -72,7 +72,7 @@ export async function loadOwnerDashboard(): Promise<OwnerDashboardData> {
     occurrenceRes,
     signupRes,
   ] = await Promise.all([
-    fetchAllRows<ChildRow>((from, to) => db.from('students').select('id, status, classroom_id, school_id').order('id').range(from, to)),
+    fetchAllRows<ChildRow>((from, to) => db.from('students').select('id, status, therapy_on, classroom_id, school_id').order('id').range(from, to)),
     supabase.from('schools').select('id, name').order('name'),
     db.from('enrollments').select('student_id').eq('month', monthStart).eq('status', 'active'),
     db.from('enrollments').select('student_id, month').in('month', monthsAhead).eq('status', 'active'),
@@ -95,20 +95,24 @@ export async function loadOwnerDashboard(): Promise<OwnerDashboardData> {
 
   // Children
   const enrolledThisMonth = new Set<string>(((enrolledRes.data ?? []) as { student_id: string }[]).map((r) => r.student_id))
-  // A child set to Inactive no longer says what they were: look for a past enrollment (a student) and for
-  // therapy needs or sessions (a therapy client). Read in small groups of ids to keep the request short.
+  // A child set to Inactive does not say whether they were a student: look for a past enrollment. A child with
+  // therapy switched off is an inactive client only if sessions were booked for them before. Read in small
+  // groups of ids to keep each request short.
   const inactiveIds = (children ?? []).filter((c) => c.status === 'inactive').map((c) => c.id)
+  const therapyOffIds = (children ?? []).filter((c) => !c.therapy_on).map((c) => c.id)
   const everEnrolled = new Set<string>()
-  const hasTherapy = new Set<string>()
+  const hadTherapy = new Set<string>()
   for (let i = 0; i < inactiveIds.length; i += 100) {
-    const ids = inactiveIds.slice(i, i + 100)
-    const [past, needs, booked] = await Promise.all([
-      db.from('enrollments').select('student_id').in('student_id', ids),
-      db.from('student_protocols').select('student_id').in('student_id', ids),
-      db.from('session_plans').select('student_id').in('student_id', ids),
-    ])
-    for (const r of (past.data ?? []) as { student_id: string }[]) everEnrolled.add(r.student_id)
-    for (const r of [...(needs.data ?? []), ...(booked.data ?? [])] as { student_id: string }[]) hasTherapy.add(r.student_id)
+    const { data } = await db.from('enrollments').select('student_id').in('student_id', inactiveIds.slice(i, i + 100))
+    for (const r of (data ?? []) as { student_id: string }[]) everEnrolled.add(r.student_id)
+  }
+  for (let i = 0; i < therapyOffIds.length; i += 100) {
+    const { data } = await db
+      .from('session_plans')
+      .select('student_id')
+      .in('student_id', therapyOffIds.slice(i, i + 100))
+      .in('status', ['pending', 'accepted', 'completed'])
+    for (const r of (data ?? []) as { student_id: string }[]) hadTherapy.add(r.student_id)
   }
 
   // Billing
@@ -127,7 +131,7 @@ export async function loadOwnerDashboard(): Promise<OwnerDashboardData> {
 
   return {
     monthLabel,
-    kids: summarizeChildren(children ?? [], enrolledThisMonth, everEnrolled, hasTherapy),
+    kids: summarizeChildren(children ?? [], enrolledThisMonth, everEnrolled, hadTherapy),
     schools: summarizeSchools(schools ?? [], children ?? [], enrolledThisMonth, sessionsPerChildInMonth(sessions ?? [], month)),
     enrolledAhead,
     staff: summarizeStaff(staffRes.data ?? [], levels.byId),
@@ -202,8 +206,8 @@ export function OwnerDashboardView({ data }: { data: OwnerDashboardData }) {
           <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Therapy clients</p>
             <div className="grid grid-cols-2 gap-2">
-              <Tile value={kids.therapyClients.active} label="Active" tone={GREEN} />
-              <Tile value={kids.therapyClients.inactive} label="Inactive" tone={GREY} />
+              <Tile value={kids.therapyClients.active} label="Active (therapy on)" tone={GREEN} />
+              <Tile value={kids.therapyClients.inactive} label="Inactive (therapy off)" tone={GREY} />
             </div>
           </div>
           <div>
@@ -236,13 +240,13 @@ export function OwnerDashboardView({ data }: { data: OwnerDashboardData }) {
             {enrolledAhead.map((a) => `${a.label} ${a.count}`).join(' · ')}.
           </Hint>
           <Hint>
-            Inactive students: {kids.students.notEnrolled} not enrolled this month and {kids.students.inactive - kids.students.notEnrolled} set to
-            Inactive, which a graduated student must be. A child set to Inactive counts as a student if they had a classroom or an enrollment, and
-            as a therapy client if they have therapy needs or sessions, so both can apply.
-            {kids.inactiveNeither > 0 ? ` ${kids.inactiveNeither} inactive ${kids.inactiveNeither === 1 ? 'child has' : 'children have'} neither.` : ''}
+            School status and therapy are two separate settings, so a child can be both a student and a therapy client. Inactive students:{' '}
+            {kids.students.notEnrolled} not enrolled this month and {kids.students.inactive - kids.students.notEnrolled} set to Inactive (a graduated
+            student must be). Inactive therapy clients: therapy switched off after sessions were booked.
           </Hint>
           <Hint>
-            Not counted above: {kids.trial} on trial{kids.noStatus > 0 ? `, ${kids.noStatus} with no status` : ''}. {kids.total} children in all.
+            Other children: {kids.trial} on trial, {kids.nonStudents} non-students{kids.noStatus > 0 ? `, ${kids.noStatus} with no status` : ''}
+            {kids.inactiveNotStudent > 0 ? `, ${kids.inactiveNotStudent} set to Inactive who were never students` : ''}. {kids.total} children in all.
           </Hint>
         </Box>
 

@@ -20,6 +20,8 @@ export type ChildCardAccess = {
   edit: boolean
   /** May change the status field. */
   status: boolean
+  /** May turn therapy on or off. */
+  therapy: boolean
   /** May see and change rate, priority and weekly target. */
   billing: boolean
   /** May delete the child. */
@@ -39,6 +41,7 @@ export function ChildCard({
   ratePerSession,
   priority,
   status,
+  therapyOn,
   weeklyTargetSessions,
   schools,
   access,
@@ -57,6 +60,7 @@ export function ChildCard({
   ratePerSession: number | null
   priority: number | null
   status: StudentStatus | null
+  therapyOn: boolean
   weeklyTargetSessions: number
   schools: { id: string; name: string }[]
   access: ChildCardAccess
@@ -97,6 +101,8 @@ export function ChildCard({
               )}
               {' · '}
               {statusText}
+              {' · '}
+              <span className={therapyOn ? 'font-medium text-green-700' : ''}>Therapy {therapyOn ? 'on' : 'off'}</span>
               {access.billing && <> · {weeklyTargetSessions}/week target</>}
             </p>
           )}
@@ -120,9 +126,10 @@ export function ChildCard({
               priority={priority}
               status={status}
               weeklyTargetSessions={weeklyTargetSessions}
+              therapyOn={therapyOn}
               schoolId={schoolId}
               schools={schools}
-              can={{ status: access.status, billing: access.billing, delete: access.delete }}
+              can={{ status: access.status, therapy: access.therapy, billing: access.billing, delete: access.delete }}
               onSaved={() => setExpanded(false)}
             />
           ) : (
@@ -134,6 +141,10 @@ export function ChildCard({
               <div>
                 <dt className="text-xs text-gray-400">Status</dt>
                 <dd>{statusText}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-400">Therapy</dt>
+                <dd>{therapyOn ? 'On' : 'Off'}</dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-400">School</dt>

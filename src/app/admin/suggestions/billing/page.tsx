@@ -28,7 +28,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
 
   const [{ data: studentRows }, { data: teacherRows }, { data: rateRows }, { data: allSessions }, { data: occurrenceRows }] =
     await Promise.all([
-      supabase.from('students').select('id, name, status').order('name'),
+      supabase.from('students').select('id, name, therapy_on').order('name'),
       supabase.from('profiles').select('id, name').eq('role', 'teacher').order('name'),
       fetchAllRows((from, to) => supabase.from('billing_rates').select('*').order('id').range(from, to)),
       // Whole history (billing looks back across weeks), so paged — a silent
@@ -45,11 +45,13 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       supabase.from('session_occurrences').select('session_plan_id').eq('week_start_date', weekStartDate),
     ])
 
-  const students = (studentRows ?? []).filter((s) => s.status !== 'inactive')
+  // A rate can only be added for a child whose therapy is switched on, but a rate already set for any
+  // child still shows with their name.
+  const students = (studentRows ?? []).filter((s) => s.therapy_on)
   const teachers = teacherRows ?? []
   const rates = rateRows ?? []
   const teacherNameById = new Map(teachers.map((t) => [t.id, t.name]))
-  const studentNameById = new Map(students.map((s) => [s.id, s.name]))
+  const studentNameById = new Map((studentRows ?? []).map((s) => [s.id, s.name]))
 
   const rateDisplayRows: RateRow[] = rates.map((r) => ({
     id: r.id,

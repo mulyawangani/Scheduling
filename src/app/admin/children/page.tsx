@@ -15,9 +15,21 @@ const STATUS_LABELS: Record<string, string> = {
   inactive: 'Inactive',
 }
 
-export default async function ChildrenPage({ searchParams }: { searchParams: Promise<{ student?: string; status?: string }> }) {
+// ?therapy=on|off lists by the therapy switch; ?therapy=waiting lists children who have therapies
+// needed but therapy switched off, so staff can decide.
+const THERAPY_FILTER_LABELS: Record<string, string> = {
+  on: 'Therapy on',
+  off: 'Therapy off',
+  waiting: 'Therapy needs a decision',
+}
+
+export default async function ChildrenPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ student?: string; status?: string; therapy?: string }>
+}) {
   const { role } = await requireCapability('students.view')
-  const { student: highlightStudentId, status: statusFilter } = await searchParams
+  const { student: highlightStudentId, status: statusFilter, therapy: therapyFilter } = await searchParams
   const supabase = await createClient()
 
   // What each control shows comes from the permission table; the server
@@ -25,6 +37,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
   const access: ChildCardAccess = {
     edit: canChange(role, 'students.edit'),
     status: canChange(role, 'students.status'),
+    therapy: canChange(role, 'students.therapy'),
     billing: can(role, 'students.billing'),
     delete: canChange(role, 'students.delete'),
     needs: accessOf(role, 'students.needs'),
@@ -34,7 +47,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
   let studentsQuery = supabase
     .from('students')
     .select(
-      'id, name, date_of_birth, rate_per_session, priority, status, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
+      'id, name, date_of_birth, rate_per_session, priority, status, therapy_on, weekly_target_sessions, school_id, profiles!students_parent_id_fkey(name), schools(name), therapy_locations(name), student_protocols(protocol_id, sub_protocol_id)'
     )
     .order('name')
 
@@ -44,13 +57,20 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
     studentsQuery = studentsQuery.eq('status', statusFilter as StudentStatus)
   }
 
-  const [{ data: students }, { data: protocols }, { data: subProtocols }, { data: parents }, { data: schools }] = await Promise.all([
+  const [{ data: allStudents }, { data: protocols }, { data: subProtocols }, { data: parents }, { data: schools }] = await Promise.all([
     studentsQuery,
     access.needs === 'no' ? Promise.resolve({ data: [] }) : supabase.from('protocols').select('*').eq('is_active', true).order('title'),
     access.needs === 'no' ? Promise.resolve({ data: [] }) : supabase.from('sub_protocols').select('*').eq('is_active', true).order('title'),
     canAdd ? supabase.from('profiles').select('id, name').eq('role', 'parent').order('name') : Promise.resolve({ data: [] }),
     supabase.from('schools').select('id, name').order('name'),
   ])
+
+  const students = (allStudents ?? []).filter((s) => {
+    if (therapyFilter === 'on') return s.therapy_on
+    if (therapyFilter === 'off') return !s.therapy_on
+    if (therapyFilter === 'waiting') return !s.therapy_on && s.status !== 'inactive' && s.student_protocols.length > 0
+    return true
+  })
 
   const subProtocolsByProtocol: Record<string, SubProtocol[]> = {}
   for (const sp of (subProtocols ?? []) as SubProtocol[]) {
@@ -65,6 +85,12 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
         {statusFilter && STATUS_LABELS[statusFilter] && (
           <span className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
             {STATUS_LABELS[statusFilter]}
+            <Link href="/admin/children" className="ml-1 text-gray-400 hover:text-gray-700">✕</Link>
+          </span>
+        )}
+        {therapyFilter && THERAPY_FILTER_LABELS[therapyFilter] && (
+          <span className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+            {THERAPY_FILTER_LABELS[therapyFilter]}
             <Link href="/admin/children" className="ml-1 text-gray-400 hover:text-gray-700">✕</Link>
           </span>
         )}
@@ -95,6 +121,7 @@ export default async function ChildrenPage({ searchParams }: { searchParams: Pro
                 ratePerSession={student.rate_per_session}
                 priority={student.priority}
                 status={student.status}
+                therapyOn={student.therapy_on}
                 weeklyTargetSessions={student.weekly_target_sessions}
                 schools={schools ?? []}
                 access={access}

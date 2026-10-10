@@ -26,6 +26,7 @@ interface NeedRow {
   students: {
     name: string
     status: string | null
+    therapy_on: boolean
     profiles: { priority_tier: number } | { priority_tier: number }[] | null
   } | null
   protocols: { title: string } | null
@@ -83,7 +84,7 @@ export async function getUnmetNeeds(
       supabase
         .from('student_protocols')
         .select(
-          'id, student_id, protocol_id, sub_protocol_id, students(name, status, profiles!students_parent_id_fkey(priority_tier)), protocols(title), sub_protocols(title)'
+          'id, student_id, protocol_id, sub_protocol_id, students(name, status, therapy_on, profiles!students_parent_id_fkey(priority_tier)), protocols(title), sub_protocols(title)'
         )
         .order('id')
         .range(from, to)
@@ -105,7 +106,8 @@ export async function getUnmetNeeds(
 
   const groups = new Map<string, UnmetNeed>()
   for (const n of needs ?? []) {
-    if (n.students?.status === 'inactive') continue
+    // Only a child whose therapy is switched on is scheduled, whatever their school status is.
+    if (!n.students?.therapy_on) continue
     const key = `${n.student_id}:${n.protocol_id}`
     if (activeSet.has(key)) continue
 

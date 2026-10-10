@@ -9,6 +9,8 @@ import { addWeeks, getWeekStart } from '@/lib/week'
 export interface ChildRow {
   id: string
   status: string | null
+  /** Therapy switch, separate from the status. */
+  therapy_on: boolean
   classroom_id: string | null
   school_id: string | null
 }
@@ -16,39 +18,44 @@ export interface ChildRow {
 export interface ChildSummary {
   /**
    * Montessori school students: active = enrolled this month; inactive = not enrolled this month, or set
-   * to Inactive (for example graduated). `notEnrolled` is the part of `inactive` that is still a Student.
+   * to Inactive after being a student (for example graduated). `notEnrolled` is the part of `inactive`
+   * that is still a Student.
    */
   students: { active: number; inactive: number; notEnrolled: number }
-  /** Therapy clients: active = Non-student, not set to Inactive; inactive = set to Inactive. */
+  /** Therapy clients: active = therapy switched on; inactive = switched off after sessions were booked. */
   therapyClients: { active: number; inactive: number }
-  /** Children set to Inactive with no classroom, enrollment or therapy on record, so in neither group. */
-  inactiveNeither: number
+  /** Children set to Inactive who never had a classroom or an enrollment (not a Montessori student). */
+  inactiveNotStudent: number
+  /** School status counts that are not Montessori students. */
   trial: number
+  nonStudents: number
   noStatus: number
   total: number
 }
 
 /**
- * Splits the children into Montessori students and therapy clients, each active or inactive.
+ * Every child has two separate settings: a school status (None, Trial, Non-student, Student, Inactive)
+ * and a therapy switch (on or off). Any combination is possible, for example Trial and on therapy, or
+ * Inactive and on therapy.
  *
- * A Student is active when enrolled for the month and inactive when not enrolled this month. A
- * Non-student is an active therapy client, since therapy has no monthly enrollment. Inactive is also a
- * status of its own (a graduated student must be set to it) and does not say what the child was, so an
- * Inactive child counts as an inactive student when they had a classroom or any enrollment, and as an
- * inactive therapy client when they have therapy needs or sessions. Both can apply: an inactive
- * student can be a therapy client. Trial children and children with no status are counted on their own.
+ * Montessori students follow the status: a Student is active when enrolled for the month and inactive
+ * when not enrolled this month; a child set to Inactive (a graduated student must be) counts as an
+ * inactive student when they ever had a classroom or an enrollment, otherwise they are noted apart.
+ * Therapy clients follow the switch alone, whatever the status: on is active; off is inactive when
+ * sessions were booked for the child before (`hadTherapy`), and otherwise the child was never a client.
  */
 export function summarizeChildren(
   children: ChildRow[],
   enrolledThisMonth: Set<string>,
   everEnrolled: Set<string>,
-  hasTherapy: Set<string>
+  hadTherapy: Set<string>
 ): ChildSummary {
   const out: ChildSummary = {
     students: { active: 0, inactive: 0, notEnrolled: 0 },
     therapyClients: { active: 0, inactive: 0 },
-    inactiveNeither: 0,
+    inactiveNotStudent: 0,
     trial: 0,
+    nonStudents: 0,
     noStatus: 0,
     total: children.length,
   }
@@ -60,19 +67,19 @@ export function summarizeChildren(
         out.students.inactive += 1
         out.students.notEnrolled += 1
       }
-    } else if (c.status === 'non_student') {
-      out.therapyClients.active += 1
     } else if (c.status === 'inactive') {
-      const wasStudent = !!c.classroom_id || everEnrolled.has(c.id)
-      const isTherapyClient = hasTherapy.has(c.id)
-      if (wasStudent) out.students.inactive += 1
-      if (isTherapyClient) out.therapyClients.inactive += 1
-      if (!wasStudent && !isTherapyClient) out.inactiveNeither += 1
+      if (c.classroom_id || everEnrolled.has(c.id)) out.students.inactive += 1
+      else out.inactiveNotStudent += 1
     } else if (c.status === 'trial') {
       out.trial += 1
+    } else if (c.status === 'non_student') {
+      out.nonStudents += 1
     } else {
       out.noStatus += 1
     }
+
+    if (c.therapy_on) out.therapyClients.active += 1
+    else if (hadTherapy.has(c.id)) out.therapyClients.inactive += 1
   }
   return out
 }
@@ -203,7 +210,7 @@ export interface SchoolRow {
   name: string
   /** Montessori students enrolled this month. */
   enrolled: number
-  /** Active therapy clients (Non-students). */
+  /** Children with therapy switched on. */
   therapyClients: number
   /** Therapy sessions on the calendar this month for the school's children. */
   therapySessions: number
@@ -229,7 +236,7 @@ export function summarizeSchools(
       rows.set(key, row)
     }
     if (c.status === 'student' && enrolledThisMonth.has(c.id)) row.enrolled += 1
-    if (c.status === 'non_student') row.therapyClients += 1
+    if (c.therapy_on) row.therapyClients += 1
     row.therapySessions += sessionsPerChild.get(c.id) ?? 0
   }
   return Array.from(rows.values())

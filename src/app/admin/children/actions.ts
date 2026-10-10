@@ -81,6 +81,7 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
   // decides from the permission table, not from what the form contains.
   const mayChangeStatus = canChange(auth.role, 'students.status')
   const mayChangeBilling = canChange(auth.role, 'students.billing')
+  const mayChangeTherapy = canChange(auth.role, 'students.therapy')
 
   const name = String(formData.get('name') || '').trim()
   const dateOfBirth = String(formData.get('dateOfBirth') || '')
@@ -101,6 +102,10 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
     school_id: schoolId,
   }
   if (mayChangeStatus) changes.status = status || null
+  // Therapy is its own switch, separate from the school status: any status can be on or off.
+  const therapyChoice = formData.get('therapyOn')
+  const therapyOn = therapyChoice === 'on' ? true : therapyChoice === 'off' ? false : null
+  if (mayChangeTherapy && therapyOn !== null) changes.therapy_on = therapyOn
   if (mayChangeBilling) {
     changes.rate_per_session = ratePerSession ? Number(ratePerSession) : null
     changes.priority = priority ? Number(priority) : null
@@ -111,6 +116,10 @@ export async function updateChildProfile(studentId: string, formData: FormData) 
 
   if (error) return { error: 'Could not update profile.' }
   if (!updated || updated.length === 0) return { error: 'Not saved: your account is not allowed to edit this child.' }
+
+  if (changes.therapy_on !== undefined && auth.user) {
+    logAudit(supabase, auth.user.id, changes.therapy_on ? 'turn_therapy_on' : 'turn_therapy_off', 'students', studentId, { label: name })
+  }
 
   if (mayChangeStatus && status === 'student') {
     await supabase.from('student_availability').delete().eq('student_id', studentId)

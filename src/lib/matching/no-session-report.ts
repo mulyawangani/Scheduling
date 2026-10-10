@@ -27,7 +27,8 @@ export interface NoSessionChild {
 export interface StudentForReport {
   id: string
   name: string
-  status: string | null
+  /** Whether therapy is switched on for the child; a child with therapy off is not expected to have sessions. */
+  therapyOn: boolean
   parentName: string | null
 }
 
@@ -37,7 +38,7 @@ export interface AvailabilityWindow {
 }
 
 /**
- * Every active child with no session at all in the schedule's week, and why.
+ * Every child with therapy switched on and no session at all in the schedule's week, and why.
  * The point is that a child can never again be silently absent: before this,
  * a child the scheduler couldn't see (or had nothing to place for) appeared in
  * no list anywhere, so nobody was told they'd go a whole week with no session.
@@ -68,7 +69,7 @@ export function buildNoSessionReport(args: {
 
   const out: NoSessionChild[] = []
   for (const s of students) {
-    if (s.status === 'inactive' || hasSession.has(s.id)) continue
+    if (!s.therapyOn || hasSession.has(s.id)) continue
 
     const base = { studentId: s.id, studentName: s.name, parentName: s.parentName }
     const windows = availabilityByStudent.get(s.id) ?? []

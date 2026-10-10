@@ -66,7 +66,7 @@ export default async function BillingPage({
   // Fetch therapy notes for the month (submitted or approved — not draft)
   const { data: therapyNotes } = await db
     .from('therapy_notes')
-    .select('id, session_plan_id, teacher_id, session_date, status, session_plans(student_id, students(id, name, status, school_id, rate_per_session, classrooms(name), profiles!students_parent_id_fkey(name, phone)))')
+    .select('id, session_plan_id, teacher_id, session_date, status, session_plans(student_id, students(id, name, status, therapy_on, school_id, rate_per_session, classrooms(name), profiles!students_parent_id_fkey(name, phone)))')
     .gte('session_date', monthStart)
     .lte('session_date', monthEnd)
     .neq('status', 'draft')
@@ -95,7 +95,8 @@ export default async function BillingPage({
     const plan = Array.isArray(note.session_plans) ? note.session_plans[0] : note.session_plans
     if (!plan) continue
     const student = Array.isArray(plan.students) ? plan.students[0] : plan.students
-    if (!student || student.status !== 'student') continue
+    // Therapy is billed for every child whose therapy is switched on, whatever their school status is.
+    if (!student || !student.therapy_on) continue
 
     const rate = getRate(student.id, note.teacher_id, student.rate_per_session)
     const entry = byStudent.get(student.id)

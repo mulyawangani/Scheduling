@@ -168,6 +168,8 @@ export interface Database {
           therapy_location_id: string | null
           status: StudentStatus | null
           weekly_target_sessions: number
+          /** Therapy switch, separate from the school status (see supabase/add_therapy_toggle.sql). */
+          therapy_on: boolean
           created_at: string
         }
         Insert: {
@@ -189,6 +191,7 @@ export interface Database {
           therapy_location_id?: string | null
           status?: StudentStatus | null
           weekly_target_sessions?: number
+          therapy_on?: boolean
           created_at?: string
         }
         Update: {
@@ -210,6 +213,7 @@ export interface Database {
           therapy_location_id?: string | null
           status?: StudentStatus | null
           weekly_target_sessions?: number
+          therapy_on?: boolean
           created_at?: string
         }
         Relationships: [

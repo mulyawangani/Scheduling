@@ -61,6 +61,8 @@ export const CAPS = {
                                 note: 'Principal editing needs a database rule.' },
   'students.status':          { id: 'B4',  label: "Change a child's status", owner: 'yes', admin: 'yes', principal: 'view' },
   'students.billing':         { id: 'B5',  label: 'Set billing rate, therapy priority and weekly session target', owner: 'yes', admin: 'yes', principal: 'no' },
+  'students.therapy':         { id: 'B5b', label: 'Turn therapy on or off for a child', owner: 'yes', admin: 'yes', principal: 'no',
+                                note: 'Decided 10 Oct 2026: school status and therapy are two separate settings on every child (a Trial child can be on therapy, and so can an Inactive one). Only Owner and Admin switch therapy.' },
   'students.needs':           { id: 'B6',  label: 'Choose which therapies a child needs', owner: 'yes', admin: 'no', principal: 'view',
                                 note: 'The owner asked on Oct 5 to take the protocol list out of the Admin view; the matrix draft suggested view-only.' },
   'students.classroom':       { id: 'B7',  label: 'Move a child to a classroom', owner: 'yes', admin: 'yes', principal: 'view', target: { principal: 'yes' },

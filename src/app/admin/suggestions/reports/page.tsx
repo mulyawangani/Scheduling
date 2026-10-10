@@ -72,7 +72,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const monthPrefix = month || dateStringInBusinessTz(new Date()).slice(0, 7)
 
   const [{ data: students }, { data: allNeeds }, { data: monthSessionRows }, { data: prioritizedRows }] = await Promise.all([
-    supabase.from('students').select('id, name, status').order('name'),
+    supabase.from('students').select('id, name, status, therapy_on').order('name'),
     fetchAllRows((from, to) =>
       supabase.from('student_protocols').select('student_id, protocol_id, protocols(title)').order('id').range(from, to)
     ),
@@ -142,9 +142,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   const monthlyRows = (students ?? [])
     .map((s) => {
-      // Inactive students are never allocated, so they'd only ever show as
+      // A child with therapy switched off is never allocated, so they'd only ever show as
       // 0% with dead "Prioritize" buttons — excluded entirely.
-      if (s.status === 'inactive') return null
+      if (!s.therapy_on) return null
       const neededNames = neededProtocolNamesByStudent.get(s.id)
       if (!neededNames || neededNames.size === 0) return null
       const satisfied = monthlySatisfiedByStudent.get(s.id) ?? new Set<string>()
